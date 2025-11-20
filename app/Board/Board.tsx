@@ -11,7 +11,13 @@ import {
   Square,
 } from "./types";
 import { Board as BoardType } from "./types";
-import { generatePseudoMoves, makeMove, kingInCheck } from "./pseudoMoves";
+import {
+  generatePseudoMoves,
+  makeMove,
+  kingInCheck,
+  findKing,
+  squareAttackedBy,
+} from "./pseudoMoves";
 
 function parseInitialState(fen: string): {
   board: BoardType;
@@ -61,6 +67,73 @@ export default function Board({ fen, onHumanMove }: BoardProps) {
   const [legalMoves, setLegalMoves] = useState<Move[]>([]);
 
   const boardRef = useRef<HTMLDivElement | null>(null);
+
+  const [dragState, setDragState] = useState<{
+    from: Square;
+    piece: string;
+    xPct: number; // cursor position relative to board (percent)
+    yPct: number;
+  } | null>(null);
+
+  const startDragFromPiece = (
+    e: React.MouseEvent<HTMLDivElement>,
+    p: Piece
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!boardRef.current) return;
+
+    // Only drag side-to-move pieces
+    if (pieceColor(p.type) !== sideToMove) return;
+
+    const rect = boardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const xPct = (x / rect.width) * 100;
+    const yPct = (y / rect.height) * 100;
+
+    const from: Square = { row: p.row, col: p.col };
+
+    // Select piece and show its legal moves
+    setSelectedSquare(from);
+    setLegalMoves(generateLegalMovesForSquare(from));
+
+    setDragState({
+      from,
+      piece: p.type,
+      xPct,
+      yPct,
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragState || !boardRef.current) return;
+
+    const rect = boardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const xPct = (x / rect.width) * 100;
+    const yPct = (y / rect.height) * 100;
+
+    setDragState((prev) => (prev ? { ...prev, xPct, yPct } : prev));
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!dragState) return;
+
+    const sq = getSquareFromEvent(e);
+    setDragState(null);
+
+    if (!sq) {
+      // dropped outside board → cancel selection
+      setSelectedSquare(null);
+      setLegalMoves([]);
+      return;
+    }
+
+    // Reuse your existing click-to-move logic
+    handleLeftClick(sq);
+  };
 
   // Re-initialize if FEN prop changes
   useEffect(() => {
@@ -204,6 +277,7 @@ export default function Board({ fen, onHumanMove }: BoardProps) {
 
   const handleBoardClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (dragState) return; // ignore click events coming from a drag
     const sq = getSquareFromEvent(e);
     if (!sq) return;
     if (e.button === 0) {
@@ -211,11 +285,44 @@ export default function Board({ fen, onHumanMove }: BoardProps) {
     }
   };
 
+  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const ranks = ["1", "2", "3", "4", "5", "6", "7", "8"];
+
+  const enemySide: Color = sideToMove === "white" ? "black" : "white";
+
+  // Current king square for side to move
+  const kingSquare = findKing(board, sideToMove);
+
+  // Is that king in check right now?
+  const kingIsInCheck =
+    kingSquare !== null
+      ? squareAttackedBy(board, kingSquare, enemySide)
+      : false;
+
+  // Squares of our pieces currently attacked by the enemy
+  const attackedSquares: Square[] = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = board[r][c];
+      if (!p) continue;
+
+      const pieceSide: Color = p === p.toUpperCase() ? "white" : "black";
+      if (pieceSide !== sideToMove) continue;
+
+      const sq: Square = { row: r, col: c };
+      if (squareAttackedBy(board, sq, enemySide)) {
+        attackedSquares.push(sq);
+      }
+    }
+  }
+
   return (
     <div
       ref={boardRef}
       className="relative w-full max-w-[480px] aspect-square bg-chessboard select-none"
       onClick={handleBoardClick}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Legal-move dots */}
@@ -223,6 +330,34 @@ export default function Board({ fen, onHumanMove }: BoardProps) {
         className="absolute inset-0 w-full h-full pointer-events-none"
         viewBox="0 0 8 8"
       >
+        {/* attacked pieces (side to move) */}
+        <g>
+          {attackedSquares.map((sq, i) => (
+            <rect
+              key={`attacked-${i}`}
+              x={sq.col}
+              y={sq.row}
+              width={1}
+              height={1}
+              fill="rgba(255, 215, 0, 0.35)" // gold-ish
+            />
+          ))}
+        </g>
+
+        {/* king in check */}
+        <g>
+          {kingSquare && kingIsInCheck && (
+            <rect
+              x={kingSquare.col}
+              y={kingSquare.row}
+              width={1}
+              height={1}
+              fill="rgba(255, 0, 0, 0.45)" // red highlight
+            />
+          )}
+        </g>
+
+        {/* selection + legal move dots */}
         <g>
           {selectedSquare && (
             <rect
@@ -234,29 +369,93 @@ export default function Board({ fen, onHumanMove }: BoardProps) {
             />
           )}
           {legalMoves.map((m, i) => (
-            <circle
+            // <circle
+            //   key={i}
+            //   cx={m.to.col + 0.5}
+            //   cy={m.to.row + 0.5}
+            //   r={0.15}
+            //   fill="rgba(0, 162, 255, 0.8)"
+            // />
+            <rect
               key={i}
-              cx={m.to.col + 0.5}
-              cy={m.to.row + 0.5}
-              r={0.15}
+              x={m.to.col}
+              y={m.to.row}
+              width={1}
+              height={1}
               fill="rgba(0, 162, 255, 0.8)"
             />
           ))}
         </g>
+
+        {/* file letters (a–h) on bottom inside each square */}
+        <g>
+          {files.map((f, col) => (
+            <text
+              key={`file-${f}`}
+              x={col + 0.8} // center of file
+              y={7.8} // inside rank-1 square (row 7..8)
+              textAnchor="start"
+              dominantBaseline="hanging"
+              fontSize={0.2}
+              fill="black"
+            >
+              {f}
+            </text>
+          ))}
+        </g>
+
+        {/* rank numbers (1–8) on the left inside each square */}
+        <g>
+          {ranks.map((r, i) => {
+            const rowFromTop = 7 - i; // rank 1 at row 7, rank 8 at row 0
+            return (
+              <text
+                key={`rank-${r}`}
+                x={0.2} // inside file "a" square
+                y={rowFromTop + 0.1} // center of that row
+                textAnchor="end"
+                dominantBaseline="hanging"
+                fontSize={0.2}
+                fill="black"
+              >
+                {r}
+              </text>
+            );
+          })}
+        </g>
       </svg>
 
       {/* Pieces */}
-      {squaresFromBoard.map((p) => (
-        <div
-          key={p.id}
-          className={`piece piece-${p.type}`}
-          style={{
-            top: `${p.row * 12.5}%`,
-            left: `${p.col * 12.5}%`,
-            position: "absolute",
-          }}
-        />
-      ))}
+      {squaresFromBoard.map((p) => {
+        const isDragging =
+          dragState &&
+          dragState.from.row === p.row &&
+          dragState.from.col === p.col;
+
+        const style = isDragging
+          ? {
+              position: "absolute" as const,
+              top: `${dragState!.yPct}%`,
+              left: `${dragState!.xPct}%`,
+              transform: "translate(-50%, -50%)",
+              zIndex: 20,
+              pointerEvents: "none" as const,
+            }
+          : {
+              position: "absolute" as const,
+              top: `${p.row * 12.5}%`,
+              left: `${p.col * 12.5}%`,
+            };
+
+        return (
+          <div
+            key={p.id}
+            className={`piece piece-${p.type}`}
+            style={style}
+            onMouseDown={(e) => startDragFromPiece(e, p)}
+          />
+        );
+      })}
     </div>
   );
 }

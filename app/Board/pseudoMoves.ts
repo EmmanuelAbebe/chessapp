@@ -267,7 +267,7 @@ function kingMoves(
 // Check / attack logic
 // ----------------------
 
-function findKing(board: Board, side: Color): Square | null {
+export function findKing(board: Board, side: Color): Square | null {
   const wantWhite = side === "white";
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
@@ -285,7 +285,7 @@ function findKing(board: Board, side: Color): Square | null {
  * Return true if target square is attacked by `bySide`.
  * This does NOT consider castling, only normal moves and pawn attacks.
  */
-function squareAttackedBy(
+export function squareAttackedBy(
   board: Board,
   target: Square,
   bySide: Color
