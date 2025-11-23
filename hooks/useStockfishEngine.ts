@@ -1,84 +1,48 @@
-// src/hooks/useStockfishEngine.ts
+// hooks/useStockfishEngine.ts
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-// import from the library:
-import createStockfish from "stockfish.wasm";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createStockfishWorker } from "../utils/createStockfishWorker";
 
-type EngineInstance = {
-  postMessage: (msg: string) => void;
-  addEventListener: (
-    type: "message",
-    listener: (e: MessageEvent) => void
-  ) => void;
-  removeEventListener: (
-    type: "message",
-    listener: (e: MessageEvent) => void
-  ) => void;
-  terminate?: () => void; // some builds support this, not strictly required
-};
-
-interface EngineOpts {
-  movetime?: number;
-  depth?: number;
-}
+type EngineLine = string;
 
 export function useStockfishEngine() {
-  const engineRef = useRef<EngineInstance | null>(null);
+  const engineRef = useRef<Worker | null>(null);
   const [ready, setReady] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const pendingResolve = useRef<((uciMove: string | null) => void) | null>(
-    null
-  );
+  const [bestMove, setBestMove] = useState<string | null>(null);
+  const [lastLine, setLastLine] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const worker = createStockfishWorker();
+    if (!worker) return;
 
-    let cancelled = false;
+    engineRef.current = worker;
 
-    const init = async () => {
-      const engine = await createStockfish(); // <– main change
-      if (cancelled) return;
+    worker.onmessage = (event: MessageEvent<EngineLine>) => {
+      const line = event.data;
+      setLastLine(line);
 
-      engineRef.current = engine;
+      if (line === "uciok") {
+        setReady(true);
+      }
 
-      const handleMessage = (e: MessageEvent) => {
-        const line = String(e.data);
-
-        if (line === "uciok") {
-          setReady(true);
+      if (line.startsWith("bestmove")) {
+        const parts = line.split(" ");
+        if (parts.length >= 2) {
+          setBestMove(parts[1]);
         }
+      }
 
-        if (line.startsWith("bestmove")) {
-          setBusy(false);
-          const parts = line.split(" ");
-          const best = parts[1] && parts[1] !== "(none)" ? parts[1] : null;
-          if (pendingResolve.current) {
-            pendingResolve.current(best);
-            pendingResolve.current = null;
-          }
-        }
-      };
-
-      engine.addEventListener("message", handleMessage);
-
-      // Send initial UCI command
-      engine.postMessage("uci");
-
-      // Cleanup
-      return () => {
-        engine.removeEventListener("message", handleMessage);
-        engineRef.current = null;
-        pendingResolve.current = null;
-        if (engine.terminate) engine.terminate();
-      };
+      // If you want eval/depth, parse lines starting with "info".
     };
 
-    const cleanupPromise = init();
+    // Initialize in UCI mode
+    worker.postMessage("uci");
 
     return () => {
-      cancelled = true;
-      // if init resolved with a cleanup fn, it will be called by React anyway
+      worker.postMessage("quit");
+      worker.terminate();
+      engineRef.current = null;
     };
   }, []);
 
@@ -87,44 +51,29 @@ export function useStockfishEngine() {
     engineRef.current.postMessage(cmd);
   }, []);
 
-  const newGame = useCallback(() => {
-    if (!engineRef.current) return;
-    send("ucinewgame");
-  }, [send]);
-
-  const getBestMove = useCallback(
-    (fen: string, opts: EngineOpts = {}): Promise<string | null> => {
-      if (!engineRef.current || !ready || busy) {
-        return Promise.resolve(null);
-      }
-
-      // cancel previous pending if any
-      if (pendingResolve.current) {
-        pendingResolve.current(null);
-      }
-
-      setBusy(true);
-      const { movetime = 1000, depth } = opts;
-
-      return new Promise<string | null>((resolve) => {
-        pendingResolve.current = resolve;
-
-        send(`position fen ${fen}`);
-
-        if (depth !== undefined) {
-          send(`go depth ${depth}`);
-        } else {
-          send(`go movetime ${movetime}`);
-        }
-      });
+  const setFen = useCallback(
+    (fen: string) => {
+      if (!engineRef.current) return;
+      send(`position fen ${fen}`);
     },
-    [ready, busy, send]
+    [send]
+  );
+
+  const goDepth = useCallback(
+    (depth: number) => {
+      if (!engineRef.current) return;
+      setBestMove(null);
+      send(`go depth ${depth}`);
+    },
+    [send]
   );
 
   return {
     ready,
-    busy,
-    newGame,
-    getBestMove,
+    bestMove,
+    lastLine,
+    setFen,
+    goDepth,
+    send,
   };
 }

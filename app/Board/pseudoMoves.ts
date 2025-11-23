@@ -38,6 +38,48 @@ export function generatePseudoMoves(
   }
 }
 
+/**
+ * LEGAL moves for a single square (filters out self-check, including castling rules).
+ */
+export function generateLegalMovesForSquare(
+  board: Board,
+  from: Square,
+  sideToMove: Color,
+  castling: CastlingRights,
+  enPassantTarget: Square | null
+): Move[] {
+  const pseudo = generatePseudoMoves(
+    board,
+    from,
+    sideToMove,
+    castling,
+    enPassantTarget
+  );
+  const enemy: Color = sideToMove === "white" ? "black" : "white";
+
+  return pseudo.filter((m) => {
+    // Special handling for castling: starting, passing, and destination squares
+    // must not be attacked by the enemy.
+    if (m.castling) {
+      const row = from.row;
+      const cols =
+        m.castling === "king"
+          ? [4, 5, 6] // e1, f1, g1 or e8, f8, g8
+          : [4, 3, 2]; // e1, d1, c1 or e8, d8, c8
+
+      for (const col of cols) {
+        if (squareAttackedBy(board, { row, col }, enemy)) {
+          return false;
+        }
+      }
+    }
+
+    // Standard "king may not be in check after move" filter
+    const nb = makeMove(board, m);
+    return !kingInCheck(nb, sideToMove);
+  });
+}
+
 // ----------------------
 // Piece move generators
 // ----------------------
@@ -231,7 +273,8 @@ function kingMoves(
   }
 
   // Castling rights here generate pseudo castling moves.
-  // Filtering for check is done at the caller level using kingInCheck.
+  // Filtering for check is done at the caller level using kingInCheck
+  // and squareAttackedBy (see generateLegalMovesForSquare).
   const row = side === "white" ? 7 : 0;
   if (r === row && c === 4) {
     // king-side
@@ -295,7 +338,9 @@ export function squareAttackedBy(
   const enemyIsWhite = bySide === "white";
 
   // Pawn attacks
-  const pawnDir = enemyIsWhite ? -1 : 1;
+  // White pawns move up (row - 1), so they attack from one row BELOW the target.
+  // Black pawns move down (row + 1), so they attack from one row ABOVE the target.
+  const pawnDir = enemyIsWhite ? 1 : -1; // FIXED: white pawns are at tr + 1, black at tr - 1
   const pawnRow = tr + pawnDir;
   for (const dc of [-1, 1]) {
     const pc = tc + dc;

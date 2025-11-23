@@ -5,7 +5,7 @@ import { BoardState, fenToBoard } from "./utils";
 export const startPosition =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-// export const startPosition = "8/3kq4/8/8/3QBK3/8/8/8 w - - 0 1";
+// export const startPosition = "4k2r/8/8/8/8/8/6b1/4K2R w K - 0 1";
 
 export type ParsedFEN = BoardState;
 

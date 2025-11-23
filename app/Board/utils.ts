@@ -1,5 +1,7 @@
 // utils.ts
 
+import { CastlingRights, Color, Square } from "./types";
+
 export interface BoardState {
   board: (string | null)[][];
   activeColor: "w" | "b";
@@ -34,31 +36,31 @@ export const fenToBoard = (fen: string): (string | null)[][] => {
   return board;
 };
 
-/**
- * Convert board array back to the first (piece placement) field of FEN.
- * Does NOT append side-to-move, castling etc.
- */
-export const boardToFenBoardPart = (board: (string | null)[][]): string => {
-  return board
-    .map((row) => {
-      let out = "";
-      let empty = 0;
-      for (const cell of row) {
-        if (!cell) {
-          empty++;
-        } else {
-          if (empty > 0) {
-            out += String(empty);
-            empty = 0;
-          }
-          out += cell;
-        }
-      }
-      if (empty > 0) out += String(empty);
-      return out;
-    })
-    .join("/");
-};
+// /**
+//  * Convert board array back to the first (piece placement) field of FEN.
+//  * Does NOT append side-to-move, castling etc.
+//  */
+// export const boardToFenBoardPart = (board: (string | null)[][]): string => {
+//   return board
+//     .map((row) => {
+//       let out = "";
+//       let empty = 0;
+//       for (const cell of row) {
+//         if (!cell) {
+//           empty++;
+//         } else {
+//           if (empty > 0) {
+//             out += String(empty);
+//             empty = 0;
+//           }
+//           out += cell;
+//         }
+//       }
+//       if (empty > 0) out += String(empty);
+//       return out;
+//     })
+//     .join("/");
+// };
 
 export const inBounds = (r: number, c: number) =>
   r >= 0 && r < 8 && c >= 0 && c < 8;
@@ -95,3 +97,52 @@ export const squareToAlgebraic = (row: number, col: number): string => {
   const rank = 8 - row;
   return `${file}${rank}`;
 };
+
+export const boardToFenBoardPart = (board: (string | null)[][]): string => {
+  return board
+    .map((row) => {
+      let out = "";
+      let empty = 0;
+      for (const cell of row) {
+        if (!cell) {
+          empty++;
+        } else {
+          if (empty > 0) {
+            out += String(empty);
+            empty = 0;
+          }
+          out += cell;
+        }
+      }
+      if (empty > 0) out += String(empty);
+      return out;
+    })
+    .join("/");
+};
+
+// NEW: build full FEN from current board state
+export function buildFenFromPosition(
+  board: (string | null)[][],
+  sideToMove: Color,
+  castlingRights: CastlingRights,
+  enPassantTarget: Square | null,
+  halfmoveClock = 0,
+  fullmoveNumber = 1
+): string {
+  const boardPart = boardToFenBoardPart(board);
+  const side = sideToMove === "white" ? "w" : "b";
+
+  let castlingStr = "";
+  if (castlingRights.K) castlingStr += "K";
+  if (castlingRights.Q) castlingStr += "Q";
+  if (castlingRights.k) castlingStr += "k";
+  if (castlingRights.q) castlingStr += "q";
+  if (!castlingStr) castlingStr = "-";
+
+  let epStr = "-";
+  if (enPassantTarget) {
+    epStr = squareToAlgebraic(enPassantTarget.row, enPassantTarget.col);
+  }
+
+  return `${boardPart} ${side} ${castlingStr} ${epStr} ${halfmoveClock} ${fullmoveNumber}`;
+}
