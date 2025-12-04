@@ -67,3 +67,6 @@ export interface CastlingRights {
 // }
 
 // export type Arrow = { from: Position; to: Position };
+
+export const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+export const ranks = ["1", "2", "3", "4", "5", "6", "7", "8"];

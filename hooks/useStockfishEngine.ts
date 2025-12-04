@@ -6,11 +6,20 @@ import { createStockfishWorker } from "../utils/createStockfishWorker";
 
 type EngineLine = string;
 
+export type EngineEval =
+  | { type: "cp"; value: number } // centipawns, side-to-move POV
+  | { type: "mate"; value: number }; // mate in N, side-to-move POV
+
+type EngineMode = "idle" | "eval" | "play";
+
 export function useStockfishEngine() {
   const engineRef = useRef<Worker | null>(null);
   const [ready, setReady] = useState(false);
   const [bestMove, setBestMove] = useState<string | null>(null);
   const [lastLine, setLastLine] = useState<string | null>(null);
+  const [evaluation, setEvaluation] = useState<EngineEval | null>(null);
+
+  const modeRef = useRef<EngineMode>("idle");
 
   useEffect(() => {
     const worker = createStockfishWorker();
@@ -24,19 +33,39 @@ export function useStockfishEngine() {
 
       if (line === "uciok") {
         setReady(true);
+        return;
       }
 
-      if (line.startsWith("bestmove")) {
-        const parts = line.split(" ");
-        if (parts.length >= 2) {
-          setBestMove(parts[1]);
+      if (line.startsWith("info ") && line.includes(" score ")) {
+        const tokens = line.split(/\s+/);
+        const idx = tokens.indexOf("score");
+        if (idx !== -1 && idx + 2 < tokens.length) {
+          const t = tokens[idx + 1]; // cp | mate
+          const vStr = tokens[idx + 2];
+          const v = Number(vStr);
+          if (!Number.isNaN(v)) {
+            if (t === "cp") {
+              setEvaluation({ type: "cp", value: v });
+            } else if (t === "mate") {
+              setEvaluation({ type: "mate", value: v });
+            }
+          }
         }
       }
 
-      // If you want eval/depth, parse lines starting with "info".
+      if (line.startsWith("bestmove")) {
+        // Only treat this as a move when we requested a "play" search
+        if (modeRef.current === "play") {
+          const parts = line.split(/\s+/);
+          const bm = parts[1];
+          if (bm && bm !== "(none)") {
+            setBestMove(bm);
+          }
+        }
+        modeRef.current = "idle";
+      }
     };
 
-    // Initialize in UCI mode
     worker.postMessage("uci");
 
     return () => {
@@ -60,9 +89,12 @@ export function useStockfishEngine() {
   );
 
   const goDepth = useCallback(
-    (depth: number) => {
+    (depth: number, mode: EngineMode = "eval") => {
       if (!engineRef.current) return;
-      setBestMove(null);
+      modeRef.current = mode;
+      if (mode === "play") {
+        setBestMove(null);
+      }
       send(`go depth ${depth}`);
     },
     [send]
@@ -72,8 +104,9 @@ export function useStockfishEngine() {
     ready,
     bestMove,
     lastLine,
+    evaluation,
     setFen,
-    goDepth,
+    goDepth, // now takes (depth, mode)
     send,
   };
 }
