@@ -1,0 +1,212 @@
+/* GENERATED POSITION CLASSES */
+:root {
+  --sq: 100%;
+}
+
+/* ROW 0 */
+.square-00 {
+  transform: translate(calc(0 * var(--sq)), calc(0 * var(--sq)));
+}
+.square-01 {
+  transform: translate(calc(1 * var(--sq)), calc(0 * var(--sq)));
+}
+.square-02 {
+  transform: translate(calc(2 * var(--sq)), calc(0 * var(--sq)));
+}
+.square-03 {
+  transform: translate(calc(3 * var(--sq)), calc(0 * var(--sq)));
+}
+.square-04 {
+  transform: translate(calc(4 * var(--sq)), calc(0 * var(--sq)));
+}
+.square-05 {
+  transform: translate(calc(5 * var(--sq)), calc(0 * var(--sq)));
+}
+.square-06 {
+  transform: translate(calc(6 * var(--sq)), calc(0 * var(--sq)));
+}
+.square-07 {
+  transform: translate(calc(7 * var(--sq)), calc(0 * var(--sq)));
+}
+
+/* ROW 1 */
+.square-10 {
+  transform: translate(calc(0 * var(--sq)), calc(1 * var(--sq)));
+}
+.square-11 {
+  transform: translate(calc(1 * var(--sq)), calc(1 * var(--sq)));
+}
+.square-12 {
+  transform: translate(calc(2 * var(--sq)), calc(1 * var(--sq)));
+}
+.square-13 {
+  transform: translate(calc(3 * var(--sq)), calc(1 * var(--sq)));
+}
+.square-14 {
+  transform: translate(calc(4 * var(--sq)), calc(1 * var(--sq)));
+}
+.square-15 {
+  transform: translate(calc(5 * var(--sq)), calc(1 * var(--sq)));
+}
+.square-16 {
+  transform: translate(calc(6 * var(--sq)), calc(1 * var(--sq)));
+}
+.square-17 {
+  transform: translate(calc(7 * var(--sq)), calc(1 * var(--sq)));
+}
+
+/* ROW 2 */
+.square-20 {
+  transform: translate(calc(0 * var(--sq)), calc(2 * var(--sq)));
+}
+.square-21 {
+  transform: translate(calc(1 * var(--sq)), calc(2 * var(--sq)));
+}
+.square-22 {
+  transform: translate(calc(2 * var(--sq)), calc(2 * var(--sq)));
+}
+.square-23 {
+  transform: translate(calc(3 * var(--sq)), calc(2 * var(--sq)));
+}
+.square-24 {
+  transform: translate(calc(4 * var(--sq)), calc(2 * var(--sq)));
+}
+.square-25 {
+  transform: translate(calc(5 * var(--sq)), calc(2 * var(--sq)));
+}
+.square-26 {
+  transform: translate(calc(6 * var(--sq)), calc(2 * var(--sq)));
+}
+.square-27 {
+  transform: translate(calc(7 * var(--sq)), calc(2 * var(--sq)));
+}
+
+/* ROW 3 */
+.square-30 {
+  transform: translate(calc(0 * var(--sq)), calc(3 * var(--sq)));
+}
+.square-31 {
+  transform: translate(calc(1 * var(--sq)), calc(3 * var(--sq)));
+}
+.square-32 {
+  transform: translate(calc(2 * var(--sq)), calc(3 * var(--sq)));
+}
+.square-33 {
+  transform: translate(calc(3 * var(--sq)), calc(3 * var(--sq)));
+}
+.square-34 {
+  transform: translate(calc(4 * var(--sq)), calc(3 * var(--sq)));
+}
+.square-35 {
+  transform: translate(calc(5 * var(--sq)), calc(3 * var(--sq)));
+}
+.square-36 {
+  transform: translate(calc(6 * var(--sq)), calc(3 * var(--sq)));
+}
+.square-37 {
+  transform: translate(calc(7 * var(--sq)), calc(3 * var(--sq)));
+}
+
+/* ROW 4 */
+.square-40 {
+  transform: translate(calc(0 * var(--sq)), calc(4 * var(--sq)));
+}
+.square-41 {
+  transform: translate(calc(1 * var(--sq)), calc(4 * var(--sq)));
+}
+.square-42 {
+  transform: translate(calc(2 * var(--sq)), calc(4 * var(--sq)));
+}
+.square-43 {
+  transform: translate(calc(3 * var(--sq)), calc(4 * var(--sq)));
+}
+.square-44 {
+  transform: translate(calc(4 * var(--sq)), calc(4 * var(--sq)));
+}
+.square-45 {
+  transform: translate(calc(5 * var(--sq)), calc(4 * var(--sq)));
+}
+.square-46 {
+  transform: translate(calc(6 * var(--sq)), calc(4 * var(--sq)));
+}
+.square-47 {
+  transform: translate(calc(7 * var(--sq)), calc(4 * var(--sq)));
+}
+
+/* ROW 5 */
+.square-50 {
+  transform: translate(calc(0 * var(--sq)), calc(5 * var(--sq)));
+}
+.square-51 {
+  transform: translate(calc(1 * var(--sq)), calc(5 * var(--sq)));
+}
+.square-52 {
+  transform: translate(calc(2 * var(--sq)), calc(5 * var(--sq)));
+}
+.square-53 {
+  transform: translate(calc(3 * var(--sq)), calc(5 * var(--sq)));
+}
+.square-54 {
+  transform: translate(calc(4 * var(--sq)), calc(5 * var(--sq)));
+}
+.square-55 {
+  transform: translate(calc(5 * var(--sq)), calc(5 * var(--sq)));
+}
+.square-56 {
+  transform: translate(calc(6 * var(--sq)), calc(5 * var(--sq)));
+}
+.square-57 {
+  transform: translate(calc(7 * var(--sq)), calc(5 * var(--sq)));
+}
+
+/* ROW 6 */
+.square-60 {
+  transform: translate(calc(0 * var(--sq)), calc(6 * var(--sq)));
+}
+.square-61 {
+  transform: translate(calc(1 * var(--sq)), calc(6 * var(--sq)));
+}
+.square-62 {
+  transform: translate(calc(2 * var(--sq)), calc(6 * var(--sq)));
+}
+.square-63 {
+  transform: translate(calc(3 * var(--sq)), calc(6 * var(--sq)));
+}
+.square-64 {
+  transform: translate(calc(4 * var(--sq)), calc(6 * var(--sq)));
+}
+.square-65 {
+  transform: translate(calc(5 * var(--sq)), calc(6 * var(--sq)));
+}
+.square-66 {
+  transform: translate(calc(6 * var(--sq)), calc(6 * var(--sq)));
+}
+.square-67 {
+  transform: translate(calc(7 * var(--sq)), calc(6 * var(--sq)));
+}
+
+/* ROW 7 */
+.square-70 {
+  transform: translate(calc(0 * var(--sq)), calc(7 * var(--sq)));
+}
+.square-71 {
+  transform: translate(calc(1 * var(--sq)), calc(7 * var(--sq)));
+}
+.square-72 {
+  transform: translate(calc(2 * var(--sq)), calc(7 * var(--sq)));
+}
+.square-73 {
+  transform: translate(calc(3 * var(--sq)), calc(7 * var(--sq)));
+}
+.square-74 {
+  transform: translate(calc(4 * var(--sq)), calc(7 * var(--sq)));
+}
+.square-75 {
+  transform: translate(calc(5 * var(--sq)), calc(7 * var(--sq)));
+}
+.square-76 {
+  transform: translate(calc(6 * var(--sq)), calc(7 * var(--sq)));
+}
+.square-77 {
+  transform: translate(calc(7 * var(--sq)), calc(7 * var(--sq)));
+}

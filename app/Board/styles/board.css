@@ -1,0 +1,6 @@
+/* The board background */
+.bg-chessboard {
+  background-image: url("/chess/board.svg");
+  background-size: cover;
+  background-position: center;
+}
