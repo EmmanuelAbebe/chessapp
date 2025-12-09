@@ -18,4 +18,9 @@ export type RenderPiece = {
   color: "w" | "b";
 };
 
+export type SquareIndex = {
+  row: number;
+  col: number;
+};
+
 export type RenderBoard = (RenderPiece | null)[][]; // [row][col], row 0 = rank 8

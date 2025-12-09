@@ -7,17 +7,27 @@ import { Chess } from "chess.js";
 import "../styles/boardsquare.css";
 import "../styles/chesspiece.css";
 import "../styles/board.css";
-import { BoardProps, files, ranks, RenderBoard } from "../types";
+import { BoardProps, files, ranks, RenderBoard, SquareIndex } from "../types";
 import { Orientation } from "../useChessGame";
 
 type BoardComponentProps = {
   board: RenderBoard;
   orientation: Orientation;
+  onSquareMouseDown?: (
+    square: SquareIndex,
+    ev: React.MouseEvent<HTMLDivElement>
+  ) => void;
+  onSquareMouseUp?: (
+    square: SquareIndex,
+    ev: React.MouseEvent<HTMLDivElement>
+  ) => void;
 };
 
 export default function Board({
   board,
   orientation = "white",
+  onSquareMouseDown,
+  onSquareMouseUp,
 }: BoardComponentProps) {
   const squareOverlays: JSX.Element[] = [];
   const pieces: JSX.Element[] = [];
@@ -32,9 +42,16 @@ export default function Board({
       const visualCol = orientation === "white" ? col : 7 - col;
       const squareClass = `square-${visualRow}${visualCol}`;
 
+      const idx: SquareIndex = { row, col };
+
       // base overlay square (for highlights / events later)
       squareOverlays.push(
-        <div key={`sq-${row}-${col}`} className={`square-pos ${squareClass}`} />
+        <div
+          key={`sq-${row}-${col}`}
+          className={`square-pos ${squareClass}`}
+          onMouseDown={(e) => onSquareMouseDown?.(idx, e)}
+          onMouseUp={(e) => onSquareMouseUp?.(idx, e)}
+        />
       );
 
       if (piece) {
