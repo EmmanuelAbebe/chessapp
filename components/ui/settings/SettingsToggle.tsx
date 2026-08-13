@@ -26,7 +26,7 @@ export default function SettingsToggle({ setting }: SettingsToggleProps) {
         className="
           flex h-6 w-11 items-center
           rounded-full
-          bg-gray-300
+          bg-neutral-700
           p-0.5
           transition
 

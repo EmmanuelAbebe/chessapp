@@ -29,7 +29,7 @@ export default function Modal({ isOpen, onClose, children }: ModalProps) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-2xl bg-gray-100/96 p-6 shadow-lg">
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-neutral-900 p-6 shadow-lg">
         {children}
       </div>
     </div>,

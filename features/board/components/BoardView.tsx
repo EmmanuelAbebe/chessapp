@@ -70,7 +70,7 @@ export function BoardView({
 
   return (
     <div className="flex h-full w-full">
-      <div className="flex flex-col pr-1 font-mono text-xs text-gray-500">
+      <div className="flex flex-col pr-1 font-mono text-xs text-neutral-500">
         {ranks.map((rank) => (
           <span key={rank} className="flex flex-1 items-center">
             {rank}
@@ -83,7 +83,7 @@ export function BoardView({
           <Chessboard options={chessboardOptions} />
         </div>
 
-        <div className="flex pt-1 font-mono text-xs text-gray-500">
+        <div className="flex pt-1 font-mono text-xs text-neutral-500">
           {files.map((file) => (
             <span key={file} className="flex-1 text-center">
               {file}

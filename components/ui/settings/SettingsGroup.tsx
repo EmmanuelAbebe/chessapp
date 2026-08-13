@@ -19,7 +19,7 @@ export default function SettingsGroup({
   return (
     <section className="w-full py-3">
       <div className="flex w-full items-center justify-between gap-4">
-        <p className="text-sm font-semibold text-gray-800">{title}</p>
+        <p className="text-sm font-semibold text-neutral-200">{title}</p>
 
         <div className="shrink-0">
           <SettingsToggle setting={{ label: title, isSelected, onChange }} />
@@ -27,7 +27,7 @@ export default function SettingsGroup({
       </div>
 
       {isSelected && children ? (
-        <div className="mt-3 flex flex-col items-end gap-3 border-l-2 border-gray-100 pl-4">
+        <div className="mt-3 flex flex-col items-end gap-3 border-l-2 border-neutral-800 pl-4">
           {children}
         </div>
       ) : null}

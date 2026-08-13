@@ -14,7 +14,7 @@ export function SiteHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="w-full border-b border-black/10 dark:border-white/10">
+    <header className="w-full border-b border-white/10">
       <nav
         aria-label="Primary"
         className="container mx-auto flex items-center gap-3 px-4 py-2 sm:px-6"
@@ -37,8 +37,8 @@ export function SiteHeader() {
                   title={link.label}
                   className={`flex items-center justify-center rounded-md p-2 transition ${
                     isActive
-                      ? "bg-black/10 text-gray-900 dark:bg-white/10 dark:text-white"
-                      : "text-gray-500 hover:bg-black/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white"
+                      ? "bg-white/10 text-white"
+                      : "text-neutral-400 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   <Icon className="h-4 w-4" />

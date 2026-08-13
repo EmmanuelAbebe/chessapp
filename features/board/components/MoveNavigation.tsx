@@ -24,7 +24,7 @@ function NavButton({ label, disabled, onClick }: NavButtonProps) {
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="rounded px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+      className="rounded px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
     >
       {label}
     </button>

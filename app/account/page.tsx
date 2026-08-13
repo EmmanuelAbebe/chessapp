@@ -28,12 +28,12 @@ const AccountPage = () => {
         aria-label="Account sections"
         className="md:sticky md:top-8 md:w-40 md:shrink-0"
       >
-        <ul className="flex gap-1 overflow-x-auto text-sm text-gray-500 md:flex-col md:overflow-visible">
+        <ul className="flex gap-1 overflow-x-auto text-sm text-neutral-500 md:flex-col md:overflow-visible">
           {SECTIONS.map((section) => (
             <li key={section.id} className="shrink-0">
               <a
                 href={`#${section.id}`}
-                className="block rounded-md px-3 py-1.5 whitespace-nowrap transition hover:bg-black/5 hover:text-gray-900 dark:hover:bg-white/10"
+                className="block rounded-md px-3 py-1.5 whitespace-nowrap transition hover:bg-white/10 hover:text-white"
               >
                 {section.label}
               </a>
@@ -53,18 +53,18 @@ const AccountPage = () => {
           <div className="mt-4 flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
             <FaUserAlt
               aria-hidden="true"
-              className="shrink-0 rounded-full bg-gray-100 p-4 text-gray-400 dark:bg-white/10"
+              className="shrink-0 rounded-full bg-white/10 p-4 text-neutral-500"
               size={72}
             />
 
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-              <dt className="text-gray-500">Username</dt>
+              <dt className="text-neutral-500">Username</dt>
               <dd className="font-medium">JohnDoe123</dd>
 
-              <dt className="text-gray-500">Chess rating</dt>
+              <dt className="text-neutral-500">Chess rating</dt>
               <dd className="font-medium">1500</dd>
 
-              <dt className="text-gray-500">Member since</dt>
+              <dt className="text-neutral-500">Member since</dt>
               <dd className="font-medium">January 2023</dd>
             </dl>
           </div>
@@ -80,14 +80,14 @@ const AccountPage = () => {
           </h2>
 
           <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-            <dt className="text-gray-500">Plan</dt>
+            <dt className="text-neutral-500">Plan</dt>
             <dd className="font-medium">Premium</dd>
 
-            <dt className="text-gray-500">Renewal date</dt>
+            <dt className="text-neutral-500">Renewal date</dt>
             <dd className="font-medium">December 31, 2024</dd>
 
-            <dt className="text-gray-500">Status</dt>
-            <dd className="font-medium text-green-600">Active</dd>
+            <dt className="text-neutral-500">Status</dt>
+            <dd className="font-medium text-green-400">Active</dd>
           </dl>
         </section>
 
@@ -104,7 +104,7 @@ const AccountPage = () => {
             {STATS.map((stat) => (
               <div key={stat.label}>
                 <dd className="text-2xl font-bold">{stat.value}</dd>
-                <dt className="text-xs text-gray-500">{stat.label}</dt>
+                <dt className="text-xs text-neutral-500">{stat.label}</dt>
               </div>
             ))}
           </dl>
@@ -115,7 +115,7 @@ const AccountPage = () => {
             Settings
           </h2>
 
-          <div className="mt-4 divide-y divide-gray-200 rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+          <div className="mt-4 divide-y divide-neutral-800 rounded-xl border border-neutral-800 bg-neutral-900 p-2 shadow-sm">
             <SettingsItem
               item={{
                 title: "Notifications",

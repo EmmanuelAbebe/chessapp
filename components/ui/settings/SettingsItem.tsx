@@ -8,7 +8,7 @@ interface SettingsItemProps {
 const SettingsItem = ({ item }: SettingsItemProps) => {
   return (
     <section className="flex w-full items-center justify-between gap-4 py-3">
-      <p className="text-sm font-semibold text-gray-800">{item.title}</p>
+      <p className="text-sm font-semibold text-neutral-200">{item.title}</p>
 
       <div className="shrink-0">{item.content}</div>
     </section>

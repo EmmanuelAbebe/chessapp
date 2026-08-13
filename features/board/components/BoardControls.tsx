@@ -17,11 +17,11 @@ export function BoardControls({
   return (
     <div className="absolute top-0 left-full ml-2 flex flex-col items-center gap-3 p-2">
       <FaGear
-        className="cursor-pointer text-gray-400/80 hover:text-gray-300"
+        className="cursor-pointer text-neutral-500 hover:text-neutral-300"
         onClick={openBoardSettings}
       />
       <HiSwitchVertical
-        className="cursor-pointer text-gray-400/80 hover:text-gray-300"
+        className="cursor-pointer text-neutral-500 hover:text-neutral-300"
         onClick={() =>
           toggleOrientation((o) => (o === "white" ? "black" : "white"))
         }
