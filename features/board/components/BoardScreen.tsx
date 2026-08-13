@@ -17,6 +17,8 @@ export function BoardScreen() {
     chessPosition,
     optionSquares,
     lastMoveSquares,
+    checkSquares,
+    illegalSquares,
     orientation,
     analysisFen,
     currentLine,
@@ -88,7 +90,12 @@ export function BoardScreen() {
               <BoardView
                 chessPosition={chessPosition}
                 orientation={orientation}
-                optionSquares={{ ...lastMoveSquares, ...optionSquares }}
+                optionSquares={{
+                  ...lastMoveSquares,
+                  ...checkSquares,
+                  ...optionSquares,
+                  ...illegalSquares,
+                }}
                 onSquareClick={onSquareClick}
                 showCoordinates={showCoordinates}
                 coordinatesPlacement={coordinatesPlacement}

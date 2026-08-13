@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import type { SquareHandlerArgs } from "react-chessboard";
 import type { Orientation, OptionSquares } from "../types";
 import { getMoveOptions } from "../lib/board-helpers";
 import { useMoveTree } from "./useMoveTree";
+
+const ILLEGAL_MOVE_FLASH_MS = 400;
 
 export function useBoardGame() {
   const moveTree = useMoveTree();
@@ -13,6 +15,16 @@ export function useBoardGame() {
   const [orientation, setOrientation] = useState<Orientation>("white");
   const [optionSquares, setOptionSquares] = useState<OptionSquares>({});
   const [moveFrom, setMoveFrom] = useState("");
+  const [illegalSquare, setIllegalSquare] = useState<string | null>(null);
+  const illegalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  useEffect(() => {
+    return () => {
+      if (illegalTimeoutRef.current) clearTimeout(illegalTimeoutRef.current);
+    };
+  }, []);
 
   const analysisFen = moveTree.currentFen;
 
@@ -31,6 +43,48 @@ export function useBoardGame() {
 
     return { [from]: highlight, [to]: highlight };
   }, [moveTree.currentNode.uci]);
+
+  const checkSquares = useMemo<OptionSquares>(() => {
+    if (!currentChess.isCheck()) return {};
+
+    const turn = currentChess.turn();
+    const kingSquare = currentChess
+      .board()
+      .flat()
+      .find((piece) => piece?.type === "k" && piece.color === turn)?.square;
+
+    if (!kingSquare) return {};
+
+    const isMate = currentChess.isCheckmate();
+
+    return {
+      [kingSquare]: {
+        backgroundColor: isMate
+          ? "rgba(220, 38, 38, 0.55)"
+          : "rgba(220, 38, 38, 0.35)",
+        transition: "background-color 150ms ease-out",
+      },
+    };
+  }, [currentChess]);
+
+  const illegalSquares = useMemo<OptionSquares>(() => {
+    if (!illegalSquare) return {};
+
+    return {
+      [illegalSquare]: {
+        backgroundColor: "rgba(239, 68, 68, 0.45)",
+        transition: "background-color 150ms ease-out",
+      },
+    };
+  }, [illegalSquare]);
+
+  function flashIllegalSquare(square: string) {
+    if (illegalTimeoutRef.current) clearTimeout(illegalTimeoutRef.current);
+    setIllegalSquare(square);
+    illegalTimeoutRef.current = setTimeout(() => {
+      setIllegalSquare(null);
+    }, ILLEGAL_MOVE_FLASH_MS);
+  }
 
   function clearSelection() {
     setMoveFrom("");
@@ -60,6 +114,11 @@ export function useBoardGame() {
 
     if (!foundMove) {
       const nextOptions = getMoveOptions(currentChess, square as Square);
+
+      if (!nextOptions) {
+        flashIllegalSquare(square);
+      }
+
       setOptionSquares(nextOptions ?? {});
       setMoveFrom(nextOptions ? square : "");
       return;
@@ -87,6 +146,8 @@ export function useBoardGame() {
     orientation,
     optionSquares,
     lastMoveSquares,
+    checkSquares,
+    illegalSquares,
     analysisFen,
     chessPosition: moveTree.currentFen,
 
