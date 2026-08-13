@@ -3,12 +3,12 @@
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import SettingsItem from "@/components/ui/settings/SettingsItem";
+import SettingsGroup from "@/components/ui/settings/SettingsGroup";
 import SettingsSelect from "@/components/ui/settings/SettingsSelect";
-import SettingsToggle from "@/components/ui/settings/SettingsToggle";
 import SettingsVolume, {
   type VolumeLevel,
 } from "@/components/ui/settings/SettingsVolume";
-import type { Orientation } from "../types";
+import type { CoordinatesPlacement, Orientation } from "../types";
 
 type BoardSettingsModalProps = {
   isOpen: boolean;
@@ -17,6 +17,10 @@ type BoardSettingsModalProps = {
   onSetOrientation: (orientation: Orientation) => void;
   showEvalBar: boolean;
   onSetShowEvalBar: (showEvalBar: boolean) => void;
+  showCoordinates: boolean;
+  onSetShowCoordinates: (showCoordinates: boolean) => void;
+  coordinatesPlacement: CoordinatesPlacement;
+  onSetCoordinatesPlacement: (placement: CoordinatesPlacement) => void;
 };
 
 const pieceSets = [
@@ -38,119 +42,17 @@ export function BoardSettingsModal({
   onSetOrientation,
   showEvalBar,
   onSetShowEvalBar,
+  showCoordinates,
+  onSetShowCoordinates,
+  coordinatesPlacement,
+  onSetCoordinatesPlacement,
 }: BoardSettingsModalProps) {
   const [pieceSet, setPieceSet] = useState("Default");
   const [boardTheme, setBoardTheme] = useState("Default");
   const [moveMethod, setMoveMethod] = useState("Default");
 
-  const [coordinatesEnabled, setCoordinatesEnabled] = useState(true);
   const [soundLevel, setSoundLevel] = useState<VolumeLevel>("full");
   const [notificationEnabled, setNotificationEnabled] = useState(true);
-
-  const settings = [
-    {
-      title: "Board Orientation",
-      content: (
-        <SettingsSelect
-          setting={{
-            label: "Board Orientation",
-            value: orientation === "white" ? "White" : "Black",
-            options: ["White", "Black"],
-            onChange: (value) =>
-              onSetOrientation(value.toLowerCase() as Orientation),
-          }}
-        />
-      ),
-    },
-    {
-      title: "Eval Bar",
-      content: (
-        <SettingsToggle
-          setting={{
-            label: "Eval Bar",
-            isSelected: showEvalBar,
-            onChange: onSetShowEvalBar,
-          }}
-        />
-      ),
-    },
-    {
-      title: "Pieces",
-      content: (
-        <SettingsSelect
-          setting={{
-            label: "Pieces",
-            value: pieceSet,
-            options: pieceSets,
-            onChange: setPieceSet,
-          }}
-        />
-      ),
-    },
-    {
-      title: "Board",
-      content: (
-        <SettingsSelect
-          setting={{
-            label: "Board",
-            value: boardTheme,
-            options: boardThemes,
-            onChange: setBoardTheme,
-          }}
-        />
-      ),
-    },
-    {
-      title: "Move Method",
-      content: (
-        <SettingsSelect
-          setting={{
-            label: "Move Method",
-            value: moveMethod,
-            options: moveMethods,
-            onChange: setMoveMethod,
-          }}
-        />
-      ),
-    },
-    {
-      title: "Coordinates",
-      content: (
-        <SettingsToggle
-          setting={{
-            label: "Coordinates",
-            isSelected: coordinatesEnabled,
-            onChange: (isSelected) => setCoordinatesEnabled(isSelected),
-          }}
-        />
-      ),
-    },
-
-    {
-      title: "Sound",
-      content: (
-        <SettingsVolume
-          setting={{
-            label: "Sound",
-            value: soundLevel,
-            onChange: setSoundLevel,
-          }}
-        />
-      ),
-    },
-    {
-      title: "Notification",
-      content: (
-        <SettingsToggle
-          setting={{
-            label: "Notifications",
-            isSelected: notificationEnabled,
-            onChange: (isSelected) => setNotificationEnabled(isSelected),
-          }}
-        />
-      ),
-    },
-  ];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -160,9 +62,116 @@ export function BoardSettingsModal({
         </header>
 
         <div className="px-4">
-          {settings.map((item) => (
-            <SettingsItem key={item.title} item={item} />
-          ))}
+          <SettingsItem
+            item={{
+              title: "Board Orientation",
+              content: (
+                <SettingsSelect
+                  setting={{
+                    label: "Board Orientation",
+                    value: orientation === "white" ? "White" : "Black",
+                    options: ["White", "Black"],
+                    onChange: (value) =>
+                      onSetOrientation(value.toLowerCase() as Orientation),
+                  }}
+                />
+              ),
+            }}
+          />
+
+          <SettingsItem
+            item={{
+              title: "Pieces",
+              content: (
+                <SettingsSelect
+                  setting={{
+                    label: "Pieces",
+                    value: pieceSet,
+                    options: pieceSets,
+                    onChange: setPieceSet,
+                  }}
+                />
+              ),
+            }}
+          />
+
+          <SettingsItem
+            item={{
+              title: "Board",
+              content: (
+                <SettingsSelect
+                  setting={{
+                    label: "Board",
+                    value: boardTheme,
+                    options: boardThemes,
+                    onChange: setBoardTheme,
+                  }}
+                />
+              ),
+            }}
+          />
+
+          <SettingsGroup
+            title="Coordinates"
+            isSelected={showCoordinates}
+            onChange={onSetShowCoordinates}
+          >
+            <SettingsSelect
+              setting={{
+                label: "Coordinate Placement",
+                value:
+                  coordinatesPlacement === "inside" ? "Inside" : "Outside",
+                options: ["Inside", "Outside"],
+                onChange: (value) =>
+                  onSetCoordinatesPlacement(
+                    value.toLowerCase() as CoordinatesPlacement,
+                  ),
+              }}
+            />
+          </SettingsGroup>
+
+          <SettingsItem
+            item={{
+              title: "Move Method",
+              content: (
+                <SettingsSelect
+                  setting={{
+                    label: "Move Method",
+                    value: moveMethod,
+                    options: moveMethods,
+                    onChange: setMoveMethod,
+                  }}
+                />
+              ),
+            }}
+          />
+
+          <SettingsGroup
+            title="Eval Bar"
+            isSelected={showEvalBar}
+            onChange={onSetShowEvalBar}
+          />
+
+          <SettingsItem
+            item={{
+              title: "Sound",
+              content: (
+                <SettingsVolume
+                  setting={{
+                    label: "Sound",
+                    value: soundLevel,
+                    onChange: setSoundLevel,
+                  }}
+                />
+              ),
+            }}
+          />
+
+          <SettingsGroup
+            title="Notification"
+            isSelected={notificationEnabled}
+            onChange={setNotificationEnabled}
+          />
         </div>
 
         <div className="px-4 pt-6 pb-3 flex justify-end">

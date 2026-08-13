@@ -49,6 +49,8 @@ import type React from "react";
 
 export type Orientation = "white" | "black";
 
+export type CoordinatesPlacement = "inside" | "outside";
+
 export type OptionSquares = Record<string, React.CSSProperties>;
 
 export type MoveNode = {

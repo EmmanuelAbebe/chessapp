@@ -36,7 +36,14 @@ export function BoardScreen() {
   const { isBoardSettingsOpen, openBoardSettings, closeBoardSettings } =
     useBoardSettings();
 
-  const { showEvalBar, setShowEvalBar } = useBoardPreferences();
+  const {
+    showEvalBar,
+    setShowEvalBar,
+    showCoordinates,
+    setShowCoordinates,
+    coordinatesPlacement,
+    setCoordinatesPlacement,
+  } = useBoardPreferences();
 
   return (
     <>
@@ -82,6 +89,8 @@ export function BoardScreen() {
                 orientation={orientation}
                 optionSquares={optionSquares}
                 onSquareClick={onSquareClick}
+                showCoordinates={showCoordinates}
+                coordinatesPlacement={coordinatesPlacement}
               />
 
               <BoardControls
@@ -100,6 +109,10 @@ export function BoardScreen() {
         onSetOrientation={changeOrientation}
         showEvalBar={showEvalBar}
         onSetShowEvalBar={setShowEvalBar}
+        showCoordinates={showCoordinates}
+        onSetShowCoordinates={setShowCoordinates}
+        coordinatesPlacement={coordinatesPlacement}
+        onSetCoordinatesPlacement={setCoordinatesPlacement}
       />
     </>
   );
