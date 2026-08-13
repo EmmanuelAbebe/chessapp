@@ -1,0 +1,200 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { Chess, type Square } from "chess.js";
+import type { MoveNode } from "../types";
+import {
+  appendChildNode,
+  createMoveTree,
+  findChildByUci,
+  getCurrentNode,
+  getFirstChildId,
+  getLastNodeInMainLine,
+  getPathToNode,
+  getSiblingIds,
+  getVariationIndex,
+} from "../lib/move-tree";
+
+type PlayMoveInput = {
+  from: string;
+  to: string;
+  promotion?: string;
+};
+
+export function useMoveTree() {
+  const [tree, setTree] = useState(() => createMoveTree());
+
+  const currentNode = useMemo(() => getCurrentNode(tree), [tree]);
+  const currentFen = currentNode.fen;
+
+  const currentPath = useMemo(
+    () => getPathToNode(tree, tree.currentNodeId),
+    [tree],
+  );
+
+  const currentLine = useMemo(
+    () => currentPath.filter((node) => node.parentId !== null),
+    [currentPath],
+  );
+
+  const currentChildren = useMemo(
+    () => currentNode.children.map((childId) => tree.nodes[childId]),
+    [currentNode.children, tree.nodes],
+  );
+
+  const siblingIds = useMemo(
+    () => getSiblingIds(tree, tree.currentNodeId),
+    [tree],
+  );
+
+  const variationIndex = useMemo(
+    () =>
+      tree.currentNodeId === tree.rootId
+        ? -1
+        : getVariationIndex(tree, tree.currentNodeId),
+    [tree],
+  );
+
+  function resetTree() {
+    setTree(createMoveTree());
+  }
+
+  function goToNode(nodeId: string) {
+    if (!tree.nodes[nodeId]) return;
+    setTree((prev) => ({
+      ...prev,
+      currentNodeId: nodeId,
+    }));
+  }
+
+  function goToStart() {
+    setTree((prev) => ({
+      ...prev,
+      currentNodeId: prev.rootId,
+    }));
+  }
+
+  function goToPrevious() {
+    const parentId = currentNode.parentId;
+    if (!parentId) return;
+
+    setTree((prev) => ({
+      ...prev,
+      currentNodeId: parentId,
+    }));
+  }
+
+  function goToNext() {
+    const nextChildId = getFirstChildId(tree, tree.currentNodeId);
+    if (!nextChildId) return;
+
+    setTree((prev) => ({
+      ...prev,
+      currentNodeId: nextChildId,
+    }));
+  }
+
+  function goToEnd() {
+    const leafId = getLastNodeInMainLine(tree, tree.currentNodeId);
+
+    setTree((prev) => ({
+      ...prev,
+      currentNodeId: leafId,
+    }));
+  }
+
+  function goToPreviousVariation() {
+    if (currentNode.parentId === null) return;
+    if (variationIndex <= 0) return;
+
+    const nextNodeId = siblingIds[variationIndex - 1];
+    if (!nextNodeId) return;
+
+    setTree((prev) => ({
+      ...prev,
+      currentNodeId: nextNodeId,
+    }));
+  }
+
+  function goToNextVariation() {
+    if (currentNode.parentId === null) return;
+    if (variationIndex < 0 || variationIndex >= siblingIds.length - 1) return;
+
+    const nextNodeId = siblingIds[variationIndex + 1];
+    if (!nextNodeId) return;
+
+    setTree((prev) => ({
+      ...prev,
+      currentNodeId: nextNodeId,
+    }));
+  }
+
+  function playMove(input: PlayMoveInput) {
+    let nextNodeId: string | null = null;
+
+    setTree((prev) => {
+      const parent = prev.nodes[prev.currentNodeId];
+      const chess = new Chess(parent.fen);
+
+      const move = chess.move({
+        from: input.from as Square,
+        to: input.to as Square,
+        promotion: input.promotion as "q" | "r" | "b" | "n" | undefined,
+      });
+
+      if (!move) {
+        return prev;
+      }
+
+      const uci = `${move.from}${move.to}${move.promotion ?? ""}`;
+      const existingChildId = findChildByUci(prev, parent.id, uci);
+
+      if (existingChildId) {
+        nextNodeId = existingChildId;
+
+        return {
+          ...prev,
+          currentNodeId: existingChildId,
+        };
+      }
+
+      const nextTree = appendChildNode(prev, parent.id, {
+        san: move.san,
+        uci,
+        fen: chess.fen(),
+        side: move.color,
+      });
+
+      nextNodeId = nextTree.currentNodeId;
+      return nextTree;
+    });
+
+    return nextNodeId;
+  }
+
+  return {
+    tree,
+    currentNode,
+    currentFen,
+    currentLine,
+    currentChildren,
+    currentNodeId: tree.currentNodeId,
+
+    canGoPrevious: currentNode.parentId !== null,
+    canGoNext: currentNode.children.length > 0,
+    canGoEnd: currentNode.children.length > 0,
+    canGoPreviousVariation: currentNode.parentId !== null && variationIndex > 0,
+    canGoNextVariation:
+      currentNode.parentId !== null && variationIndex < siblingIds.length - 1,
+
+    resetTree,
+    playMove,
+    goToNode,
+    goToStart,
+    goToPrevious,
+    goToNext,
+    goToEnd,
+    goToPreviousVariation,
+    goToNextVariation,
+  };
+}
