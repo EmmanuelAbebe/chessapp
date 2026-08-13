@@ -15,6 +15,8 @@ type BoardSettingsModalProps = {
   onClose: () => void;
   orientation: Orientation;
   onSetOrientation: (orientation: Orientation) => void;
+  showEvalBar: boolean;
+  onSetShowEvalBar: (showEvalBar: boolean) => void;
 };
 
 const pieceSets = [
@@ -34,6 +36,8 @@ export function BoardSettingsModal({
   onClose,
   orientation,
   onSetOrientation,
+  showEvalBar,
+  onSetShowEvalBar,
 }: BoardSettingsModalProps) {
   const [pieceSet, setPieceSet] = useState("Default");
   const [boardTheme, setBoardTheme] = useState("Default");
@@ -54,6 +58,18 @@ export function BoardSettingsModal({
             options: ["White", "Black"],
             onChange: (value) =>
               onSetOrientation(value.toLowerCase() as Orientation),
+          }}
+        />
+      ),
+    },
+    {
+      title: "Eval Bar",
+      content: (
+        <SettingsToggle
+          setting={{
+            label: "Eval Bar",
+            isSelected: showEvalBar,
+            onChange: onSetShowEvalBar,
           }}
         />
       ),

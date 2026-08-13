@@ -15,7 +15,7 @@ export function BoardControls({
   openBoardSettings,
 }: BoardControlsProps) {
   return (
-    <div className="w-5 flex flex-col gap-3 p-2 justify-start items-center">
+    <div className="absolute top-0 left-full ml-2 flex flex-col items-center gap-3 p-2">
       <FaGear
         className="cursor-pointer text-gray-400/80 hover:text-gray-300"
         onClick={openBoardSettings}

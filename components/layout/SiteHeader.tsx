@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { FaChessBoard, FaHouse, FaUser } from "react-icons/fa6";
 
 const NAV_LINKS = [
-  { href: "/board", label: "Board" },
-  { href: "/account", label: "Account" },
+  { href: "/", label: "Home", icon: FaHouse },
+  { href: "/board", label: "Board", icon: FaChessBoard },
+  { href: "/account", label: "Account", icon: FaUser },
 ];
 
 export function SiteHeader() {
@@ -15,26 +17,31 @@ export function SiteHeader() {
     <header className="w-full border-b border-black/10 dark:border-white/10">
       <nav
         aria-label="Primary"
-        className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6"
+        className="container mx-auto flex items-center gap-3 px-4 py-2 sm:px-6"
       >
         <Link href="/" className="text-sm font-semibold tracking-tight">
           Chess AI Coach
         </Link>
 
-        <ul className="flex items-center gap-1 text-sm">
+        <ul className="flex items-center gap-1">
           {NAV_LINKS.map((link) => {
             const isActive = pathname === link.href;
+            const Icon = link.icon;
 
             return (
               <li key={link.href}>
                 <Link
                   href={link.href}
+                  aria-label={link.label}
                   aria-current={isActive ? "page" : undefined}
-                  className={`rounded-md px-3 py-1.5 transition hover:bg-black/5 dark:hover:bg-white/10 ${
-                    isActive ? "font-medium underline underline-offset-4" : "opacity-80"
+                  title={link.label}
+                  className={`flex items-center justify-center rounded-md p-2 transition ${
+                    isActive
+                      ? "bg-black/10 text-gray-900 dark:bg-white/10 dark:text-white"
+                      : "text-gray-500 hover:bg-black/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white"
                   }`}
                 >
-                  {link.label}
+                  <Icon className="h-4 w-4" />
                 </Link>
               </li>
             );

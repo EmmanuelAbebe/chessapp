@@ -57,7 +57,7 @@ export function MoveList({
   const movePairs = buildMovePairs(currentLine);
 
   return (
-    <div className="w-130 rounded bg-neutral-900 p-3 text-white">
+    <div className="w-full rounded bg-neutral-900 p-3 text-white">
       <div className="flex justify-start overflow-x-auto no-scrollbar">
         <div className="flex w-max flex-row gap-1 text-sm whitespace-nowrap">
           {movePairs.map((pair) => (

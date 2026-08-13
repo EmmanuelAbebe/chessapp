@@ -5,16 +5,13 @@ import { useState } from "react";
 export function useBoardPreferences() {
   const [engineDepth, setEngineDepth] = useState(14);
   const [engineMoveTime, setEngineMoveTime] = useState(300);
-  const [showChat, setShowChat] = useState(true);
-  const [showEvalBar, setShowEvalBar] = useState(true);
+  const [showEvalBar, setShowEvalBar] = useState(false);
 
   return {
     engineDepth,
     setEngineDepth,
     engineMoveTime,
     setEngineMoveTime,
-    showChat,
-    setShowChat,
     showEvalBar,
     setShowEvalBar,
   };

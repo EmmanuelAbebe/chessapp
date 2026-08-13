@@ -36,7 +36,7 @@ export function BoardView({
   );
 
   return (
-    <div className="rounded w-150 h-150">
+    <div className="h-full w-full rounded">
       <Chessboard options={chessboardOptions} />
     </div>
   );
