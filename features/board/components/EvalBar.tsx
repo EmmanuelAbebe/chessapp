@@ -201,6 +201,10 @@ export function EvalBar({ fen, depth = 12 }: EvalBarProps) {
 
   return (
     <div className="flex flex-col items-center gap-1 select-none w-0 h-full">
+      <div className="font-mono text-xs text-center leading-tight">
+        <div>{formatEvalFromWhiteScore(displayScore, displayMate)}</div>
+      </div>
+
       <div
         className="relative overflow-hidden border border-gray-400 w-3 min-h-full rounded-xs"
         title={`Depth ${evalState.depth}${evalState.bestMove ? ` • ${evalState.bestMove}` : ""}`}
@@ -211,10 +215,6 @@ export function EvalBar({ fen, depth = 12 }: EvalBarProps) {
           className="absolute bottom-0 left-0 right-0 bg-white"
           style={{ height: `${whitePercent}%` }}
         />
-      </div>
-
-      <div className="font-mono text-xs text-center leading-tight">
-        <div>{formatEvalFromWhiteScore(displayScore, displayMate)}</div>
       </div>
     </div>
   );
