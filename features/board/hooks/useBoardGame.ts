@@ -21,6 +21,17 @@ export function useBoardGame() {
     [moveTree.currentFen],
   );
 
+  const lastMoveSquares = useMemo<OptionSquares>(() => {
+    const uci = moveTree.currentNode.uci;
+    if (!uci) return {};
+
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const highlight = { backgroundColor: "rgba(255, 170, 0, 0.3)" };
+
+    return { [from]: highlight, [to]: highlight };
+  }, [moveTree.currentNode.uci]);
+
   function clearSelection() {
     setMoveFrom("");
     setOptionSquares({});
@@ -75,6 +86,7 @@ export function useBoardGame() {
   return {
     orientation,
     optionSquares,
+    lastMoveSquares,
     analysisFen,
     chessPosition: moveTree.currentFen,
 

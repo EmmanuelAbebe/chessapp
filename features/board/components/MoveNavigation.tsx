@@ -24,7 +24,7 @@ function NavButton({ label, disabled, onClick }: NavButtonProps) {
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="rounded bg-neutral-800 px-3 py-2 text-sm text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+      className="rounded px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
     >
       {label}
     </button>
@@ -41,7 +41,7 @@ export function MoveNavigation({
   onEnd,
 }: MoveNavigationProps) {
   return (
-    <div className=" rounded bg-neutral-900 text-white p-2 flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
         <NavButton label="<" disabled={!canGoPrevious} onClick={onPrevious} />
         <NavButton label=">" disabled={!canGoNext} onClick={onNext} />

@@ -27,14 +27,17 @@ export function useMoveTree() {
   const currentNode = useMemo(() => getCurrentNode(tree), [tree]);
   const currentFen = currentNode.fen;
 
-  const currentPath = useMemo(
-    () => getPathToNode(tree, tree.currentNodeId),
+  const currentBranchEndId = useMemo(
+    () => getLastNodeInMainLine(tree, tree.currentNodeId),
     [tree],
   );
 
   const currentLine = useMemo(
-    () => currentPath.filter((node) => node.parentId !== null),
-    [currentPath],
+    () =>
+      getPathToNode(tree, currentBranchEndId).filter(
+        (node) => node.parentId !== null,
+      ),
+    [tree, currentBranchEndId],
   );
 
   const currentChildren = useMemo(

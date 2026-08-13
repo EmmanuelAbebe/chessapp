@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import type { MoveNode } from "../types";
 
 type MoveListProps = {
@@ -55,9 +55,18 @@ export function MoveList({
   onSelectStart,
 }: MoveListProps) {
   const movePairs = buildMovePairs(currentLine);
+  const currentMoveRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    currentMoveRef.current?.scrollIntoView({
+      inline: "nearest",
+      block: "nearest",
+      behavior: "smooth",
+    });
+  }, [currentNodeId]);
 
   return (
-    <div className="w-full rounded bg-neutral-900 p-3 text-white">
+    <div className="w-full">
       <div className="flex justify-start overflow-x-auto no-scrollbar">
         <div className="flex w-max flex-row gap-1 text-sm whitespace-nowrap">
           {movePairs.map((pair) => (
@@ -65,12 +74,15 @@ export function MoveList({
               key={pair.moveNumber}
               className="flex shrink-0 flex-row items-center"
             >
-              <span className="text-neutral-400">{pair.moveNumber}.</span>
+              <span className="text-gray-400">{pair.moveNumber}.</span>
 
               <button
                 type="button"
-                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
-                  currentNodeId === pair.white?.id ? "bg-neutral-700" : ""
+                ref={currentNodeId === pair.white?.id ? currentMoveRef : undefined}
+                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-gray-100 ${
+                  currentNodeId === pair.white?.id
+                    ? "bg-blue-50 font-medium text-blue-700"
+                    : "text-gray-800"
                 }`}
                 onClick={() => pair.white && onSelectNode(pair.white.id)}
               >
@@ -79,8 +91,11 @@ export function MoveList({
 
               <button
                 type="button"
-                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
-                  currentNodeId === pair.black?.id ? "bg-neutral-700" : ""
+                ref={currentNodeId === pair.black?.id ? currentMoveRef : undefined}
+                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-gray-100 ${
+                  currentNodeId === pair.black?.id
+                    ? "bg-blue-50 font-medium text-blue-700"
+                    : "text-gray-800"
                 }`}
                 onClick={() => pair.black && onSelectNode(pair.black.id)}
               >
