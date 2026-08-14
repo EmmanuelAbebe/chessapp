@@ -5,6 +5,18 @@
   --foreground: #f5f5f5;
 }
 
+:root[data-theme-shade="midnight"] {
+  --background: #0a0a0a;
+}
+
+:root[data-theme-shade="charcoal"] {
+  --background: #323232;
+}
+
+:root[data-theme-shade="slate"] {
+  --background: #11151c;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

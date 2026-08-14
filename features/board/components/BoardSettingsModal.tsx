@@ -1,29 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import SettingsItem from "@/components/ui/settings/SettingsItem";
 import SettingsGroup from "@/components/ui/settings/SettingsGroup";
 import SettingsSelect from "@/components/ui/settings/SettingsSelect";
-import SettingsToggle from "@/components/ui/settings/SettingsToggle";
-import SettingsVolume, {
-  type VolumeLevel,
-} from "@/components/ui/settings/SettingsVolume";
+import SettingsSubRow from "@/components/ui/settings/SettingsSubRow";
+import SettingsVolume from "@/components/ui/settings/SettingsVolume";
+import { useSettings } from "@/features/settings/SettingsContext";
 import type { CoordinatesPlacement, Orientation } from "../types";
 
 type BoardSettingsModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  orientation: Orientation;
-  onSetOrientation: (orientation: Orientation) => void;
-  showEvalBar: boolean;
-  onSetShowEvalBar: (showEvalBar: boolean) => void;
-  showEvalScore: boolean;
-  onSetShowEvalScore: (showEvalScore: boolean) => void;
-  showCoordinates: boolean;
-  onSetShowCoordinates: (showCoordinates: boolean) => void;
-  coordinatesPlacement: CoordinatesPlacement;
-  onSetCoordinatesPlacement: (placement: CoordinatesPlacement) => void;
 };
 
 const pieceSets = [
@@ -41,23 +29,9 @@ const moveMethods = ["Default", "Click", "Drag"];
 export function BoardSettingsModal({
   isOpen,
   onClose,
-  orientation,
-  onSetOrientation,
-  showEvalBar,
-  onSetShowEvalBar,
-  showEvalScore,
-  onSetShowEvalScore,
-  showCoordinates,
-  onSetShowCoordinates,
-  coordinatesPlacement,
-  onSetCoordinatesPlacement,
 }: BoardSettingsModalProps) {
-  const [pieceSet, setPieceSet] = useState("Default");
-  const [boardTheme, setBoardTheme] = useState("Default");
-  const [moveMethod, setMoveMethod] = useState("Default");
-
-  const [soundLevel, setSoundLevel] = useState<VolumeLevel>("full");
-  const [notificationEnabled, setNotificationEnabled] = useState(true);
+  const { settings, updateSettings, updateSound, updateNotifications } =
+    useSettings();
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -74,10 +48,12 @@ export function BoardSettingsModal({
                 <SettingsSelect
                   setting={{
                     label: "Board Orientation",
-                    value: orientation === "white" ? "White" : "Black",
+                    value: settings.orientation === "white" ? "White" : "Black",
                     options: ["White", "Black"],
                     onChange: (value) =>
-                      onSetOrientation(value.toLowerCase() as Orientation),
+                      updateSettings({
+                        orientation: value.toLowerCase() as Orientation,
+                      }),
                   }}
                 />
               ),
@@ -91,9 +67,9 @@ export function BoardSettingsModal({
                 <SettingsSelect
                   setting={{
                     label: "Pieces",
-                    value: pieceSet,
+                    value: settings.pieceSet,
                     options: pieceSets,
-                    onChange: setPieceSet,
+                    onChange: (value) => updateSettings({ pieceSet: value }),
                   }}
                 />
               ),
@@ -107,9 +83,9 @@ export function BoardSettingsModal({
                 <SettingsSelect
                   setting={{
                     label: "Board",
-                    value: boardTheme,
+                    value: settings.boardTheme,
                     options: boardThemes,
-                    onChange: setBoardTheme,
+                    onChange: (value) => updateSettings({ boardTheme: value }),
                   }}
                 />
               ),
@@ -118,19 +94,21 @@ export function BoardSettingsModal({
 
           <SettingsGroup
             title="Coordinates"
-            isSelected={showCoordinates}
-            onChange={onSetShowCoordinates}
+            isSelected={settings.showCoordinates}
+            onChange={(showCoordinates) => updateSettings({ showCoordinates })}
           >
             <SettingsSelect
               setting={{
                 label: "Coordinate Placement",
                 value:
-                  coordinatesPlacement === "inside" ? "Inside" : "Outside",
+                  settings.coordinatesPlacement === "inside"
+                    ? "Inside"
+                    : "Outside",
                 options: ["Inside", "Outside"],
                 onChange: (value) =>
-                  onSetCoordinatesPlacement(
-                    value.toLowerCase() as CoordinatesPlacement,
-                  ),
+                  updateSettings({
+                    coordinatesPlacement: value.toLowerCase() as CoordinatesPlacement,
+                  }),
               }}
             />
           </SettingsGroup>
@@ -142,9 +120,9 @@ export function BoardSettingsModal({
                 <SettingsSelect
                   setting={{
                     label: "Move Method",
-                    value: moveMethod,
+                    value: settings.moveMethod,
                     options: moveMethods,
-                    onChange: setMoveMethod,
+                    onChange: (value) => updateSettings({ moveMethod: value }),
                   }}
                 />
               ),
@@ -153,21 +131,14 @@ export function BoardSettingsModal({
 
           <SettingsGroup
             title="Eval Bar"
-            isSelected={showEvalBar}
-            onChange={onSetShowEvalBar}
+            isSelected={settings.showEvalBar}
+            onChange={(showEvalBar) => updateSettings({ showEvalBar })}
           >
-            <div className="flex w-full items-center justify-between gap-4">
-              <p className="text-xs font-medium text-neutral-400">
-                Show Score
-              </p>
-              <SettingsToggle
-                setting={{
-                  label: "Eval Score",
-                  isSelected: showEvalScore,
-                  onChange: onSetShowEvalScore,
-                }}
-              />
-            </div>
+            <SettingsSubRow
+              label="Show Score"
+              isSelected={settings.showEvalScore}
+              onChange={(showEvalScore) => updateSettings({ showEvalScore })}
+            />
           </SettingsGroup>
 
           <SettingsItem
@@ -177,8 +148,8 @@ export function BoardSettingsModal({
                 <SettingsVolume
                   setting={{
                     label: "Sound",
-                    value: soundLevel,
-                    onChange: setSoundLevel,
+                    value: settings.sound.master,
+                    onChange: (master) => updateSound({ master }),
                   }}
                 />
               ),
@@ -187,8 +158,8 @@ export function BoardSettingsModal({
 
           <SettingsGroup
             title="Notification"
-            isSelected={notificationEnabled}
-            onChange={setNotificationEnabled}
+            isSelected={settings.notifications.enabled}
+            onChange={(enabled) => updateNotifications({ enabled })}
           />
         </div>
 

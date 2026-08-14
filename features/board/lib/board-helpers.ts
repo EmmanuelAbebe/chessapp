@@ -4,6 +4,7 @@ import type { Chess, Square } from "chess.js";
 export function getMoveOptions(
   chessGame: Chess,
   square: Square,
+  showDots = true,
 ): Record<string, React.CSSProperties> | null {
   const moves = chessGame.moves({
     square,
@@ -16,15 +17,17 @@ export function getMoveOptions(
 
   const newSquares: Record<string, React.CSSProperties> = {};
 
-  for (const move of moves) {
-    newSquares[move.to] = {
-      background:
-        chessGame.get(move.to) &&
-        chessGame.get(move.to)?.color !== chessGame.get(square)?.color
-          ? "radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)"
-          : "radial-gradient(circle, rgba(0,0,0,.1) 25%, transparent 25%)",
-      borderRadius: "50%",
-    };
+  if (showDots) {
+    for (const move of moves) {
+      newSquares[move.to] = {
+        background:
+          chessGame.get(move.to) &&
+          chessGame.get(move.to)?.color !== chessGame.get(square)?.color
+            ? "radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)"
+            : "radial-gradient(circle, rgba(0,0,0,.1) 25%, transparent 25%)",
+        borderRadius: "50%",
+      };
+    }
   }
 
   newSquares[square] = {

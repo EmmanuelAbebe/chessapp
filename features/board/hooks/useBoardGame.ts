@@ -6,13 +6,15 @@ import type { SquareHandlerArgs } from "react-chessboard";
 import type { Orientation, OptionSquares } from "../types";
 import { getMoveOptions } from "../lib/board-helpers";
 import { useMoveTree } from "./useMoveTree";
+import { useSettings } from "@/features/settings/SettingsContext";
 
 const ILLEGAL_MOVE_FLASH_MS = 400;
 
 export function useBoardGame() {
   const moveTree = useMoveTree();
+  const { settings, updateSettings } = useSettings();
+  const orientation = settings.orientation;
 
-  const [orientation, setOrientation] = useState<Orientation>("white");
   const [optionSquares, setOptionSquares] = useState<OptionSquares>({});
   const [moveFrom, setMoveFrom] = useState("");
   const [illegalSquare, setIllegalSquare] = useState<string | null>(null);
@@ -34,6 +36,8 @@ export function useBoardGame() {
   );
 
   const lastMoveSquares = useMemo<OptionSquares>(() => {
+    if (!settings.highlightLastMove) return {};
+
     const uci = moveTree.currentNode.uci;
     if (!uci) return {};
 
@@ -42,9 +46,10 @@ export function useBoardGame() {
     const highlight = { backgroundColor: "rgba(255, 170, 0, 0.3)" };
 
     return { [from]: highlight, [to]: highlight };
-  }, [moveTree.currentNode.uci]);
+  }, [moveTree.currentNode.uci, settings.highlightLastMove]);
 
   const checkSquares = useMemo<OptionSquares>(() => {
+    if (!settings.highlightCheck) return {};
     if (!currentChess.isCheck()) return {};
 
     const turn = currentChess.turn();
@@ -65,7 +70,7 @@ export function useBoardGame() {
         transition: "background-color 150ms ease-out",
       },
     };
-  }, [currentChess]);
+  }, [currentChess, settings.highlightCheck]);
 
   const illegalSquares = useMemo<OptionSquares>(() => {
     if (!illegalSquare) return {};
@@ -92,14 +97,20 @@ export function useBoardGame() {
   }
 
   function toggleOrientation() {
-    setOrientation((current) => (current === "white" ? "black" : "white"));
+    updateSettings({
+      orientation: orientation === "white" ? "black" : "white",
+    });
   }
 
   function onSquareClick({ square, piece }: SquareHandlerArgs) {
     if (currentChess.isGameOver()) return;
 
     if (!moveFrom && piece) {
-      const nextOptions = getMoveOptions(currentChess, square as Square);
+      const nextOptions = getMoveOptions(
+        currentChess,
+        square as Square,
+        settings.showLegalMoves,
+      );
       setOptionSquares(nextOptions ?? {});
       if (nextOptions) setMoveFrom(square);
       return;
@@ -113,7 +124,11 @@ export function useBoardGame() {
     const foundMove = moves.find((m) => m.from === moveFrom && m.to === square);
 
     if (!foundMove) {
-      const nextOptions = getMoveOptions(currentChess, square as Square);
+      const nextOptions = getMoveOptions(
+        currentChess,
+        square as Square,
+        settings.showLegalMoves,
+      );
 
       if (!nextOptions) {
         flashIllegalSquare(square);
@@ -139,7 +154,7 @@ export function useBoardGame() {
   }
 
   function changeOrientation(nextOrientation: Orientation) {
-    setOrientation(nextOrientation);
+    updateSettings({ orientation: nextOrientation });
   }
 
   return {

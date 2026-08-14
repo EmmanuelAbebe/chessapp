@@ -11,8 +11,8 @@ import { MoveNavigation } from "./MoveNavigation";
 import { AiChatPanel } from "./AiChatPanel";
 import { useBoardGame } from "../hooks/useBoardGame";
 import { useBoardSettings } from "../hooks/useBoardSettings";
-import { useBoardPreferences } from "../hooks/useBoardPreferences";
 import { useEvalScore } from "../hooks/useEvalScore";
+import { useSettings } from "@/features/settings/SettingsContext";
 
 export function BoardScreen() {
   const {
@@ -29,7 +29,6 @@ export function BoardScreen() {
     canGoNext,
     canGoEnd,
     toggleOrientation,
-    changeOrientation,
     onSquareClick,
     goToNode,
     goToStart,
@@ -41,16 +40,9 @@ export function BoardScreen() {
   const { isBoardSettingsOpen, openBoardSettings, closeBoardSettings } =
     useBoardSettings();
 
-  const {
-    showEvalBar,
-    setShowEvalBar,
-    showEvalScore,
-    setShowEvalScore,
-    showCoordinates,
-    setShowCoordinates,
-    coordinatesPlacement,
-    setCoordinatesPlacement,
-  } = useBoardPreferences();
+  const { settings } = useSettings();
+  const { showEvalBar, showEvalScore, showCoordinates, coordinatesPlacement } =
+    settings;
 
   const evalScore = useEvalScore(
     analysisFen || chessPosition,
@@ -136,16 +128,6 @@ export function BoardScreen() {
       <BoardSettingsModal
         isOpen={isBoardSettingsOpen}
         onClose={closeBoardSettings}
-        orientation={orientation}
-        onSetOrientation={changeOrientation}
-        showEvalBar={showEvalBar}
-        onSetShowEvalBar={setShowEvalBar}
-        showEvalScore={showEvalScore}
-        onSetShowEvalScore={setShowEvalScore}
-        showCoordinates={showCoordinates}
-        onSetShowCoordinates={setShowCoordinates}
-        coordinatesPlacement={coordinatesPlacement}
-        onSetCoordinatesPlacement={setCoordinatesPlacement}
       />
     </>
   );

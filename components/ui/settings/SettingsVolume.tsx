@@ -1,16 +1,15 @@
 "use client";
 
-import type { IconType } from "react-icons";
 import { IoVolumeHigh, IoVolumeLow, IoVolumeMedium, IoVolumeMute } from "react-icons/io5";
 
-export type VolumeLevel = "off" | "low" | "medium" | "full";
+/** Volume as a percentage, 0-100. */
+export type VolumeLevel = number;
 
-const levels: { value: VolumeLevel; label: string; icon: IconType }[] = [
-  { value: "off", label: "Off", icon: IoVolumeMute },
-  { value: "low", label: "Low", icon: IoVolumeLow },
-  { value: "medium", label: "Medium", icon: IoVolumeMedium },
-  { value: "full", label: "Full", icon: IoVolumeHigh },
-];
+function levelLabel(value: VolumeLevel): string {
+  if (value <= 0) return "Off";
+  if (value >= 100) return "Max";
+  return `${value}%`;
+}
 
 interface VolumeSetting {
   label: string;
@@ -25,39 +24,34 @@ interface SettingsVolumeProps {
 export default function SettingsVolume({ setting }: SettingsVolumeProps) {
   const { label, value, onChange } = setting;
 
-  return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="flex items-center gap-1 rounded-lg border border-neutral-700 bg-neutral-900 p-1 shadow-sm"
-    >
-      {levels.map(({ value: level, label: levelLabel, icon: Icon }) => {
-        const isSelected = value === level;
+  const Icon =
+    value <= 0
+      ? IoVolumeMute
+      : value < 34
+        ? IoVolumeLow
+        : value < 67
+          ? IoVolumeMedium
+          : IoVolumeHigh;
 
-        return (
-          <button
-            key={level}
-            type="button"
-            role="radio"
-            aria-checked={isSelected}
-            aria-label={levelLabel}
-            title={levelLabel}
-            onClick={() => onChange(level)}
-            className={`
-              flex h-7 w-7 items-center justify-center rounded-md
-              outline-none transition
-              focus-visible:ring-2 focus-visible:ring-blue-500
-              ${
-                isSelected
-                  ? "bg-blue-600 text-white"
-                  : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
-              }
-            `}
-          >
-            <Icon className="h-4 w-4" />
-          </button>
-        );
-      })}
+  return (
+    <div className="flex items-center gap-3">
+      <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-neutral-500" />
+
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        aria-label={label}
+        aria-valuetext={levelLabel(value)}
+        className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-neutral-800 accent-blue-500"
+      />
+
+      <span className="w-12 shrink-0 text-xs text-neutral-500">
+        {levelLabel(value)}
+      </span>
     </div>
   );
 }
