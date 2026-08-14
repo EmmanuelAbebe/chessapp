@@ -5,6 +5,7 @@ import Modal from "@/components/ui/Modal";
 import SettingsItem from "@/components/ui/settings/SettingsItem";
 import SettingsGroup from "@/components/ui/settings/SettingsGroup";
 import SettingsSelect from "@/components/ui/settings/SettingsSelect";
+import SettingsToggle from "@/components/ui/settings/SettingsToggle";
 import SettingsVolume, {
   type VolumeLevel,
 } from "@/components/ui/settings/SettingsVolume";
@@ -17,6 +18,8 @@ type BoardSettingsModalProps = {
   onSetOrientation: (orientation: Orientation) => void;
   showEvalBar: boolean;
   onSetShowEvalBar: (showEvalBar: boolean) => void;
+  showEvalScore: boolean;
+  onSetShowEvalScore: (showEvalScore: boolean) => void;
   showCoordinates: boolean;
   onSetShowCoordinates: (showCoordinates: boolean) => void;
   coordinatesPlacement: CoordinatesPlacement;
@@ -42,6 +45,8 @@ export function BoardSettingsModal({
   onSetOrientation,
   showEvalBar,
   onSetShowEvalBar,
+  showEvalScore,
+  onSetShowEvalScore,
   showCoordinates,
   onSetShowCoordinates,
   coordinatesPlacement,
@@ -150,7 +155,20 @@ export function BoardSettingsModal({
             title="Eval Bar"
             isSelected={showEvalBar}
             onChange={onSetShowEvalBar}
-          />
+          >
+            <div className="flex w-full items-center justify-between gap-4">
+              <p className="text-xs font-medium text-neutral-400">
+                Show Score
+              </p>
+              <SettingsToggle
+                setting={{
+                  label: "Eval Score",
+                  isSelected: showEvalScore,
+                  onChange: onSetShowEvalScore,
+                }}
+              />
+            </div>
+          </SettingsGroup>
 
           <SettingsItem
             item={{

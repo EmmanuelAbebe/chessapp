@@ -7,6 +7,7 @@ export function useBoardPreferences() {
   const [engineDepth, setEngineDepth] = useState(14);
   const [engineMoveTime, setEngineMoveTime] = useState(300);
   const [showEvalBar, setShowEvalBar] = useState(false);
+  const [showEvalScore, setShowEvalScore] = useState(true);
   const [showCoordinates, setShowCoordinates] = useState(true);
   const [coordinatesPlacement, setCoordinatesPlacement] =
     useState<CoordinatesPlacement>("inside");
@@ -18,6 +19,8 @@ export function useBoardPreferences() {
     setEngineMoveTime,
     showEvalBar,
     setShowEvalBar,
+    showEvalScore,
+    setShowEvalScore,
     showCoordinates,
     setShowCoordinates,
     coordinatesPlacement,

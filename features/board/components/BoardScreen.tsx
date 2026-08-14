@@ -2,6 +2,7 @@
 
 import React from "react";
 import { EvalBar } from "./EvalBar";
+import { EvalScoreLabel } from "./EvalScoreLabel";
 import { BoardView } from "./BoardView";
 import { BoardControls } from "./BoardControls";
 import { BoardSettingsModal } from "./BoardSettingsModal";
@@ -11,6 +12,7 @@ import { AiChatPanel } from "./AiChatPanel";
 import { useBoardGame } from "../hooks/useBoardGame";
 import { useBoardSettings } from "../hooks/useBoardSettings";
 import { useBoardPreferences } from "../hooks/useBoardPreferences";
+import { useEvalScore } from "../hooks/useEvalScore";
 
 export function BoardScreen() {
   const {
@@ -42,11 +44,19 @@ export function BoardScreen() {
   const {
     showEvalBar,
     setShowEvalBar,
+    showEvalScore,
+    setShowEvalScore,
     showCoordinates,
     setShowCoordinates,
     coordinatesPlacement,
     setCoordinatesPlacement,
   } = useBoardPreferences();
+
+  const evalScore = useEvalScore(
+    analysisFen || chessPosition,
+    14,
+    showEvalBar || showEvalScore,
+  );
 
   return (
     <>
@@ -54,7 +64,13 @@ export function BoardScreen() {
         <div className="flex w-(--board-size) flex-col gap-3 [--board-size:min(92vw,78dvh,880px)]">
           <AiChatPanel />
 
-          <div className="flex w-full items-start justify-between gap-3">
+          <div className="flex w-full items-start gap-3">
+            <EvalScoreLabel
+              visible={showEvalScore}
+              displayScore={evalScore.displayScore}
+              displayMate={evalScore.displayMate}
+            />
+
             <div className="min-w-0 flex-1">
               <MoveList
                 currentLine={currentLine}
@@ -77,35 +93,32 @@ export function BoardScreen() {
             </div>
           </div>
 
-          <div className="flex h-(--board-size) w-full items-start justify-center gap-3">
-            {showEvalBar && (
-              <EvalBar
-                fen={analysisFen || chessPosition}
-                orientation={orientation}
-                depth={14}
-              />
-            )}
+          <div className="flex h-(--board-size) w-full justify-center gap-2">
+            <EvalBar
+              visible={showEvalBar}
+              whitePercent={evalScore.whitePercent}
+              depth={evalScore.depth}
+              bestMove={evalScore.bestMove}
+            />
 
-            <div className="relative h-(--board-size) w-(--board-size)">
-              <BoardView
-                chessPosition={chessPosition}
-                orientation={orientation}
-                optionSquares={{
-                  ...lastMoveSquares,
-                  ...checkSquares,
-                  ...optionSquares,
-                  ...illegalSquares,
-                }}
-                onSquareClick={onSquareClick}
-                showCoordinates={showCoordinates}
-                coordinatesPlacement={coordinatesPlacement}
-              />
+            <BoardView
+              chessPosition={chessPosition}
+              orientation={orientation}
+              optionSquares={{
+                ...lastMoveSquares,
+                ...checkSquares,
+                ...optionSquares,
+                ...illegalSquares,
+              }}
+              onSquareClick={onSquareClick}
+              showCoordinates={showCoordinates}
+              coordinatesPlacement={coordinatesPlacement}
+            />
 
-              <BoardControls
-                openBoardSettings={openBoardSettings}
-                toggleOrientation={toggleOrientation}
-              />
-            </div>
+            <BoardControls
+              openBoardSettings={openBoardSettings}
+              toggleOrientation={toggleOrientation}
+            />
           </div>
         </div>
       </div>
@@ -117,6 +130,8 @@ export function BoardScreen() {
         onSetOrientation={changeOrientation}
         showEvalBar={showEvalBar}
         onSetShowEvalBar={setShowEvalBar}
+        showEvalScore={showEvalScore}
+        onSetShowEvalScore={setShowEvalScore}
         showCoordinates={showCoordinates}
         onSetShowCoordinates={setShowCoordinates}
         coordinatesPlacement={coordinatesPlacement}

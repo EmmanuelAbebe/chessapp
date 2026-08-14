@@ -59,7 +59,7 @@ export function BoardView({
 
   if (!showOutsideCoordinates) {
     return (
-      <div className="h-full w-full rounded">
+      <div className="h-(--board-size) w-(--board-size) shrink-0 rounded">
         <Chessboard options={chessboardOptions} />
       </div>
     );
@@ -69,10 +69,10 @@ export function BoardView({
   const ranks = orientation === "white" ? RANKS : [...RANKS].reverse();
 
   return (
-    <div className="flex h-full w-full">
-      <div className="flex flex-col pr-1 font-mono text-xs text-neutral-500">
+    <div className="flex h-(--board-size) w-(--board-size) shrink-0 [--coord-size:1.5rem]">
+      <div className="flex w-(--coord-size) flex-col font-mono text-xs text-neutral-500">
         {ranks.map((rank) => (
-          <span key={rank} className="flex flex-1 items-center">
+          <span key={rank} className="flex flex-1 items-center justify-center">
             {rank}
           </span>
         ))}
@@ -83,9 +83,9 @@ export function BoardView({
           <Chessboard options={chessboardOptions} />
         </div>
 
-        <div className="flex pt-1 font-mono text-xs text-neutral-500">
+        <div className="flex h-(--coord-size) font-mono text-xs text-neutral-500">
           {files.map((file) => (
-            <span key={file} className="flex-1 text-center">
+            <span key={file} className="flex flex-1 items-center justify-center">
               {file}
             </span>
           ))}
