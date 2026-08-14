@@ -64,7 +64,7 @@ export function BoardScreen() {
         <div className="flex w-(--board-size) flex-col gap-3 [--board-size:min(92vw,78dvh,880px)]">
           <AiChatPanel />
 
-          <div className="flex w-full items-start gap-3">
+          <div className="flex w-full items-start gap-2">
             <EvalScoreLabel
               visible={showEvalScore}
               displayScore={evalScore.displayScore}
@@ -93,7 +93,7 @@ export function BoardScreen() {
             </div>
           </div>
 
-          <div className="flex h-(--board-size) w-full justify-center gap-2">
+          <div className="flex h-(--board-size) w-full gap-2">
             <EvalBar
               visible={showEvalBar}
               whitePercent={evalScore.whitePercent}

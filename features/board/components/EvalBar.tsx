@@ -7,10 +7,15 @@ type EvalBarProps = {
   bestMove: string | null;
 };
 
-export function EvalBar({ visible, whitePercent, depth, bestMove }: EvalBarProps) {
+export function EvalBar({
+  visible,
+  whitePercent,
+  depth,
+  bestMove,
+}: EvalBarProps) {
   return (
     <div
-      className={`relative w-8 shrink-0 overflow-hidden border border-neutral-700 ${
+      className={`relative -ml-6 w-4 shrink-0 overflow-hidden border border-neutral-700 ${
         visible ? "" : "invisible"
       }`}
       title={`Depth ${depth}${bestMove ? ` • ${bestMove}` : ""}`}
