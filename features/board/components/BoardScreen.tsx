@@ -71,6 +71,17 @@ export function BoardScreen() {
               displayMate={evalScore.displayMate}
             />
 
+            <MoveNavigation
+              side="start"
+              canGoPrevious={canGoPrevious}
+              canGoNext={canGoNext}
+              canGoEnd={canGoEnd}
+              onStart={goToStart}
+              onPrevious={goToPrevious}
+              onNext={goToNext}
+              onEnd={goToEnd}
+            />
+
             <div className="min-w-0 flex-1">
               <MoveList
                 currentLine={currentLine}
@@ -80,17 +91,16 @@ export function BoardScreen() {
               />
             </div>
 
-            <div className="shrink-0">
-              <MoveNavigation
-                canGoPrevious={canGoPrevious}
-                canGoNext={canGoNext}
-                canGoEnd={canGoEnd}
-                onStart={goToStart}
-                onPrevious={goToPrevious}
-                onNext={goToNext}
-                onEnd={goToEnd}
-              />
-            </div>
+            <MoveNavigation
+              side="end"
+              canGoPrevious={canGoPrevious}
+              canGoNext={canGoNext}
+              canGoEnd={canGoEnd}
+              onStart={goToStart}
+              onPrevious={goToPrevious}
+              onNext={goToNext}
+              onEnd={goToEnd}
+            />
           </div>
 
           <div className="flex h-(--board-size) w-full gap-2">
