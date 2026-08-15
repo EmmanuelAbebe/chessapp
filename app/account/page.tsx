@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { FaUserAlt } from "react-icons/fa";
+import { FaCreditCard, FaDownload, FaKey, FaPen } from "react-icons/fa6";
+import Modal from "@/components/ui/Modal";
 import SettingsItem from "@/components/ui/settings/SettingsItem";
 import SettingsSelect from "@/components/ui/settings/SettingsSelect";
 import SettingsToggle from "@/components/ui/settings/SettingsToggle";
@@ -9,6 +11,255 @@ import SettingsVolume from "@/components/ui/settings/SettingsVolume";
 import { useSettings } from "@/features/settings/SettingsContext";
 import type { CoordinatesPlacement, Orientation } from "@/features/board/types";
 import type { ThemeShade } from "@/features/settings/types";
+
+const primaryButtonClass =
+  "rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
+const secondaryButtonClass =
+  "rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:bg-neutral-700";
+const inputClass =
+  "block w-full rounded-lg border border-neutral-700 bg-neutral-800 p-2.5 text-sm text-neutral-100 placeholder-neutral-500 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500";
+
+type Profile = { username: string; email: string };
+
+const PLANS = [
+  {
+    name: "Free",
+    price: "$0/mo",
+    features: ["Unlimited games", "Basic move analysis"],
+  },
+  {
+    name: "Premium",
+    price: "$9.99/mo",
+    features: ["Everything in Free", "Full AI coaching", "Unlimited analysis"],
+  },
+  {
+    name: "Pro",
+    price: "$19.99/mo",
+    features: [
+      "Everything in Premium",
+      "Priority support",
+      "Advanced statistics",
+    ],
+  },
+];
+
+const INVOICES = [
+  { id: "inv_003", date: "Nov 30, 2024", amount: "$9.99", status: "Paid" },
+  { id: "inv_002", date: "Oct 31, 2024", amount: "$9.99", status: "Paid" },
+  { id: "inv_001", date: "Sep 30, 2024", amount: "$9.99", status: "Paid" },
+];
+
+function EditProfileModal({
+  profile,
+  onClose,
+  onSave,
+}: {
+  profile: Profile;
+  onClose: () => void;
+  onSave: (profile: Profile) => void;
+}) {
+  const [username, setUsername] = useState(profile.username);
+  const [email, setEmail] = useState(profile.email);
+
+  return (
+    <Modal isOpen onClose={onClose}>
+      <h2 className="text-xl font-bold text-white">Edit Profile</h2>
+
+      <div className="mt-6 flex flex-col gap-4">
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium text-neutral-300">Username</span>
+          <input
+            className={inputClass}
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium text-neutral-300">Email</span>
+          <input
+            type="email"
+            className={inputClass}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="mt-6 flex justify-end gap-3">
+        <button onClick={onClose} className={secondaryButtonClass}>
+          Cancel
+        </button>
+        <button
+          onClick={() => onSave({ username, email })}
+          disabled={!username.trim() || !email.trim()}
+          className={primaryButtonClass}
+        >
+          Save Changes
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!current || !next || !confirm) {
+      setError("Fill in all fields.");
+      return;
+    }
+    if (next.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+    if (next !== confirm) {
+      setError("New password and confirmation do not match.");
+      return;
+    }
+    setError(null);
+    setSuccess(true);
+  }
+
+  return (
+    <Modal isOpen onClose={onClose}>
+      <h2 className="text-xl font-bold text-white">Change Password</h2>
+
+      {success ? (
+        <div className="mt-6 flex flex-col gap-4">
+          <p className="text-sm text-green-400">
+            Your password has been updated.
+          </p>
+          <div className="flex justify-end">
+            <button onClick={onClose} className={primaryButtonClass}>
+              Done
+            </button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-neutral-300">
+              Current Password
+            </span>
+            <input
+              type="password"
+              className={inputClass}
+              value={current}
+              onChange={(event) => setCurrent(event.target.value)}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-neutral-300">New Password</span>
+            <input
+              type="password"
+              className={inputClass}
+              value={next}
+              onChange={(event) => setNext(event.target.value)}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-neutral-300">
+              Confirm New Password
+            </span>
+            <input
+              type="password"
+              className={inputClass}
+              value={confirm}
+              onChange={(event) => setConfirm(event.target.value)}
+            />
+          </label>
+
+          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+
+          <div className="mt-2 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className={secondaryButtonClass}
+            >
+              Cancel
+            </button>
+            <button type="submit" className={primaryButtonClass}>
+              Update Password
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
+function UpgradePlanModal({
+  currentPlan,
+  onClose,
+  onSelect,
+}: {
+  currentPlan: string;
+  onClose: () => void;
+  onSelect: (plan: string) => void;
+}) {
+  const [selected, setSelected] = useState(currentPlan);
+
+  return (
+    <Modal isOpen onClose={onClose}>
+      <h2 className="text-xl font-bold text-white">Choose a Plan</h2>
+
+      <div className="mt-6 flex flex-col gap-3">
+        {PLANS.map((planOption) => {
+          const isSelected = selected === planOption.name;
+
+          return (
+            <button
+              key={planOption.name}
+              type="button"
+              onClick={() => setSelected(planOption.name)}
+              className={`flex flex-col gap-1.5 rounded-lg border p-3 text-left transition ${
+                isSelected
+                  ? "border-blue-500 bg-blue-500/10"
+                  : "border-neutral-700 hover:border-neutral-600"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-white">
+                  {planOption.name}
+                </span>
+                <span className="text-sm text-neutral-400">
+                  {planOption.price}
+                </span>
+              </div>
+              <ul className="flex flex-col gap-0.5 text-xs text-neutral-500">
+                {planOption.features.map((feature) => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-6 flex justify-end gap-3">
+        <button onClick={onClose} className={secondaryButtonClass}>
+          Cancel
+        </button>
+        <button
+          onClick={() => onSelect(selected)}
+          className={primaryButtonClass}
+        >
+          Confirm Plan
+        </button>
+      </div>
+    </Modal>
+  );
+}
 
 const pieceSets = [
   "Default",
@@ -39,7 +290,7 @@ function SettingsCard({
       <h4 className="text-sm font-semibold tracking-wide text-neutral-500">
         {title}
       </h4>
-      <div className="divide-y divide-neutral-800 p-2">{children}</div>
+      <div className="p-2">{children}</div>
     </div>
   );
 }
@@ -94,6 +345,20 @@ const AccountPage = () => {
     useSettings();
   const activeSection = useActiveSection(SECTION_IDS);
 
+  const [profile, setProfile] = useState<Profile>({
+    username: "JohnDoe123",
+    email: "johndoe@example.com",
+  });
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+
+  const [plan, setPlan] = useState("Premium");
+  const [subscriptionStatus, setSubscriptionStatus] = useState<
+    "Active" | "Canceled"
+  >("Active");
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [isCancelConfirming, setIsCancelConfirming] = useState(false);
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 md:flex-row md:items-start md:gap-12 md:py-12">
       <nav
@@ -123,10 +388,17 @@ const AccountPage = () => {
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col gap-16">
-        <h1 className="text-2xl font-bold">Account</h1>
+        {/* <h1 className="text-2xl font-bold">Account</h1> */}
 
-        <section id="profile" aria-labelledby="profile-heading" className="scroll-mt-20">
-          <h2 id="profile-heading" className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white">
+        <section
+          id="profile"
+          aria-labelledby="profile-heading"
+          className="scroll-mt-20"
+        >
+          <h2
+            id="profile-heading"
+            className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white"
+          >
             Profile
           </h2>
 
@@ -139,7 +411,10 @@ const AccountPage = () => {
 
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
               <dt className="text-neutral-500">Username</dt>
-              <dd className="font-medium">JohnDoe123</dd>
+              <dd className="font-medium">{profile.username}</dd>
+
+              <dt className="text-neutral-500">Email</dt>
+              <dd className="font-medium">{profile.email}</dd>
 
               <dt className="text-neutral-500">Chess rating</dt>
               <dd className="font-medium">1500</dd>
@@ -148,6 +423,40 @@ const AccountPage = () => {
               <dd className="font-medium">January 2023</dd>
             </dl>
           </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button
+              onClick={() => setIsEditProfileOpen(true)}
+              className={secondaryButtonClass}
+            >
+              <FaPen aria-hidden="true" className="mr-2 inline h-3 w-3" />
+              Edit Profile
+            </button>
+            <button
+              onClick={() => setIsChangePasswordOpen(true)}
+              className={secondaryButtonClass}
+            >
+              <FaKey aria-hidden="true" className="mr-2 inline h-3 w-3" />
+              Change Password
+            </button>
+          </div>
+
+          {isEditProfileOpen && (
+            <EditProfileModal
+              profile={profile}
+              onClose={() => setIsEditProfileOpen(false)}
+              onSave={(next) => {
+                setProfile(next);
+                setIsEditProfileOpen(false);
+              }}
+            />
+          )}
+
+          {isChangePasswordOpen && (
+            <ChangePasswordModal
+              onClose={() => setIsChangePasswordOpen(false)}
+            />
+          )}
         </section>
 
         <section
@@ -155,20 +464,134 @@ const AccountPage = () => {
           aria-labelledby="subscription-heading"
           className="scroll-mt-20"
         >
-          <h2 id="subscription-heading" className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white">
+          <h2
+            id="subscription-heading"
+            className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white"
+          >
             Subscription
           </h2>
 
           <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
             <dt className="text-neutral-500">Plan</dt>
-            <dd className="font-medium">Premium</dd>
+            <dd className="font-medium">{plan}</dd>
 
             <dt className="text-neutral-500">Renewal date</dt>
             <dd className="font-medium">December 31, 2024</dd>
 
             <dt className="text-neutral-500">Status</dt>
-            <dd className="font-medium text-green-400">Active</dd>
+            <dd
+              className={`font-medium ${
+                subscriptionStatus === "Active"
+                  ? "text-green-400"
+                  : "text-neutral-500"
+              }`}
+            >
+              {subscriptionStatus}
+            </dd>
           </dl>
+
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <button
+              onClick={() => setIsUpgradeOpen(true)}
+              className={primaryButtonClass}
+            >
+              {plan === "Free" ? "Upgrade Plan" : "Change Plan"}
+            </button>
+
+            {subscriptionStatus === "Active" ? (
+              isCancelConfirming ? (
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-neutral-400">
+                    Cancel your subscription?
+                  </span>
+                  <button
+                    onClick={() => {
+                      setSubscriptionStatus("Canceled");
+                      setIsCancelConfirming(false);
+                    }}
+                    className="font-medium text-red-400 hover:underline"
+                  >
+                    Yes, cancel
+                  </button>
+                  <button
+                    onClick={() => setIsCancelConfirming(false)}
+                    className="font-medium text-neutral-400 hover:underline"
+                  >
+                    Keep plan
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsCancelConfirming(true)}
+                  className="text-sm font-medium text-red-400 hover:underline"
+                >
+                  Cancel Subscription
+                </button>
+              )
+            ) : (
+              <button
+                onClick={() => setSubscriptionStatus("Active")}
+                className="text-sm font-medium text-blue-400 hover:underline"
+              >
+                Reactivate Subscription
+              </button>
+            )}
+          </div>
+
+          {isUpgradeOpen && (
+            <UpgradePlanModal
+              currentPlan={plan}
+              onClose={() => setIsUpgradeOpen(false)}
+              onSelect={(next) => {
+                setPlan(next);
+                setIsUpgradeOpen(false);
+              }}
+            />
+          )}
+
+          <div className="mt-8 flex flex-col gap-3">
+            <h3 className="text-sm font-semibold tracking-wide text-neutral-500">
+              Billing
+            </h3>
+
+            <div className="flex items-center gap-3 rounded-lg border border-neutral-800 p-3">
+              <FaCreditCard
+                aria-hidden="true"
+                className="shrink-0 text-neutral-500"
+                size={20}
+              />
+              <div>
+                <p className="text-sm font-medium">Visa •••• 4242</p>
+                <p className="text-xs text-neutral-500">Expires 08/2027</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col">
+              {INVOICES.map((invoice) => (
+                <div
+                  key={invoice.id}
+                  className="flex items-center justify-between gap-4 py-2 text-sm"
+                >
+                  <div>
+                    <p className="font-medium">{plan} Plan</p>
+                    <p className="text-xs text-neutral-500">{invoice.date}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs font-medium text-green-400">
+                      {invoice.status}
+                    </span>
+                    <span className="font-medium">{invoice.amount}</span>
+                    <button
+                      aria-label={`Download invoice from ${invoice.date}`}
+                      className="text-neutral-500 hover:text-white"
+                    >
+                      <FaDownload size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section
@@ -176,7 +599,10 @@ const AccountPage = () => {
           aria-labelledby="statistics-heading"
           className="scroll-mt-20"
         >
-          <h2 id="statistics-heading" className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white">
+          <h2
+            id="statistics-heading"
+            className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white"
+          >
             Statistics
           </h2>
 
@@ -190,8 +616,15 @@ const AccountPage = () => {
           </dl>
         </section>
 
-        <section id="settings" aria-labelledby="settings-heading" className="scroll-mt-20">
-          <h2 id="settings-heading" className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white">
+        <section
+          id="settings"
+          aria-labelledby="settings-heading"
+          className="scroll-mt-20"
+        >
+          <h2
+            id="settings-heading"
+            className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white"
+          >
             Settings
           </h2>
           <p className="mt-1 text-sm text-neutral-500">
@@ -218,7 +651,8 @@ const AccountPage = () => {
                           const match = themeShades.find(
                             (shade) => shade.label === label,
                           );
-                          if (match) updateSettings({ themeShade: match.value });
+                          if (match)
+                            updateSettings({ themeShade: match.value });
                         },
                       }}
                     />
@@ -235,7 +669,8 @@ const AccountPage = () => {
                     <SettingsSelect
                       setting={{
                         label: "Board Orientation",
-                        value: settings.orientation === "white" ? "White" : "Black",
+                        value:
+                          settings.orientation === "white" ? "White" : "Black",
                         options: ["White", "Black"],
                         onChange: (value) =>
                           updateSettings({
@@ -256,7 +691,8 @@ const AccountPage = () => {
                         label: "Pieces",
                         value: settings.pieceSet,
                         options: pieceSets,
-                        onChange: (value) => updateSettings({ pieceSet: value }),
+                        onChange: (value) =>
+                          updateSettings({ pieceSet: value }),
                       }}
                     />
                   ),
@@ -272,7 +708,8 @@ const AccountPage = () => {
                         label: "Board",
                         value: settings.boardTheme,
                         options: boardThemes,
-                        onChange: (value) => updateSettings({ boardTheme: value }),
+                        onChange: (value) =>
+                          updateSettings({ boardTheme: value }),
                       }}
                     />
                   ),
@@ -288,7 +725,8 @@ const AccountPage = () => {
                         label: "Move Method",
                         value: settings.moveMethod,
                         options: moveMethods,
-                        onChange: (value) => updateSettings({ moveMethod: value }),
+                        onChange: (value) =>
+                          updateSettings({ moveMethod: value }),
                       }}
                     />
                   ),
@@ -375,7 +813,8 @@ const AccountPage = () => {
                         options: ["Inside", "Outside"],
                         onChange: (value) =>
                           updateSettings({
-                            coordinatesPlacement: value.toLowerCase() as CoordinatesPlacement,
+                            coordinatesPlacement:
+                              value.toLowerCase() as CoordinatesPlacement,
                           }),
                       }}
                     />
@@ -519,7 +958,8 @@ const AccountPage = () => {
                       setting={{
                         label: "Your Turn",
                         isSelected: settings.notifications.yourTurn,
-                        onChange: (yourTurn) => updateNotifications({ yourTurn }),
+                        onChange: (yourTurn) =>
+                          updateNotifications({ yourTurn }),
                       }}
                     />
                   ),
