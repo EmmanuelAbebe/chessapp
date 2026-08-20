@@ -61,6 +61,7 @@ export function MoveList({
 }: MoveListProps) {
   const movePairs = buildMovePairs(currentLine);
   const currentMoveRef = useRef<HTMLButtonElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [highlight, setHighlight] = useState<HighlightRect | null>(null);
 
   useLayoutEffect(() => {
@@ -71,16 +72,22 @@ export function MoveList({
   }, [currentNodeId, currentLine]);
 
   useEffect(() => {
-    currentMoveRef.current?.scrollIntoView({
-      inline: "nearest",
-      block: "nearest",
-      behavior: "smooth",
-    });
+    const button = currentMoveRef.current;
+    if (button) {
+      button.scrollIntoView({
+        inline: "nearest",
+        block: "nearest",
+        behavior: "smooth",
+      });
+    } else {
+      // No move selected (e.g. jumped to the start) - scroll back to the beginning.
+      containerRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+    }
   }, [currentNodeId]);
 
   return (
     <div className="w-full">
-      <div className="flex justify-start overflow-x-auto no-scrollbar">
+      <div ref={containerRef} className="flex justify-start overflow-x-auto no-scrollbar">
         <div className="relative flex w-max flex-row gap-1 text-sm whitespace-nowrap">
           {highlight && (
             <div
