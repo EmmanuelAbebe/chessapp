@@ -33,3 +33,35 @@ export function whitePercentFromScore(displayScore: number) {
   const compressedScore = 1000 * Math.tanh(displayScore / 350);
   return clamp(((compressedScore + 1000) / 2000) * 100, 0, 100);
 }
+
+/** A single comparable number for a cp/mate pair - mate always dominates
+ * any cp value, and shorter mates are "better" than longer ones. */
+export function toComparableScore(cp: number | null, mate: number | null) {
+  if (mate !== null) {
+    return mate > 0 ? 100000 - mate : -100000 - mate;
+  }
+  return cp ?? 0;
+}
+
+/**
+ * Given engine candidates ranked best-first (as MultiPV lines already are),
+ * keep the leading run that stays within `thresholdCp` of the best move's
+ * score - e.g. 3-4 moves when they're all roughly as good, just 1-2 when
+ * one move is clearly best.
+ */
+export function selectCloseCandidates<
+  T extends { cp: number | null; mate: number | null },
+>(candidates: T[], thresholdCp = 50): T[] {
+  if (candidates.length === 0) return [];
+
+  const bestScore = toComparableScore(candidates[0].cp, candidates[0].mate);
+  const shown: T[] = [];
+
+  for (const candidate of candidates) {
+    const gap = bestScore - toComparableScore(candidate.cp, candidate.mate);
+    if (gap > thresholdCp) break;
+    shown.push(candidate);
+  }
+
+  return shown;
+}

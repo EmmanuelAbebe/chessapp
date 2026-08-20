@@ -12,8 +12,11 @@ import { MoveNavigation } from "./MoveNavigation";
 import { AiChatPanel } from "./AiChatPanel";
 import { useBoardGame } from "../hooks/useBoardGame";
 import { useBoardSettings } from "../hooks/useBoardSettings";
-import { useEvalScore } from "../hooks/useEvalScore";
+import { useEvalScore, type CandidateMove } from "../hooks/useEvalScore";
+import { selectCloseCandidates } from "../lib/eval-format";
 import { useSettings } from "@/features/settings/SettingsContext";
+
+const AI_ARROW_OPACITIES = [0.9, 0.65, 0.45, 0.3];
 
 export function BoardScreen() {
   const {
@@ -50,19 +53,23 @@ export function BoardScreen() {
     showEvalBar || showEvalScore,
   );
 
-  // Test wiring: Stockfish's best move rendered as an AI-drawn arrow,
-  // distinct in color from user-drawn ones (#ffaa00).
+  // Stockfish's top candidate moves (MultiPV) rendered as AI-drawn arrows,
+  // in blue to stay distinct from user-drawn ones (library default #ffaa00).
+  // Shows the full leading cluster of moves that are within ~half a pawn of
+  // the best move (typically 3-4 in a close position), trimming down to
+  // just the best 1-2 once there's a clear gap.
   const aiArrows = useMemo<Arrow[]>(() => {
-    if (!evalScore.bestMove) return [];
+    const ranked = evalScore.candidates.filter(
+      (candidate): candidate is CandidateMove => candidate !== undefined,
+    );
+    const shown = selectCloseCandidates(ranked);
 
-    return [
-      {
-        startSquare: evalScore.bestMove.slice(0, 2),
-        endSquare: evalScore.bestMove.slice(2, 4),
-        color: "#3b82f6",
-      },
-    ];
-  }, [evalScore.bestMove]);
+    return shown.map((candidate, index) => ({
+      startSquare: candidate.move.slice(0, 2),
+      endSquare: candidate.move.slice(2, 4),
+      color: `rgba(59, 130, 246, ${AI_ARROW_OPACITIES[index] ?? 0.3})`,
+    }));
+  }, [evalScore.candidates]);
 
   return (
     <>

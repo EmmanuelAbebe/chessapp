@@ -6,11 +6,21 @@ import { createEngine } from "@/features/engine/lib/stockfish-client";
 import type { StockfishEngine } from "@/features/engine/types";
 import { scoreToWhite, whitePercentFromScore } from "../lib/eval-format";
 
+const MULTIPV_COUNT = 4;
+
+export type CandidateMove = {
+  move: string;
+  cp: number | null;
+  mate: number | null;
+  depth: number;
+};
+
 type EvalState = {
   cp: number | null;
   mate: number | null;
   bestMove: string | null;
   depth: number;
+  candidates: (CandidateMove | undefined)[];
 };
 
 type MotionState = {
@@ -58,6 +68,7 @@ export function useEvalScore(fen: string, depth = 12, enabled = true) {
     mate: null,
     bestMove: null,
     depth: 0,
+    candidates: [],
   });
   const [displayScore, setDisplayScore] = useState(0);
   const [displayMate, setDisplayMate] = useState<number | null>(null);
@@ -98,6 +109,7 @@ export function useEvalScore(fen: string, depth = 12, enabled = true) {
 
     engine.postMessage("uci");
     engine.postMessage("isready");
+    engine.postMessage(`setoption name MultiPV value ${MULTIPV_COUNT}`);
 
     return () => {
       engine.postMessage("stop");
@@ -121,6 +133,7 @@ export function useEvalScore(fen: string, depth = 12, enabled = true) {
       mate: null,
       bestMove: null,
       depth: 0,
+      candidates: [],
     });
     setDisplayMate(null);
 
@@ -129,6 +142,7 @@ export function useEvalScore(fen: string, depth = 12, enabled = true) {
 
       if (line.startsWith("info")) {
         const depthMatch = line.match(/\bdepth\s+(\d+)/);
+        const multipvMatch = line.match(/\bmultipv\s+(\d+)/);
         const cpMatch = line.match(/\bscore\s+cp\s+(-?\d+)/);
         const mateMatch = line.match(/\bscore\s+mate\s+(-?\d+)/);
         const pvMatch = line.match(/\bpv\s+(\S+)/);
@@ -136,25 +150,47 @@ export function useEvalScore(fen: string, depth = 12, enabled = true) {
         const parsedDepth = depthMatch ? Number(depthMatch[1]) : 0;
         if (parsedDepth < minDepth) return;
 
+        const multipvIndex = multipvMatch ? Number(multipvMatch[1]) : 1;
         const nextCp = cpMatch ? Number(cpMatch[1]) : null;
         const nextMate = mateMatch ? Number(mateMatch[1]) : null;
+        const nextMove = pvMatch?.[1] ?? null;
 
-        if (nextCp === null && nextMate === null) return;
+        if ((nextCp === null && nextMate === null) || !nextMove) return;
 
         setEvalState((current) => {
-          if (parsedDepth < current.depth) return current;
+          const candidates = [...current.candidates];
+          const slotIndex = multipvIndex - 1;
+
+          if (slotIndex >= 0 && slotIndex < MULTIPV_COUNT) {
+            const existing = candidates[slotIndex];
+            if (!existing || parsedDepth >= existing.depth) {
+              candidates[slotIndex] = {
+                move: nextMove,
+                cp: nextCp,
+                mate: nextMate,
+                depth: parsedDepth,
+              };
+            }
+          }
+
+          if (multipvIndex !== 1 || parsedDepth < current.depth) {
+            return { ...current, candidates };
+          }
 
           return {
             cp: nextCp,
             mate: nextMate,
             depth: parsedDepth,
-            bestMove: pvMatch?.[1] ?? current.bestMove,
+            bestMove: nextMove,
+            candidates,
           };
         });
 
-        const whiteScore = scoreToWhite(nextCp, nextMate, turn);
-        targetScoreRef.current = whiteScore;
-        setDisplayMate(nextMate);
+        if (multipvIndex === 1) {
+          const whiteScore = scoreToWhite(nextCp, nextMate, turn);
+          targetScoreRef.current = whiteScore;
+          setDisplayMate(nextMate);
+        }
       }
     });
 
@@ -169,5 +205,6 @@ export function useEvalScore(fen: string, depth = 12, enabled = true) {
     whitePercent: whitePercentFromScore(displayScore),
     depth: evalState.depth,
     bestMove: evalState.bestMove,
+    candidates: evalState.candidates,
   };
 }
