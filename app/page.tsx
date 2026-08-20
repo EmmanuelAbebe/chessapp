@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <div className="flex w-full flex-1 flex-col items-center justify-center gap-16 px-4 py-16 text-center sm:px-6 sm:py-24">
       <div className="flex max-w-2xl flex-col gap-4">
-        <h1 className="text-3xl font-bold">Chess AI Coach</h1>
+        <h1 className="text-3xl font-bold">CoachMeChess</h1>
         <p className="text-lg opacity-80">
           A chess coach that studies your games, finds recurring thinking
           errors, and teaches exactly what you need next.

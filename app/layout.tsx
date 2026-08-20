@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Chess AI Coach",
+  title: "CoachMeChess",
   description: "A chess coach that studies your games and teaches what to train next.",
 };
 

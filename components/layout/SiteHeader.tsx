@@ -20,7 +20,7 @@ export function SiteHeader() {
         className="container mx-auto flex items-center gap-3 px-4 py-2 sm:px-6"
       >
         <Link href="/" className="text-sm font-semibold tracking-tight">
-          Chess AI Coach
+          CoachMeChess
         </Link>
 
         <ul className="flex items-center gap-1">

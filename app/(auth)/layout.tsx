@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sign in — Chess AI Coach",
-  description: "Sign in or create a Chess AI Coach account.",
+  title: "Sign in — CoachMeChess",
+  description: "Sign in or create a CoachMeChess account.",
 };
 
 export default function AuthLayout({
