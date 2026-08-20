@@ -1,18 +1,21 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import type { Arrow } from "react-chessboard";
 import { EvalBar } from "./EvalBar";
 import { EvalScoreLabel } from "./EvalScoreLabel";
 import { BoardView } from "./BoardView";
 import { BoardControls } from "./BoardControls";
 import { BoardSettingsModal } from "./BoardSettingsModal";
+import { GameModeModal } from "./GameModeModal";
 import { MoveList } from "./MoveList";
 import { MoveNavigation } from "./MoveNavigation";
 import { AiChatPanel } from "./AiChatPanel";
 import { useBoardGame } from "../hooks/useBoardGame";
 import { useBoardSettings } from "../hooks/useBoardSettings";
 import { useEvalScore, type CandidateMove } from "../hooks/useEvalScore";
+import { useGameMode } from "../hooks/useGameMode";
+import { useEngineOpponent } from "../hooks/useEngineOpponent";
 import { selectCloseCandidates } from "../lib/eval-format";
 import { useSettings } from "@/features/settings/SettingsContext";
 
@@ -27,12 +30,16 @@ export function BoardScreen() {
     illegalSquares,
     orientation,
     analysisFen,
+    turn,
     currentLine,
     currentNodeId,
     canGoPrevious,
     canGoNext,
     toggleOrientation,
+    changeOrientation,
     onSquareClick,
+    resetBoard,
+    playUciMove,
     goToNode,
     goToStart,
     goToPrevious,
@@ -43,6 +50,19 @@ export function BoardScreen() {
   const { isBoardSettingsOpen, openBoardSettings, closeBoardSettings } =
     useBoardSettings();
 
+  const [isGameModeOpen, setIsGameModeOpen] = useState(false);
+  const gameMode = useGameMode();
+  const isPlayingStockfish = gameMode.mode === "vsStockfish";
+
+  useEngineOpponent({
+    enabled: isPlayingStockfish,
+    fen: chessPosition,
+    turn,
+    playerSide: gameMode.playerSide === "white" ? "w" : "b",
+    skillLevel: gameMode.skillLevel,
+    onMove: playUciMove,
+  });
+
   const { settings } = useSettings();
   const {
     showEvalBar,
@@ -52,11 +72,13 @@ export function BoardScreen() {
     coordinatesPlacement,
   } = settings;
 
-  const evalScore = useEvalScore(
-    analysisFen || chessPosition,
-    14,
-    showEvalBar || showEvalScore || showEngineSuggestions,
-  );
+  // Suggestions/eval reveal what the engine would play - hide them entirely
+  // while it's the opponent in an actual game, not just the arrows.
+  const analysisEnabled =
+    !isPlayingStockfish &&
+    (showEvalBar || showEvalScore || showEngineSuggestions);
+
+  const evalScore = useEvalScore(analysisFen || chessPosition, 14, analysisEnabled);
 
   // Stockfish's top candidate moves (MultiPV) rendered as AI-drawn arrows,
   // in blue to stay distinct from user-drawn ones (library default #ffaa00).
@@ -64,7 +86,7 @@ export function BoardScreen() {
   // the best move (typically 3-4 in a close position), trimming down to
   // just the best 1-2 once there's a clear gap.
   const aiArrows = useMemo<Arrow[]>(() => {
-    if (!showEngineSuggestions) return [];
+    if (!showEngineSuggestions || isPlayingStockfish) return [];
 
     const ranked = evalScore.candidates.filter(
       (candidate): candidate is CandidateMove => candidate !== undefined,
@@ -76,7 +98,21 @@ export function BoardScreen() {
       endSquare: candidate.move.slice(2, 4),
       color: `rgba(59, 130, 246, ${AI_ARROW_OPACITIES[index] ?? 0.3})`,
     }));
-  }, [evalScore.candidates, showEngineSuggestions]);
+  }, [evalScore.candidates, showEngineSuggestions, isPlayingStockfish]);
+
+  function handleStartNewGame() {
+    gameMode.startAnalysis();
+    resetBoard();
+  }
+
+  function handleStartVsStockfish(
+    side: Parameters<typeof gameMode.startVsStockfish>[0],
+    skillLevel: number,
+  ) {
+    const resolvedSide = gameMode.startVsStockfish(side, skillLevel);
+    resetBoard();
+    changeOrientation(resolvedSide);
+  }
 
   return (
     <>
@@ -86,7 +122,7 @@ export function BoardScreen() {
 
           <div className="flex w-full items-start gap-2">
             <EvalScoreLabel
-              visible={showEvalScore}
+              visible={showEvalScore && !isPlayingStockfish}
               displayScore={evalScore.displayScore}
               displayMate={evalScore.displayMate}
             />
@@ -112,7 +148,7 @@ export function BoardScreen() {
 
           <div className="flex h-(--board-size) w-full gap-2">
             <EvalBar
-              visible={showEvalBar}
+              visible={showEvalBar && !isPlayingStockfish}
               whitePercent={evalScore.whitePercent}
               depth={evalScore.depth}
               bestMove={evalScore.bestMove}
@@ -135,6 +171,7 @@ export function BoardScreen() {
 
             <BoardControls
               openBoardSettings={openBoardSettings}
+              openGameMode={() => setIsGameModeOpen(true)}
               toggleOrientation={toggleOrientation}
             />
           </div>
@@ -144,6 +181,13 @@ export function BoardScreen() {
       <BoardSettingsModal
         isOpen={isBoardSettingsOpen}
         onClose={closeBoardSettings}
+      />
+
+      <GameModeModal
+        isOpen={isGameModeOpen}
+        onClose={() => setIsGameModeOpen(false)}
+        onStartNewGame={handleStartNewGame}
+        onStartVsStockfish={handleStartVsStockfish}
       />
     </>
   );

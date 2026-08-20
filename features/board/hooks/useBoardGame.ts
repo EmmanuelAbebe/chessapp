@@ -153,6 +153,18 @@ export function useBoardGame() {
     clearSelection();
   }
 
+  function playUciMove(uci: string) {
+    if (currentChess.isGameOver()) return;
+
+    moveTree.playMove({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      promotion: uci.slice(4) || undefined,
+    });
+
+    clearSelection();
+  }
+
   function changeOrientation(nextOrientation: Orientation) {
     updateSettings({ orientation: nextOrientation });
   }
@@ -165,6 +177,7 @@ export function useBoardGame() {
     illegalSquares,
     analysisFen,
     chessPosition: moveTree.currentFen,
+    turn: currentChess.turn(),
 
     currentLine: moveTree.currentLine,
     currentChildren: moveTree.currentChildren,
@@ -180,6 +193,7 @@ export function useBoardGame() {
     changeOrientation,
     onSquareClick,
     resetBoard,
+    playUciMove,
 
     goToNode: moveTree.goToNode,
     goToStart: moveTree.goToStart,
