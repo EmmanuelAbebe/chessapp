@@ -4,37 +4,34 @@ import { useState, type FormEvent } from "react";
 import Modal from "@/components/ui/Modal";
 import PasswordInput from "@/components/ui/PasswordInput";
 import {
-  inputClass,
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/features/account/lib/styles";
+import { useValidatedField } from "@/lib/hooks/useValidatedField";
+import { validateMatch, validatePassword, validateRequired } from "@/lib/validation";
 
 export default function ChangePasswordModal({
   onClose,
 }: {
   onClose: () => void;
 }) {
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const current = useValidatedField("", (value) =>
+    validateRequired(value, "Current password"),
+  );
+  const next = useValidatedField("", (value) =>
+    validatePassword(value, { required: true }),
+  );
+  const confirm = useValidatedField("", (value) =>
+    validateMatch(value, next.value, "Passwords"),
+  );
   const [success, setSuccess] = useState(false);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!current || !next || !confirm) {
-      setError("Fill in all fields.");
-      return;
-    }
-    if (next.length < 8) {
-      setError("New password must be at least 8 characters.");
-      return;
-    }
-    if (next !== confirm) {
-      setError("New password and confirmation do not match.");
-      return;
-    }
-    setError(null);
+    const isCurrentValid = current.validateNow();
+    const isNextValid = next.validateNow();
+    const isConfirmValid = confirm.validateNow();
+    if (!isCurrentValid || !isNextValid || !isConfirmValid) return;
     setSuccess(true);
   }
 
@@ -60,18 +57,20 @@ export default function ChangePasswordModal({
               Current Password
             </span>
             <PasswordInput
-              className={inputClass}
-              value={current}
-              onChange={(event) => setCurrent(event.target.value)}
+              value={current.value}
+              onChange={current.onChange}
+              onBlur={current.onBlur}
+              error={current.error}
             />
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="font-medium text-neutral-300">New Password</span>
             <PasswordInput
-              className={inputClass}
-              value={next}
-              onChange={(event) => setNext(event.target.value)}
+              value={next.value}
+              onChange={next.onChange}
+              onBlur={next.onBlur}
+              error={next.error}
             />
           </label>
 
@@ -80,13 +79,12 @@ export default function ChangePasswordModal({
               Confirm New Password
             </span>
             <PasswordInput
-              className={inputClass}
-              value={confirm}
-              onChange={(event) => setConfirm(event.target.value)}
+              value={confirm.value}
+              onChange={confirm.onChange}
+              onBlur={confirm.onBlur}
+              error={confirm.error}
             />
           </label>
-
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
           <div className="mt-2 flex justify-end gap-3">
             <button

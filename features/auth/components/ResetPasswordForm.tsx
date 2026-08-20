@@ -4,31 +4,26 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import PasswordInput from "@/components/ui/PasswordInput";
+import { useValidatedField } from "@/lib/hooks/useValidatedField";
+import { validateMatch, validatePassword } from "@/lib/validation";
 
 export default function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const password = useValidatedField("", (value) =>
+    validatePassword(value, { required: true }),
+  );
+  const confirmPassword = useValidatedField("", (value) =>
+    validateMatch(value, password.value, "Passwords"),
+  );
   const [success, setSuccess] = useState(false);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!password || !confirmPassword) {
-      setError("Fill in both fields.");
-      return;
-    }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-    setError(null);
+    const isPasswordValid = password.validateNow();
+    const isConfirmValid = confirmPassword.validateNow();
+    if (!isPasswordValid || !isConfirmValid) return;
     setSuccess(true);
   }
 
@@ -92,10 +87,11 @@ export default function ResetPasswordForm() {
                 <PasswordInput
                   name="password"
                   id="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  value={password.value}
+                  onChange={password.onChange}
+                  onBlur={password.onBlur}
+                  error={password.error}
                   placeholder="••••••••"
-                  className="bg-neutral-800 border border-neutral-700 text-neutral-100 placeholder-neutral-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                 />
               </div>
 
@@ -109,14 +105,13 @@ export default function ResetPasswordForm() {
                 <PasswordInput
                   name="confirm-password"
                   id="confirm-password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  value={confirmPassword.value}
+                  onChange={confirmPassword.onChange}
+                  onBlur={confirmPassword.onBlur}
+                  error={confirmPassword.error}
                   placeholder="••••••••"
-                  className="bg-neutral-800 border border-neutral-700 text-neutral-100 placeholder-neutral-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                 />
               </div>
-
-              {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
               <button
                 type="submit"

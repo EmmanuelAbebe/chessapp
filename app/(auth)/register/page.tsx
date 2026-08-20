@@ -1,8 +1,31 @@
+"use client";
+
+import { type FormEvent } from "react";
 import Link from "next/link";
 import PasswordInput from "@/components/ui/PasswordInput";
+import TextInput from "@/components/ui/TextInput";
+import { useValidatedField } from "@/lib/hooks/useValidatedField";
+import { validateEmail, validateMatch, validatePassword } from "@/lib/validation";
 import SocialAuthButtons from "@/features/auth/components/SocialAuthButtons";
 
 const RegisterPage = () => {
+  const email = useValidatedField("", (value) =>
+    validateEmail(value, { required: false }),
+  );
+  const password = useValidatedField("", (value) =>
+    validatePassword(value, { required: false }),
+  );
+  const confirmPassword = useValidatedField("", (value) =>
+    validateMatch(value, password.value, "Passwords"),
+  );
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    email.validateNow();
+    password.validateNow();
+    confirmPassword.validateNow();
+  }
+
   return (
     <div className="flex w-full max-w-132.5 flex-col items-center justify-center px-6 py-8 lg:py-0">
       <div className="w-full rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg md:mt-0 sm:max-w-md xl:p-0">
@@ -21,7 +44,7 @@ const RegisterPage = () => {
             <div className="h-px flex-1 bg-neutral-800" />
           </div>
 
-          <form className="space-y-4 md:space-y-6" action="#">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6" noValidate>
             <div>
               <label
                 htmlFor="email"
@@ -29,11 +52,14 @@ const RegisterPage = () => {
               >
                 Email <span className="text-neutral-600">(optional)</span>
               </label>
-              <input
+              <TextInput
                 type="email"
                 name="email"
                 id="email"
-                className="bg-neutral-800 border border-neutral-700 text-neutral-100 placeholder-neutral-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                value={email.value}
+                onChange={email.onChange}
+                onBlur={email.onBlur}
+                error={email.error}
                 placeholder="name@company.com"
               />
             </div>
@@ -47,8 +73,11 @@ const RegisterPage = () => {
               <PasswordInput
                 name="password"
                 id="password"
+                value={password.value}
+                onChange={password.onChange}
+                onBlur={password.onBlur}
+                error={password.error}
                 placeholder="••••••••"
-                className="bg-neutral-800 border border-neutral-700 text-neutral-100 placeholder-neutral-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
               />
             </div>
             <div>
@@ -62,8 +91,11 @@ const RegisterPage = () => {
               <PasswordInput
                 name="confirm-password"
                 id="confirm-password"
+                value={confirmPassword.value}
+                onChange={confirmPassword.onChange}
+                onBlur={confirmPassword.onBlur}
+                error={confirmPassword.error}
                 placeholder="••••••••"
-                className="bg-neutral-800 border border-neutral-700 text-neutral-100 placeholder-neutral-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
               />
             </div>
             <button

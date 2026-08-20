@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import Modal from "@/components/ui/Modal";
+import TextInput from "@/components/ui/TextInput";
 import {
-  inputClass,
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/features/account/lib/styles";
+import { useValidatedField } from "@/lib/hooks/useValidatedField";
+import { validateEmail, validateRequired } from "@/lib/validation";
 import type { Profile } from "../types";
 
 export default function EditProfileModal({
@@ -18,8 +19,19 @@ export default function EditProfileModal({
   onClose: () => void;
   onSave: (profile: Profile) => void;
 }) {
-  const [username, setUsername] = useState(profile.username);
-  const [email, setEmail] = useState(profile.email);
+  const username = useValidatedField(profile.username, (value) =>
+    validateRequired(value, "Username"),
+  );
+  const email = useValidatedField(profile.email, (value) =>
+    validateEmail(value, { required: true }),
+  );
+
+  function handleSave() {
+    const isUsernameValid = username.validateNow();
+    const isEmailValid = email.validateNow();
+    if (!isUsernameValid || !isEmailValid) return;
+    onSave({ username: username.value, email: email.value });
+  }
 
   return (
     <Modal isOpen onClose={onClose}>
@@ -28,20 +40,22 @@ export default function EditProfileModal({
       <div className="mt-6 flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium text-neutral-300">Username</span>
-          <input
-            className={inputClass}
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
+          <TextInput
+            value={username.value}
+            onChange={username.onChange}
+            onBlur={username.onBlur}
+            error={username.error}
           />
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium text-neutral-300">Email</span>
-          <input
+          <TextInput
             type="email"
-            className={inputClass}
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            value={email.value}
+            onChange={email.onChange}
+            onBlur={email.onBlur}
+            error={email.error}
           />
         </label>
       </div>
@@ -50,11 +64,7 @@ export default function EditProfileModal({
         <button onClick={onClose} className={secondaryButtonClass}>
           Cancel
         </button>
-        <button
-          onClick={() => onSave({ username, email })}
-          disabled={!username.trim() || !email.trim()}
-          className={primaryButtonClass}
-        >
+        <button onClick={handleSave} className={primaryButtonClass}>
           Save Changes
         </button>
       </div>

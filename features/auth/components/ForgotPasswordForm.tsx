@@ -2,19 +2,19 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import TextInput from "@/components/ui/TextInput";
+import { useValidatedField } from "@/lib/hooks/useValidatedField";
+import { validateEmail } from "@/lib/validation";
 
 export default function ForgotPasswordForm() {
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const email = useValidatedField("", (value) =>
+    validateEmail(value, { required: true }),
+  );
   const [submitted, setSubmitted] = useState(false);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!email.trim()) {
-      setError("Enter your email address.");
-      return;
-    }
-    setError(null);
+    if (!email.validateNow()) return;
     setSubmitted(true);
   }
 
@@ -29,8 +29,8 @@ export default function ForgotPasswordForm() {
           {submitted ? (
             <div className="space-y-4 md:space-y-6">
               <p className="text-sm text-neutral-300">
-                If an account exists for <strong>{email}</strong>, we&apos;ve
-                sent a link to reset your password.
+                If an account exists for <strong>{email.value}</strong>,
+                we&apos;ve sent a link to reset your password.
               </p>
               <Link
                 href="/login"
@@ -57,18 +57,17 @@ export default function ForgotPasswordForm() {
                 >
                   Your email
                 </label>
-                <input
+                <TextInput
                   type="email"
                   name="email"
                   id="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="bg-neutral-800 border border-neutral-700 text-neutral-100 placeholder-neutral-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                  value={email.value}
+                  onChange={email.onChange}
+                  onBlur={email.onBlur}
+                  error={email.error}
                   placeholder="name@company.com"
                 />
               </div>
-
-              {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
               <button
                 type="submit"
