@@ -27,7 +27,6 @@ export function BoardScreen() {
     currentNodeId,
     canGoPrevious,
     canGoNext,
-    canGoEnd,
     toggleOrientation,
     onSquareClick,
     goToNode,
@@ -75,7 +74,6 @@ export function BoardScreen() {
             <MoveNavigation
               canGoPrevious={canGoPrevious}
               canGoNext={canGoNext}
-              canGoEnd={canGoEnd}
               onStart={goToStart}
               onPrevious={goToPrevious}
               onNext={goToNext}
