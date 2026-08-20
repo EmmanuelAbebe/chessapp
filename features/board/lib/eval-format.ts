@@ -55,6 +55,11 @@ export function selectCloseCandidates<
   if (candidates.length === 0) return [];
 
   const bestScore = toComparableScore(candidates[0].cp, candidates[0].mate);
+
+  // Already losing even with the best move - alternatives that are merely
+  // "close in badness" aren't useful suggestions, so just show the top move.
+  if (bestScore < 0) return [candidates[0]];
+
   const shown: T[] = [];
 
   for (const candidate of candidates) {

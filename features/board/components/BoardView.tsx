@@ -39,6 +39,7 @@ export function BoardView({
   const [highlightedSquares, setHighlightedSquares] = useState<Set<string>>(
     new Set(),
   );
+  const [userArrows, setUserArrows] = useState<Arrow[]>([]);
 
   // Right-click highlights point at a specific position - clear them
   // whenever the position changes rather than let them go stale. User-drawn
@@ -55,6 +56,27 @@ export function BoardView({
     }
     return styles;
   }, [highlightedSquares]);
+
+  // react-chessboard renders [...arrows, ...internallyDrawnArrows] together,
+  // keyed only by start/end square - so an AI arrow that lands on the same
+  // squares as a user-drawn one (or a duplicate within aiArrows itself, e.g.
+  // two MultiPV lines briefly agreeing on the same first move) produces a
+  // duplicate React key. Drop any AI arrow that collides with either.
+  const dedupedAiArrows = useMemo(() => {
+    const arrowKey = (arrow: Arrow) => `${arrow.startSquare}-${arrow.endSquare}`;
+    const userKeys = new Set(userArrows.map(arrowKey));
+    const seen = new Set<string>();
+    const result: Arrow[] = [];
+
+    for (const arrow of aiArrows) {
+      const key = arrowKey(arrow);
+      if (seen.has(key) || userKeys.has(key)) continue;
+      seen.add(key);
+      result.push(arrow);
+    }
+
+    return result;
+  }, [aiArrows, userArrows]);
 
   const showOutsideCoordinates =
     showCoordinates && coordinatesPlacement === "outside";
@@ -80,7 +102,11 @@ export function BoardView({
       allowDragging: false,
       allowDragOffBoard: false,
       allowDrawingArrows: true,
-      arrows: aiArrows,
+      arrows: dedupedAiArrows,
+      // Observe what the user has drawn (purely read-only - never fed back
+      // into the arrows prop) so dedupedAiArrows can avoid colliding with it.
+      onArrowsChange: ({ arrows: nextUserArrows }: { arrows: Arrow[] }) =>
+        setUserArrows(nextUserArrows),
       showNotation: showCoordinates && coordinatesPlacement === "inside",
       darkSquareStyle: boardTheme.darkSquareStyle,
       lightSquareStyle: boardTheme.lightSquareStyle,
@@ -92,7 +118,7 @@ export function BoardView({
       optionSquares,
       highlightStyles,
       orientation,
-      aiArrows,
+      dedupedAiArrows,
       showCoordinates,
       coordinatesPlacement,
     ],
