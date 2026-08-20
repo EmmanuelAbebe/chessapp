@@ -64,12 +64,19 @@ export function MoveList({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [highlight, setHighlight] = useState<HighlightRect | null>(null);
 
+  const hasActiveMove = currentLine.some((node) => node.id === currentNodeId);
+
   useLayoutEffect(() => {
+    if (!hasActiveMove) {
+      setHighlight(null);
+      return;
+    }
+
     const button = currentMoveRef.current;
     setHighlight(
       button ? { left: button.offsetLeft, width: button.offsetWidth } : null,
     );
-  }, [currentNodeId, currentLine]);
+  }, [currentNodeId, currentLine, hasActiveMove]);
 
   useEffect(() => {
     const button = currentMoveRef.current;
