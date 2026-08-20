@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SocialAuthButtons from "@/features/auth/components/SocialAuthButtons";
 
 const LoginPage = () => {
   return (
@@ -8,13 +9,24 @@ const LoginPage = () => {
           <h1 className="text-xl font-bold leading-tight tracking-tight text-neutral-100 md:text-2xl">
             Sign in to your account
           </h1>
+
+          <SocialAuthButtons />
+
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-neutral-800" />
+            <span className="text-xs text-neutral-500">
+              or continue with email
+            </span>
+            <div className="h-px flex-1 bg-neutral-800" />
+          </div>
+
           <form className="space-y-4 md:space-y-6" action="#">
             <div>
               <label
                 htmlFor="email"
-                className="block mb-2 text-sm font-medium text-neutral-300"
+                className="block mb-2 text-sm font-medium text-neutral-400"
               >
-                Your email
+                Email <span className="text-neutral-600">(optional)</span>
               </label>
               <input
                 type="email"
@@ -22,15 +34,14 @@ const LoginPage = () => {
                 id="email"
                 className="bg-neutral-800 border border-neutral-700 text-neutral-100 placeholder-neutral-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                 placeholder="name@company.com"
-                required
               />
             </div>
             <div>
               <label
                 htmlFor="password"
-                className="block mb-2 text-sm font-medium text-neutral-300"
+                className="block mb-2 text-sm font-medium text-neutral-400"
               >
-                Password
+                Password <span className="text-neutral-600">(optional)</span>
               </label>
               <input
                 type="password"
@@ -38,7 +49,6 @@ const LoginPage = () => {
                 id="password"
                 placeholder="••••••••"
                 className="bg-neutral-800 border border-neutral-700 text-neutral-100 placeholder-neutral-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
-                required
               />
             </div>
             <div className="flex items-center justify-between">
@@ -49,7 +59,6 @@ const LoginPage = () => {
                     aria-describedby="remember"
                     type="checkbox"
                     className="w-4 h-4 rounded border border-neutral-700 bg-neutral-800 focus:ring-2 focus:ring-blue-500"
-                    required
                   />
                 </div>
                 <div className="ml-3 text-sm">
@@ -67,7 +76,7 @@ const LoginPage = () => {
             </div>
             <button
               type="submit"
-              className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-800/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
+              className="w-full text-neutral-200 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 focus:ring-4 focus:outline-none focus:ring-neutral-700/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
             >
               Sign in
             </button>
