@@ -1,5 +1,5 @@
 import type { CoordinatesPlacement, Orientation } from "../board/types";
-import type { VolumeLevel } from "@/components/ui/settings/SettingsVolume";
+import type { VolumeLevel } from "@/features/settings/components/SettingsVolume";
 
 export type ThemeShade = "midnight" | "charcoal" | "slate";
 

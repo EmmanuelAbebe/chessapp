@@ -1,0 +1,37 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { SECTIONS } from "../data";
+
+export default function AccountNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      aria-label="Dashboard sections"
+      className="md:sticky md:top-8 md:w-40 md:shrink-0"
+    >
+      <ul className="flex gap-1 overflow-x-auto text-sm md:flex-col md:overflow-visible">
+        {SECTIONS.map((section) => {
+          const isActive = pathname === section.href;
+          return (
+            <li key={section.href} className="shrink-0">
+              <Link
+                href={section.href}
+                aria-current={isActive ? "page" : undefined}
+                className={`block rounded-l-md border-r-2 px-3 py-1.5 whitespace-nowrap transition ${
+                  isActive
+                    ? "border-blue-400 font-medium text-white"
+                    : "border-transparent text-neutral-500 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {section.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}

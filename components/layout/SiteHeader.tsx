@@ -7,7 +7,7 @@ import { FaChessBoard, FaHouse, FaUser } from "react-icons/fa6";
 const NAV_LINKS = [
   { href: "/", label: "Home", icon: FaHouse },
   { href: "/board", label: "Board", icon: FaChessBoard },
-  { href: "/account", label: "Account", icon: FaUser },
+  { href: "/dashboard", label: "Dashboard", icon: FaUser },
 ];
 
 export function SiteHeader() {

@@ -1,11 +1,11 @@
 "use client";
 
 import Modal from "@/components/ui/Modal";
-import SettingsItem from "@/components/ui/settings/SettingsItem";
-import SettingsGroup from "@/components/ui/settings/SettingsGroup";
-import SettingsSelect from "@/components/ui/settings/SettingsSelect";
-import SettingsSubRow from "@/components/ui/settings/SettingsSubRow";
-import SettingsVolume from "@/components/ui/settings/SettingsVolume";
+import SettingsItem from "@/features/settings/components/SettingsItem";
+import SettingsGroup from "@/features/settings/components/SettingsGroup";
+import SettingsSelect from "@/features/settings/components/SettingsSelect";
+import SettingsSubRow from "@/features/settings/components/SettingsSubRow";
+import SettingsVolume from "@/features/settings/components/SettingsVolume";
 import { useSettings } from "@/features/settings/SettingsContext";
 import type { CoordinatesPlacement, Orientation } from "../types";
 
