@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MoveNode } from "../types";
 
 type MoveListProps = {
@@ -14,6 +14,11 @@ type MovePair = {
   moveNumber: number;
   white?: MoveNode;
   black?: MoveNode;
+};
+
+type HighlightRect = {
+  left: number;
+  width: number;
 };
 
 function buildMovePairs(currentLine: MoveNode[]): MovePair[] {
@@ -56,6 +61,14 @@ export function MoveList({
 }: MoveListProps) {
   const movePairs = buildMovePairs(currentLine);
   const currentMoveRef = useRef<HTMLButtonElement | null>(null);
+  const [highlight, setHighlight] = useState<HighlightRect | null>(null);
+
+  useLayoutEffect(() => {
+    const button = currentMoveRef.current;
+    setHighlight(
+      button ? { left: button.offsetLeft, width: button.offsetWidth } : null,
+    );
+  }, [currentNodeId, currentLine]);
 
   useEffect(() => {
     currentMoveRef.current?.scrollIntoView({
@@ -68,7 +81,15 @@ export function MoveList({
   return (
     <div className="w-full">
       <div className="flex justify-start overflow-x-auto no-scrollbar">
-        <div className="flex w-max flex-row gap-1 text-sm whitespace-nowrap">
+        <div className="relative flex w-max flex-row gap-1 text-sm whitespace-nowrap">
+          {highlight && (
+            <div
+              aria-hidden="true"
+              className="absolute inset-y-0 z-0 rounded bg-blue-500/15 transition-[left,width] duration-150 ease-out"
+              style={{ left: highlight.left, width: highlight.width }}
+            />
+          )}
+
           {movePairs.map((pair) => (
             <div
               key={pair.moveNumber}
@@ -79,9 +100,9 @@ export function MoveList({
               <button
                 type="button"
                 ref={currentNodeId === pair.white?.id ? currentMoveRef : undefined}
-                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap transition-colors duration-150 ease-out hover:bg-neutral-800 ${
+                className={`relative z-10 shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
                   currentNodeId === pair.white?.id
-                    ? "bg-blue-500/15 font-medium text-blue-400"
+                    ? "font-medium text-blue-400"
                     : "text-neutral-300"
                 }`}
                 onClick={() => pair.white && onSelectNode(pair.white.id)}
@@ -92,9 +113,9 @@ export function MoveList({
               <button
                 type="button"
                 ref={currentNodeId === pair.black?.id ? currentMoveRef : undefined}
-                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap transition-colors duration-150 ease-out hover:bg-neutral-800 ${
+                className={`relative z-10 shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
                   currentNodeId === pair.black?.id
-                    ? "bg-blue-500/15 font-medium text-blue-400"
+                    ? "font-medium text-blue-400"
                     : "text-neutral-300"
                 }`}
                 onClick={() => pair.black && onSelectNode(pair.black.id)}
