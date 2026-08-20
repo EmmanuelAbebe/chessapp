@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { FaCreditCard, FaDownload } from "react-icons/fa6";
-import SectionTitle from "@/components/ui/SectionTitle";
 import { primaryButtonClass } from "@/features/account/lib/styles";
 import { INVOICES } from "../../data";
 import UpgradePlanModal from "./UpgradePlanModal";
@@ -16,10 +15,8 @@ export default function SubscriptionSection() {
   const [isCancelConfirming, setIsCancelConfirming] = useState(false);
 
   return (
-    <section aria-labelledby="subscription-heading">
-      <SectionTitle id="subscription-heading">Subscription</SectionTitle>
-
-      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+    <section>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         <dt className="text-neutral-500">Plan</dt>
         <dd className="font-medium">{plan}</dd>
 

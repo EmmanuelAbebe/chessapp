@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { FaUserAlt } from "react-icons/fa";
 import { FaKey, FaPen } from "react-icons/fa6";
-import SectionTitle from "@/components/ui/SectionTitle";
 import { secondaryButtonClass } from "@/features/account/lib/styles";
 import type { Profile } from "../types";
 import EditProfileModal from "./EditProfileModal";
@@ -18,10 +17,8 @@ export default function ProfileSection() {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   return (
-    <section aria-labelledby="profile-heading">
-      <SectionTitle id="profile-heading">Profile</SectionTitle>
-
-      <div className="mt-4 flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
+    <section>
+      <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
         <FaUserAlt
           aria-hidden="true"
           className="shrink-0 rounded-full bg-white/10 p-4 text-neutral-500"

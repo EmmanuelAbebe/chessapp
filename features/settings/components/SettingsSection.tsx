@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import SectionTitle from "@/components/ui/SectionTitle";
 import SettingsCard from "./SettingsCard";
 import SettingsItem from "./SettingsItem";
 import SettingsSelect from "./SettingsSelect";
@@ -17,9 +16,8 @@ export default function SettingsSection() {
     useSettings();
 
   return (
-    <section aria-labelledby="settings-heading">
-      <SectionTitle id="settings-heading">Settings</SectionTitle>
-      <p className="mt-1 text-sm text-neutral-500">
+    <section>
+      <p className="text-sm text-neutral-500">
         These are the full app settings — the gear icon on the board is a
         quick shortcut to the board-related ones below, and both stay in
         sync.
