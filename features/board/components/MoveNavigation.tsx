@@ -10,7 +10,6 @@ import {
 } from "react-icons/fa6";
 
 type MoveNavigationProps = {
-  side: "start" | "end";
   canGoPrevious: boolean;
   canGoNext: boolean;
   canGoEnd: boolean;
@@ -43,7 +42,6 @@ function NavButton({ icon: Icon, label, disabled, onClick }: NavButtonProps) {
 }
 
 export function MoveNavigation({
-  side,
   canGoPrevious,
   canGoNext,
   canGoEnd,
@@ -52,27 +50,20 @@ export function MoveNavigation({
   onNext,
   onEnd,
 }: MoveNavigationProps) {
-  if (side === "start") {
-    return (
-      <div className="flex shrink-0">
-        <NavButton
-          icon={FaAnglesLeft}
-          label="Go to start"
-          disabled={!canGoPrevious}
-          onClick={onStart}
-        />
-        <NavButton
-          icon={FaChevronLeft}
-          label="Previous move"
-          disabled={!canGoPrevious}
-          onClick={onPrevious}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="flex shrink-0">
+      <NavButton
+        icon={FaAnglesLeft}
+        label="Go to start"
+        disabled={!canGoPrevious}
+        onClick={onStart}
+      />
+      <NavButton
+        icon={FaChevronLeft}
+        label="Previous move"
+        disabled={!canGoPrevious}
+        onClick={onPrevious}
+      />
       <NavButton
         icon={FaChevronRight}
         label="Next move"

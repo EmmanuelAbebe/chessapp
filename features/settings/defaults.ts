@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showCoordinates: true,
   coordinatesPlacement: "inside",
   showEvalBar: false,
-  showEvalScore: true,
+  showEvalScore: false,
   showLegalMoves: true,
   highlightLastMove: true,
   highlightCheck: true,
