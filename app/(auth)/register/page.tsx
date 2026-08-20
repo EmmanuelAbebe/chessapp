@@ -60,6 +60,7 @@ const RegisterPage = () => {
                 onChange={email.onChange}
                 onBlur={email.onBlur}
                 error={email.error}
+                success={email.isValid ? "Looks good!" : undefined}
                 placeholder="name@company.com"
               />
             </div>
@@ -77,6 +78,7 @@ const RegisterPage = () => {
                 onChange={password.onChange}
                 onBlur={password.onBlur}
                 error={password.error}
+                success={password.isValid ? "Looks good!" : undefined}
                 placeholder="••••••••"
               />
             </div>
@@ -95,6 +97,7 @@ const RegisterPage = () => {
                 onChange={confirmPassword.onChange}
                 onBlur={confirmPassword.onBlur}
                 error={confirmPassword.error}
+                success={confirmPassword.isValid ? "Passwords match!" : undefined}
                 placeholder="••••••••"
               />
             </div>

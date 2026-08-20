@@ -53,6 +53,7 @@ const LoginPage = () => {
                 onChange={email.onChange}
                 onBlur={email.onBlur}
                 error={email.error}
+                success={email.isValid ? "Looks good!" : undefined}
                 placeholder="name@company.com"
               />
             </div>

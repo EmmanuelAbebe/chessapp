@@ -61,6 +61,7 @@ export default function ChangePasswordModal({
               onChange={current.onChange}
               onBlur={current.onBlur}
               error={current.error}
+              success={current.isValid ? "Looks good!" : undefined}
             />
           </label>
 
@@ -71,6 +72,7 @@ export default function ChangePasswordModal({
               onChange={next.onChange}
               onBlur={next.onBlur}
               error={next.error}
+              success={next.isValid ? "Looks good!" : undefined}
             />
           </label>
 
@@ -83,6 +85,7 @@ export default function ChangePasswordModal({
               onChange={confirm.onChange}
               onBlur={confirm.onBlur}
               error={confirm.error}
+              success={confirm.isValid ? "Passwords match!" : undefined}
             />
           </label>
 

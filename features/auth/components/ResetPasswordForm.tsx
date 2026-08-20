@@ -91,6 +91,7 @@ export default function ResetPasswordForm() {
                   onChange={password.onChange}
                   onBlur={password.onBlur}
                   error={password.error}
+                  success={password.isValid ? "Looks good!" : undefined}
                   placeholder="••••••••"
                 />
               </div>
@@ -109,6 +110,7 @@ export default function ResetPasswordForm() {
                   onChange={confirmPassword.onChange}
                   onBlur={confirmPassword.onBlur}
                   error={confirmPassword.error}
+                  success={confirmPassword.isValid ? "Passwords match!" : undefined}
                   placeholder="••••••••"
                 />
               </div>

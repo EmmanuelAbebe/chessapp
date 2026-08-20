@@ -8,6 +8,7 @@ export function useValidatedField(
 ) {
   const [value, setValue] = useState(initialValue);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [touched, setTouched] = useState(false);
 
   function onChange(event: ChangeEvent<HTMLInputElement>) {
     setValue(event.target.value);
@@ -15,14 +16,18 @@ export function useValidatedField(
   }
 
   function onBlur() {
+    setTouched(true);
     setError(validate(value));
   }
 
   function validateNow(): boolean {
+    setTouched(true);
     const result = validate(value);
     setError(result);
     return !result;
   }
 
-  return { value, error, onChange, onBlur, validateNow, setValue };
+  const isValid = touched && !error && value.trim() !== "";
+
+  return { value, error, isValid, onChange, onBlur, validateNow, setValue };
 }

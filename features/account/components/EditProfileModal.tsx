@@ -45,6 +45,7 @@ export default function EditProfileModal({
             onChange={username.onChange}
             onBlur={username.onBlur}
             error={username.error}
+            success={username.isValid ? "Looks good!" : undefined}
           />
         </label>
 
@@ -56,6 +57,7 @@ export default function EditProfileModal({
             onChange={email.onChange}
             onBlur={email.onBlur}
             error={email.error}
+            success={email.isValid ? "Looks good!" : undefined}
           />
         </label>
       </div>
