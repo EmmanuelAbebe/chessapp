@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Chessboard } from "react-chessboard";
-import type { SquareHandlerArgs } from "react-chessboard";
+import type { Arrow, SquareHandlerArgs } from "react-chessboard";
 import type {
   CoordinatesPlacement,
   Orientation,
@@ -22,6 +22,10 @@ type BoardViewProps = {
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
+const HIGHLIGHT_STYLE: React.CSSProperties = {
+  backgroundColor: "rgba(34, 197, 94, 0.35)",
+};
+
 export function BoardView({
   chessPosition,
   orientation,
@@ -30,6 +34,26 @@ export function BoardView({
   showCoordinates,
   coordinatesPlacement,
 }: BoardViewProps) {
+  const [arrows, setArrows] = useState<Arrow[]>([]);
+  const [highlightedSquares, setHighlightedSquares] = useState<Set<string>>(
+    new Set(),
+  );
+
+  // Right-click annotations point at a specific position - clear them
+  // whenever the position changes rather than let them go stale.
+  useEffect(() => {
+    setArrows([]);
+    setHighlightedSquares(new Set());
+  }, [chessPosition]);
+
+  const highlightStyles = useMemo(() => {
+    const styles: Record<string, React.CSSProperties> = {};
+    for (const square of highlightedSquares) {
+      styles[square] = HIGHLIGHT_STYLE;
+    }
+    return styles;
+  }, [highlightedSquares]);
+
   const showOutsideCoordinates =
     showCoordinates && coordinatesPlacement === "outside";
 
@@ -38,10 +62,25 @@ export function BoardView({
       id: "play-vs-stockfish",
       position: chessPosition,
       onSquareClick,
+      onSquareRightClick: ({ square }: SquareHandlerArgs) => {
+        setHighlightedSquares((prev) => {
+          const next = new Set(prev);
+          if (next.has(square)) {
+            next.delete(square);
+          } else {
+            next.add(square);
+          }
+          return next;
+        });
+      },
       boardOrientation: orientation,
-      squareStyles: optionSquares,
+      squareStyles: { ...optionSquares, ...highlightStyles },
       allowDragging: false,
       allowDragOffBoard: false,
+      allowDrawingArrows: true,
+      arrows,
+      onArrowsChange: ({ arrows: nextArrows }: { arrows: Arrow[] }) =>
+        setArrows(nextArrows),
       showNotation: showCoordinates && coordinatesPlacement === "inside",
       darkSquareStyle: boardTheme.darkSquareStyle,
       lightSquareStyle: boardTheme.lightSquareStyle,
@@ -51,7 +90,9 @@ export function BoardView({
       chessPosition,
       onSquareClick,
       optionSquares,
+      highlightStyles,
       orientation,
+      arrows,
       showCoordinates,
       coordinatesPlacement,
     ],
