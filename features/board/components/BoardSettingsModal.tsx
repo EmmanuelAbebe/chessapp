@@ -5,6 +5,7 @@ import SettingsItem from "@/features/settings/components/SettingsItem";
 import SettingsGroup from "@/features/settings/components/SettingsGroup";
 import SettingsSelect from "@/features/settings/components/SettingsSelect";
 import SettingsSubRow from "@/features/settings/components/SettingsSubRow";
+import SettingsToggle from "@/features/settings/components/SettingsToggle";
 import SettingsVolume from "@/features/settings/components/SettingsVolume";
 import { useSettings } from "@/features/settings/SettingsContext";
 import type { CoordinatesPlacement, Orientation } from "../types";
@@ -140,6 +141,22 @@ export function BoardSettingsModal({
               onChange={(showEvalScore) => updateSettings({ showEvalScore })}
             />
           </SettingsGroup>
+
+          <SettingsItem
+            item={{
+              title: "Engine",
+              content: (
+                <SettingsToggle
+                  setting={{
+                    label: "Move Suggestions",
+                    isSelected: settings.showEngineSuggestions,
+                    onChange: (showEngineSuggestions) =>
+                      updateSettings({ showEngineSuggestions }),
+                  }}
+                />
+              ),
+            }}
+          />
 
           <SettingsItem
             item={{

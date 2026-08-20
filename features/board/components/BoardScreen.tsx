@@ -44,13 +44,18 @@ export function BoardScreen() {
     useBoardSettings();
 
   const { settings } = useSettings();
-  const { showEvalBar, showEvalScore, showCoordinates, coordinatesPlacement } =
-    settings;
+  const {
+    showEvalBar,
+    showEvalScore,
+    showEngineSuggestions,
+    showCoordinates,
+    coordinatesPlacement,
+  } = settings;
 
   const evalScore = useEvalScore(
     analysisFen || chessPosition,
     14,
-    showEvalBar || showEvalScore,
+    showEvalBar || showEvalScore || showEngineSuggestions,
   );
 
   // Stockfish's top candidate moves (MultiPV) rendered as AI-drawn arrows,
@@ -59,6 +64,8 @@ export function BoardScreen() {
   // the best move (typically 3-4 in a close position), trimming down to
   // just the best 1-2 once there's a clear gap.
   const aiArrows = useMemo<Arrow[]>(() => {
+    if (!showEngineSuggestions) return [];
+
     const ranked = evalScore.candidates.filter(
       (candidate): candidate is CandidateMove => candidate !== undefined,
     );
@@ -69,7 +76,7 @@ export function BoardScreen() {
       endSquare: candidate.move.slice(2, 4),
       color: `rgba(59, 130, 246, ${AI_ARROW_OPACITIES[index] ?? 0.3})`,
     }));
-  }, [evalScore.candidates]);
+  }, [evalScore.candidates, showEngineSuggestions]);
 
   return (
     <>

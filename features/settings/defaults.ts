@@ -15,6 +15,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   highlightLastMove: true,
   highlightCheck: true,
 
+  showEngineSuggestions: false,
+
   sound: {
     master: 100,
     pieceMove: 100,

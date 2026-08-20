@@ -36,6 +36,9 @@ export type AppSettings = {
   highlightLastMove: boolean;
   highlightCheck: boolean;
 
+  // engine
+  showEngineSuggestions: boolean;
+
   // sound
   sound: SoundSettings;
 

@@ -242,6 +242,24 @@ export default function SettingsSection() {
           />
         </SettingsCard>
 
+        <SettingsCard title="Engine">
+          <SettingsItem
+            item={{
+              title: "Move Suggestions",
+              content: (
+                <SettingsToggle
+                  setting={{
+                    label: "Move Suggestions",
+                    isSelected: settings.showEngineSuggestions,
+                    onChange: (showEngineSuggestions) =>
+                      updateSettings({ showEngineSuggestions }),
+                  }}
+                />
+              ),
+            }}
+          />
+        </SettingsCard>
+
         <SettingsCard title="Sound">
           <SettingsItem
             item={{
