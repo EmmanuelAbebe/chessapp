@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Modal from "@/components/ui/Modal";
+import PasswordInput from "@/components/ui/PasswordInput";
 import {
   inputClass,
   primaryButtonClass,
@@ -58,8 +59,7 @@ export default function ChangePasswordModal({
             <span className="font-medium text-neutral-300">
               Current Password
             </span>
-            <input
-              type="password"
+            <PasswordInput
               className={inputClass}
               value={current}
               onChange={(event) => setCurrent(event.target.value)}
@@ -68,8 +68,7 @@ export default function ChangePasswordModal({
 
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="font-medium text-neutral-300">New Password</span>
-            <input
-              type="password"
+            <PasswordInput
               className={inputClass}
               value={next}
               onChange={(event) => setNext(event.target.value)}
@@ -80,8 +79,7 @@ export default function ChangePasswordModal({
             <span className="font-medium text-neutral-300">
               Confirm New Password
             </span>
-            <input
-              type="password"
+            <PasswordInput
               className={inputClass}
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PasswordInput from "@/components/ui/PasswordInput";
 import SocialAuthButtons from "@/features/auth/components/SocialAuthButtons";
 
 const RegisterPage = () => {
@@ -43,8 +44,7 @@ const RegisterPage = () => {
               >
                 Password <span className="text-neutral-600">(optional)</span>
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 name="password"
                 id="password"
                 placeholder="••••••••"
@@ -59,8 +59,7 @@ const RegisterPage = () => {
                 Confirm password{" "}
                 <span className="text-neutral-600">(optional)</span>
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 name="confirm-password"
                 id="confirm-password"
                 placeholder="••••••••"

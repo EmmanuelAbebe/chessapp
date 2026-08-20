@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -88,8 +89,7 @@ export default function ResetPasswordForm() {
                 >
                   New password
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   name="password"
                   id="password"
                   value={password}
@@ -106,8 +106,7 @@ export default function ResetPasswordForm() {
                 >
                   Confirm new password
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   name="confirm-password"
                   id="confirm-password"
                   value={confirmPassword}
