@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
+import type { Arrow } from "react-chessboard";
 import { EvalBar } from "./EvalBar";
 import { EvalScoreLabel } from "./EvalScoreLabel";
 import { BoardView } from "./BoardView";
@@ -48,6 +49,20 @@ export function BoardScreen() {
     14,
     showEvalBar || showEvalScore,
   );
+
+  // Test wiring: Stockfish's best move rendered as an AI-drawn arrow,
+  // distinct in color from user-drawn ones (#ffaa00).
+  const aiArrows = useMemo<Arrow[]>(() => {
+    if (!evalScore.bestMove) return [];
+
+    return [
+      {
+        startSquare: evalScore.bestMove.slice(0, 2),
+        endSquare: evalScore.bestMove.slice(2, 4),
+        color: "#3b82f6",
+      },
+    ];
+  }, [evalScore.bestMove]);
 
   return (
     <>
@@ -101,6 +116,7 @@ export function BoardScreen() {
               onSquareClick={onSquareClick}
               showCoordinates={showCoordinates}
               coordinatesPlacement={coordinatesPlacement}
+              aiArrows={aiArrows}
             />
 
             <BoardControls

@@ -17,6 +17,7 @@ type BoardViewProps = {
   onSquareClick: (args: SquareHandlerArgs) => void;
   showCoordinates: boolean;
   coordinatesPlacement: CoordinatesPlacement;
+  aiArrows?: Arrow[];
 };
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
@@ -33,16 +34,17 @@ export function BoardView({
   onSquareClick,
   showCoordinates,
   coordinatesPlacement,
+  aiArrows = [],
 }: BoardViewProps) {
-  const [arrows, setArrows] = useState<Arrow[]>([]);
   const [highlightedSquares, setHighlightedSquares] = useState<Set<string>>(
     new Set(),
   );
 
-  // Right-click annotations point at a specific position - clear them
-  // whenever the position changes rather than let them go stale.
+  // Right-click highlights point at a specific position - clear them
+  // whenever the position changes rather than let them go stale. User-drawn
+  // arrows don't need this: react-chessboard clears its own internally-
+  // managed arrows on position change by default.
   useEffect(() => {
-    setArrows([]);
     setHighlightedSquares(new Set());
   }, [chessPosition]);
 
@@ -78,9 +80,7 @@ export function BoardView({
       allowDragging: false,
       allowDragOffBoard: false,
       allowDrawingArrows: true,
-      arrows,
-      onArrowsChange: ({ arrows: nextArrows }: { arrows: Arrow[] }) =>
-        setArrows(nextArrows),
+      arrows: aiArrows,
       showNotation: showCoordinates && coordinatesPlacement === "inside",
       darkSquareStyle: boardTheme.darkSquareStyle,
       lightSquareStyle: boardTheme.lightSquareStyle,
@@ -92,7 +92,7 @@ export function BoardView({
       optionSquares,
       highlightStyles,
       orientation,
-      arrows,
+      aiArrows,
       showCoordinates,
       coordinatesPlacement,
     ],
