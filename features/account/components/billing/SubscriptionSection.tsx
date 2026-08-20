@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FaCreditCard, FaDownload } from "react-icons/fa6";
+import SectionTitle from "@/components/ui/SectionTitle";
 import { primaryButtonClass } from "@/features/account/lib/styles";
 import { INVOICES } from "../../data";
 import UpgradePlanModal from "./UpgradePlanModal";
@@ -16,12 +17,7 @@ export default function SubscriptionSection() {
 
   return (
     <section aria-labelledby="subscription-heading">
-      <h2
-        id="subscription-heading"
-        className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white"
-      >
-        Subscription
-      </h2>
+      <SectionTitle id="subscription-heading">Subscription</SectionTitle>
 
       <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         <dt className="text-neutral-500">Plan</dt>

@@ -10,7 +10,7 @@ export default function AccountNav() {
   return (
     <nav
       aria-label="Dashboard sections"
-      className="md:sticky md:top-8 md:w-40 md:shrink-0"
+      className="md:sticky md:top-14 md:w-40 md:shrink-0"
     >
       <ul className="flex gap-1 overflow-x-auto text-sm md:flex-col md:overflow-visible">
         {SECTIONS.map((section) => {

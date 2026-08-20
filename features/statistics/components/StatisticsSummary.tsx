@@ -1,14 +1,10 @@
+import SectionTitle from "@/components/ui/SectionTitle";
 import { STATS } from "../data";
 
 export default function StatisticsSummary() {
   return (
     <section aria-labelledby="statistics-heading">
-      <h2
-        id="statistics-heading"
-        className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white"
-      >
-        Statistics
-      </h2>
+      <SectionTitle id="statistics-heading">Statistics</SectionTitle>
 
       <dl className="mt-4 grid max-w-sm grid-cols-3 gap-4 text-center">
         {STATS.map((stat) => (

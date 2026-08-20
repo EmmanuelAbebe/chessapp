@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FaUserAlt } from "react-icons/fa";
 import { FaKey, FaPen } from "react-icons/fa6";
+import SectionTitle from "@/components/ui/SectionTitle";
 import { secondaryButtonClass } from "@/features/account/lib/styles";
 import type { Profile } from "../types";
 import EditProfileModal from "./EditProfileModal";
@@ -18,12 +19,7 @@ export default function ProfileSection() {
 
   return (
     <section aria-labelledby="profile-heading">
-      <h2
-        id="profile-heading"
-        className="border-b border-neutral-800 pb-3 text-2xl font-bold tracking-tight text-white"
-      >
-        Profile
-      </h2>
+      <SectionTitle id="profile-heading">Profile</SectionTitle>
 
       <div className="mt-4 flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
         <FaUserAlt

@@ -14,10 +14,10 @@ export function SiteHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="w-full border-b border-white/10">
+    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-background">
       <nav
         aria-label="Primary"
-        className="container mx-auto flex items-center gap-3 px-4 py-2 sm:px-6"
+        className="container mx-auto flex h-14 items-center gap-3 px-4 sm:px-6"
       >
         <Link href="/" className="text-sm font-semibold tracking-tight">
           CoachMeChess
