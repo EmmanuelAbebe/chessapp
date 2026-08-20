@@ -71,11 +71,9 @@ export function useMoveTree() {
   }
 
   function goToStart() {
-    const firstMoveId = getFirstChildId(tree, tree.rootId);
-
     setTree((prev) => ({
       ...prev,
-      currentNodeId: firstMoveId ?? prev.rootId,
+      currentNodeId: prev.rootId,
     }));
   }
 
