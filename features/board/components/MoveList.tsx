@@ -79,7 +79,7 @@ export function MoveList({
               <button
                 type="button"
                 ref={currentNodeId === pair.white?.id ? currentMoveRef : undefined}
-                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
+                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap transition-colors duration-150 ease-out hover:bg-neutral-800 ${
                   currentNodeId === pair.white?.id
                     ? "bg-blue-500/15 font-medium text-blue-400"
                     : "text-neutral-300"
@@ -92,7 +92,7 @@ export function MoveList({
               <button
                 type="button"
                 ref={currentNodeId === pair.black?.id ? currentMoveRef : undefined}
-                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
+                className={`shrink-0 rounded px-2 py-1 whitespace-nowrap transition-colors duration-150 ease-out hover:bg-neutral-800 ${
                   currentNodeId === pair.black?.id
                     ? "bg-blue-500/15 font-medium text-blue-400"
                     : "text-neutral-300"
