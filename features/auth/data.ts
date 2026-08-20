@@ -1,6 +1,13 @@
 import { FaFacebook, FaGoogle, FaTiktok, FaTwitch } from "react-icons/fa6";
+import { SiLichess } from "react-icons/si";
 
 export const SOCIAL_PROVIDERS = [
+  {
+    name: "Lichess",
+    Icon: SiLichess,
+    className:
+      "bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-300",
+  },
   {
     name: "Google",
     Icon: FaGoogle,
