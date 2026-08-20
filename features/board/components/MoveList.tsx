@@ -85,7 +85,7 @@ export function MoveList({
           {highlight && (
             <div
               aria-hidden="true"
-              className="absolute inset-y-0 z-0 rounded bg-blue-500/15 transition-[left,width] duration-150 ease-out"
+              className="absolute inset-y-0 z-0 rounded bg-blue-500/15 transition-[left,width] duration-500 ease-out"
               style={{ left: highlight.left, width: highlight.width }}
             />
           )}
