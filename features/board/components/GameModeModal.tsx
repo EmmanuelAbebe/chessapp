@@ -1,10 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { defaultPieces } from "react-chessboard";
 import Modal from "@/components/ui/Modal";
 import SettingsSelect from "@/features/settings/components/SettingsSelect";
 import type { SideChoice } from "../hooks/useGameMode";
 import { formatGameStatus, type GameStatus } from "../lib/game-status";
+
+const WINNER_KING = {
+  white: defaultPieces.wK,
+  black: defaultPieces.bK,
+};
 
 const DIFFICULTY_PRESETS = [
   { label: "Beginner", skill: 2 },
@@ -47,6 +53,7 @@ export function GameModeModal({
   gameStatus,
 }: GameModeModalProps) {
   const statusMessage = gameStatus ? formatGameStatus(gameStatus) : null;
+  const WinnerKing = gameStatus?.winner ? WINNER_KING[gameStatus.winner] : null;
   const [showStockfishSetup, setShowStockfishSetup] = useState(false);
   const [difficulty, setDifficulty] = useState("Medium");
   const [side, setSide] = useState<SideChoice>("white");
@@ -73,8 +80,15 @@ export function GameModeModal({
         <h2 className="text-xl font-bold text-white">Game Mode</h2>
 
         {statusMessage && (
-          <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-center">
-            <p className="text-lg font-bold text-white">{statusMessage}</p>
+          <div className="my-9 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-center">
+            {WinnerKing && (
+              <div className="mx-auto mb-2 h-16 w-16">
+                <WinnerKing />
+              </div>
+            )}
+            <p className="text-4xl font-bold text-white uppercase text-spacing-wider">
+              {statusMessage}
+            </p>
           </div>
         )}
 
@@ -100,8 +114,7 @@ export function GameModeModal({
                 Play against Stockfish
               </span>
               <span className="text-xs text-neutral-500">
-                Choose a side and difficulty - the engine plays the other
-                side.
+                Choose a side and difficulty - the engine plays the other side.
               </span>
             </button>
 
