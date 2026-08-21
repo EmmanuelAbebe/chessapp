@@ -14,7 +14,7 @@ export function SiteHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-background">
+    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-transparent">
       <nav
         aria-label="Primary"
         className="container mx-auto flex h-14 items-center gap-3 px-4 sm:px-6"
