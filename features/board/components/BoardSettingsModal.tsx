@@ -130,6 +130,22 @@ export function BoardSettingsModal({
             }}
           />
 
+          <SettingsItem
+            item={{
+              title: "Figurine Notation",
+              content: (
+                <SettingsToggle
+                  setting={{
+                    label: "Figurine Notation",
+                    isSelected: settings.showFigurineNotation,
+                    onChange: (showFigurineNotation) =>
+                      updateSettings({ showFigurineNotation }),
+                  }}
+                />
+              ),
+            }}
+          />
+
           <SettingsGroup
             title="Eval Bar"
             isSelected={settings.showEvalBar}

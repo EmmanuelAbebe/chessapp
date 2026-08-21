@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { defaultPieces } from "react-chessboard";
+import { useSettings } from "@/features/settings/SettingsContext";
+import { splitSanPieceLetter } from "../lib/move-format";
 import type { MoveNode } from "../types";
 
 type MoveListProps = {
@@ -53,12 +56,38 @@ function buildMovePairs(currentLine: MoveNode[]): MovePair[] {
   return pairs;
 }
 
+function MoveLabel({
+  node,
+  showFigurineNotation,
+}: {
+  node: MoveNode;
+  showFigurineNotation: boolean;
+}) {
+  const san = node.san ?? "";
+  if (!showFigurineNotation || !node.side) return <>{san}</>;
+
+  const { pieceLetter, rest } = splitSanPieceLetter(san);
+  if (!pieceLetter) return <>{san}</>;
+
+  const Icon = defaultPieces[`${node.side}${pieceLetter}` as keyof typeof defaultPieces];
+
+  return (
+    <>
+      <span className="mr-0.5 inline-block h-4 w-4 -translate-y-0.5 align-middle">
+        <Icon />
+      </span>
+      {rest}
+    </>
+  );
+}
+
 export function MoveList({
   currentLine,
   currentNodeId,
   onSelectNode,
   onSelectStart,
 }: MoveListProps) {
+  const { settings } = useSettings();
   const movePairs = buildMovePairs(currentLine);
   const currentMoveRef = useRef<HTMLButtonElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -114,27 +143,31 @@ export function MoveList({
               <button
                 type="button"
                 ref={currentNodeId === pair.white?.id ? currentMoveRef : undefined}
-                className={`relative z-10 shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
+                className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
                   currentNodeId === pair.white?.id
                     ? "font-medium text-blue-400"
                     : "text-neutral-300"
                 }`}
                 onClick={() => pair.white && onSelectNode(pair.white.id)}
               >
-                {pair.white?.san ?? ""}
+                {pair.white && (
+                  <MoveLabel node={pair.white} showFigurineNotation={settings.showFigurineNotation} />
+                )}
               </button>
 
               <button
                 type="button"
                 ref={currentNodeId === pair.black?.id ? currentMoveRef : undefined}
-                className={`relative z-10 shrink-0 rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
+                className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
                   currentNodeId === pair.black?.id
                     ? "font-medium text-blue-400"
                     : "text-neutral-300"
                 }`}
                 onClick={() => pair.black && onSelectNode(pair.black.id)}
               >
-                {pair.black?.san ?? ""}
+                {pair.black && (
+                  <MoveLabel node={pair.black} showFigurineNotation={settings.showFigurineNotation} />
+                )}
               </button>
             </div>
           ))}

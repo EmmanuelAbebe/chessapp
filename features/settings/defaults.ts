@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showLegalMoves: true,
   highlightLastMove: true,
   highlightCheck: true,
+  showFigurineNotation: true,
 
   showEngineSuggestions: false,
 

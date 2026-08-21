@@ -35,6 +35,7 @@ export type AppSettings = {
   showLegalMoves: boolean;
   highlightLastMove: boolean;
   highlightCheck: boolean;
+  showFigurineNotation: boolean;
 
   // engine
   showEngineSuggestions: boolean;
