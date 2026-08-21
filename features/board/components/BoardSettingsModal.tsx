@@ -146,6 +146,22 @@ export function BoardSettingsModal({
             }}
           />
 
+          <SettingsItem
+            item={{
+              title: "Move List",
+              content: (
+                <SettingsToggle
+                  setting={{
+                    label: "Move List",
+                    isSelected: settings.showMoveList,
+                    onChange: (showMoveList) =>
+                      updateSettings({ showMoveList }),
+                  }}
+                />
+              ),
+            }}
+          />
+
           <SettingsGroup
             title="Eval Bar"
             isSelected={settings.showEvalBar}

@@ -181,6 +181,22 @@ export default function SettingsSection() {
               ),
             }}
           />
+
+          <SettingsItem
+            item={{
+              title: "Move List",
+              content: (
+                <SettingsToggle
+                  setting={{
+                    label: "Move List",
+                    isSelected: settings.showMoveList,
+                    onChange: (showMoveList) =>
+                      updateSettings({ showMoveList }),
+                  }}
+                />
+              ),
+            }}
+          />
         </SettingsCard>
 
         <SettingsCard title="Coordinates">
