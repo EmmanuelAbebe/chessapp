@@ -1,7 +1,8 @@
 "use client";
 
-import { type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Checkbox from "@/components/ui/Checkbox";
 import PasswordInput from "@/components/ui/PasswordInput";
 import TextInput from "@/components/ui/TextInput";
@@ -10,13 +11,18 @@ import { validateEmail } from "@/lib/validation";
 import SocialAuthButtons from "@/features/auth/components/SocialAuthButtons";
 
 const LoginPage = () => {
+  const router = useRouter();
   const email = useValidatedField("", (value) =>
     validateEmail(value, { required: false }),
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    email.validateNow();
+    if (!email.validateNow()) return;
+
+    setIsSubmitting(true);
+    setTimeout(() => router.push("/dashboard"), 600);
   }
 
   return (
@@ -77,9 +83,10 @@ const LoginPage = () => {
             </div>
             <button
               type="submit"
-              className="w-full text-neutral-200 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 focus:ring-4 focus:outline-none focus:ring-neutral-700/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
+              disabled={isSubmitting}
+              className="w-full text-neutral-200 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 focus:ring-4 focus:outline-none focus:ring-neutral-700/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Sign in
+              {isSubmitting ? "Signing in…" : "Sign in"}
             </button>
             <p className="text-sm font-light text-neutral-400">
               Don’t have an account yet?{" "}

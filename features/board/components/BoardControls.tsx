@@ -17,18 +17,33 @@ export function BoardControls({
 }: BoardControlsProps) {
   return (
     <div className="flex shrink-0 flex-col items-center gap-3 p-2">
-      <FaChess
-        className="cursor-pointer text-neutral-500 hover:text-neutral-300"
+      <button
+        type="button"
         onClick={openGameMode}
-      />
-      <FaGear
-        className="cursor-pointer text-neutral-500 hover:text-neutral-300"
+        aria-label="Game mode"
+        title="Game mode"
+        className="rounded text-neutral-500 transition hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        <FaChess />
+      </button>
+      <button
+        type="button"
         onClick={openBoardSettings}
-      />
-      <HiSwitchVertical
-        className="cursor-pointer text-neutral-500 hover:text-neutral-300"
+        aria-label="Board settings"
+        title="Board settings"
+        className="rounded text-neutral-500 transition hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        <FaGear />
+      </button>
+      <button
+        type="button"
         onClick={toggleOrientation}
-      />
+        aria-label="Flip board"
+        title="Flip board"
+        className="rounded text-neutral-500 transition hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        <HiSwitchVertical />
+      </button>
     </div>
   );
 }

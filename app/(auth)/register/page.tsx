@@ -1,7 +1,8 @@
 "use client";
 
-import { type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import PasswordInput from "@/components/ui/PasswordInput";
 import TextInput from "@/components/ui/TextInput";
 import { useValidatedField } from "@/lib/hooks/useValidatedField";
@@ -9,6 +10,7 @@ import { validateEmail, validateMatch, validatePassword } from "@/lib/validation
 import SocialAuthButtons from "@/features/auth/components/SocialAuthButtons";
 
 const RegisterPage = () => {
+  const router = useRouter();
   const email = useValidatedField("", (value) =>
     validateEmail(value, { required: false }),
   );
@@ -18,12 +20,17 @@ const RegisterPage = () => {
   const confirmPassword = useValidatedField("", (value) =>
     validateMatch(value, password.value, "Passwords"),
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    email.validateNow();
-    password.validateNow();
-    confirmPassword.validateNow();
+    const isEmailValid = email.validateNow();
+    const isPasswordValid = password.validateNow();
+    const isConfirmValid = confirmPassword.validateNow();
+    if (!isEmailValid || !isPasswordValid || !isConfirmValid) return;
+
+    setIsSubmitting(true);
+    setTimeout(() => router.push("/dashboard"), 600);
   }
 
   return (
@@ -103,9 +110,10 @@ const RegisterPage = () => {
             </div>
             <button
               type="submit"
-              className="w-full text-neutral-200 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 focus:ring-4 focus:outline-none focus:ring-neutral-700/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
+              disabled={isSubmitting}
+              className="w-full text-neutral-200 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 focus:ring-4 focus:outline-none focus:ring-neutral-700/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Create account
+              {isSubmitting ? "Creating account…" : "Create account"}
             </button>
             <p className="text-sm font-light text-neutral-400">
               Already have an account?{" "}
