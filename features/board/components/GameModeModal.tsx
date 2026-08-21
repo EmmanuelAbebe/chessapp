@@ -185,13 +185,13 @@ export function GameModeModal({
                       aria-label={option}
                       aria-pressed={side === option}
                       title={option}
-                      className={`flex flex-1 items-center justify-center rounded-lg border p-2 transition ${
+                      className={`flex flex-1 items-center justify-center rounded-none border p-2 transition ${
                         side === option
                           ? "border-blue-500 bg-blue-500/10"
                           : "border-neutral-700 hover:border-neutral-600"
                       }`}
                     >
-                      <div className="h-8 w-8">
+                      <div className="h-16 w-16">
                         <Icon />
                       </div>
                     </button>
