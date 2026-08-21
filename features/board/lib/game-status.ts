@@ -31,7 +31,7 @@ export function formatGameStatus(status: GameStatus): string | null {
 
   if (status.result === "checkmate" && status.winner) {
     const winnerLabel = status.winner === "white" ? "White" : "Black";
-    return `Checkmate — ${winnerLabel} wins`;
+    return `${winnerLabel} wins`;
   }
 
   if (status.result === "stalemate") return "Draw — Stalemate";
