@@ -15,12 +15,32 @@ const FEATURES = [
   },
 ];
 
+const HOW_IT_WORKS = [
+  {
+    step: "01",
+    title: "Play",
+    body: "Play a game on the board — against yourself for now, Stockfish soon.",
+  },
+  {
+    step: "02",
+    title: "Review",
+    body: "The engine finds exactly where the position turned, and why.",
+  },
+  {
+    step: "03",
+    title: "Train",
+    body: "Your coach explains the pattern and gives you what to work on next.",
+  },
+];
+
 export default function Home() {
   return (
-    <div className="flex w-full flex-1 flex-col items-center justify-center gap-16 px-4 py-16 text-center sm:px-6 sm:py-24">
-      <div className="flex max-w-2xl flex-col gap-4">
-        <h1 className="text-3xl font-bold">CoachMeChess</h1>
-        <p className="text-lg opacity-80">
+    <div className="flex w-full flex-1 flex-col items-center gap-20 px-4 py-16 text-center sm:px-6 sm:py-24">
+      <div className="flex max-w-2xl flex-col items-center gap-4">
+        <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl">
+          CoachMeChess
+        </h1>
+        <p className="text-lg text-neutral-300">
           A chess coach that studies your games, finds recurring thinking
           errors, and teaches exactly what you need next.
         </p>
@@ -40,13 +60,34 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid max-w-3xl grid-cols-1 gap-8 sm:grid-cols-3">
+      <div className="grid w-full max-w-3xl grid-cols-1 gap-8 sm:grid-cols-3">
         {FEATURES.map((feature) => (
           <div key={feature.title} className="flex flex-col gap-1">
-            <h2 className="font-semibold">{feature.title}</h2>
-            <p className="text-sm opacity-70">{feature.body}</p>
+            <h2 className="text-base font-semibold text-white">
+              {feature.title}
+            </h2>
+            <p className="text-sm text-neutral-400">{feature.body}</p>
           </div>
         ))}
+      </div>
+
+      <div className="flex w-full max-w-3xl flex-col gap-8">
+        <h2 className="text-sm font-semibold tracking-wide text-neutral-500">
+          How it works
+        </h2>
+        <div className="grid grid-cols-1 gap-8 text-left sm:grid-cols-3">
+          {HOW_IT_WORKS.map((item) => (
+            <div key={item.step} className="flex flex-col gap-1">
+              <span className="font-mono text-xs text-neutral-600">
+                {item.step}
+              </span>
+              <h3 className="text-base font-semibold text-white">
+                {item.title}
+              </h3>
+              <p className="text-sm text-neutral-400">{item.body}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

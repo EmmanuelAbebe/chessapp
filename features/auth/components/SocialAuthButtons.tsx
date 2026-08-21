@@ -13,6 +13,9 @@ export default function SocialAuthButtons() {
           Continue with {name}
         </button>
       ))}
+      <p className="text-center text-xs text-neutral-600">
+        Not connected yet — preview only
+      </p>
     </div>
   );
 }

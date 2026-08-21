@@ -38,7 +38,7 @@ export function BoardSettingsModal({
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="w-full max-w-md">
         <header className="px-4 pt-3 pb-6">
-          <h2 className="text-3xl font-bold text-neutral-100">Settings</h2>
+          <h2 className="text-xl font-bold text-white">Settings</h2>
         </header>
 
         <div className="px-4">
