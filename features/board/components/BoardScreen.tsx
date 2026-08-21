@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { Arrow } from "react-chessboard";
 import { EvalBar } from "./EvalBar";
 import { EvalScoreLabel } from "./EvalScoreLabel";
@@ -31,6 +31,7 @@ export function BoardScreen() {
     orientation,
     analysisFen,
     turn,
+    gameStatus,
     currentLine,
     currentNodeId,
     canGoPrevious,
@@ -99,6 +100,15 @@ export function BoardScreen() {
       color: `rgba(59, 130, 246, ${AI_ARROW_OPACITIES[index] ?? 0.3})`,
     }));
   }, [evalScore.candidates, showEngineSuggestions, isPlayingStockfish]);
+
+  // Give the final move/highlight a moment to settle on the board before
+  // covering it with the result.
+  useEffect(() => {
+    if (!gameStatus.isOver) return;
+
+    const timeout = setTimeout(() => setIsGameModeOpen(true), 500);
+    return () => clearTimeout(timeout);
+  }, [gameStatus.isOver]);
 
   function handleStartNewGame() {
     gameMode.startAnalysis();
@@ -188,6 +198,7 @@ export function BoardScreen() {
         onClose={() => setIsGameModeOpen(false)}
         onStartNewGame={handleStartNewGame}
         onStartVsStockfish={handleStartVsStockfish}
+        gameStatus={gameStatus}
       />
     </>
   );

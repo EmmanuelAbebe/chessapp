@@ -5,6 +5,7 @@ import { Chess, type Square } from "chess.js";
 import type { SquareHandlerArgs } from "react-chessboard";
 import type { Orientation, OptionSquares } from "../types";
 import { getMoveOptions } from "../lib/board-helpers";
+import { getGameStatus } from "../lib/game-status";
 import { useMoveTree } from "./useMoveTree";
 import { useSettings } from "@/features/settings/SettingsContext";
 
@@ -34,6 +35,8 @@ export function useBoardGame() {
     () => new Chess(moveTree.currentFen),
     [moveTree.currentFen],
   );
+
+  const gameStatus = useMemo(() => getGameStatus(currentChess), [currentChess]);
 
   const lastMoveSquares = useMemo<OptionSquares>(() => {
     if (!settings.highlightLastMove) return {};
@@ -178,6 +181,7 @@ export function useBoardGame() {
     analysisFen,
     chessPosition: moveTree.currentFen,
     turn: currentChess.turn(),
+    gameStatus,
 
     currentLine: moveTree.currentLine,
     currentChildren: moveTree.currentChildren,

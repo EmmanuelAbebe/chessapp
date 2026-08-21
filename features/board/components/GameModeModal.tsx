@@ -4,6 +4,7 @@ import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import SettingsSelect from "@/features/settings/components/SettingsSelect";
 import type { SideChoice } from "../hooks/useGameMode";
+import { formatGameStatus, type GameStatus } from "../lib/game-status";
 
 const DIFFICULTY_PRESETS = [
   { label: "Beginner", skill: 2 },
@@ -35,6 +36,7 @@ type GameModeModalProps = {
   onClose: () => void;
   onStartNewGame: () => void;
   onStartVsStockfish: (side: SideChoice, skillLevel: number) => void;
+  gameStatus?: GameStatus;
 };
 
 export function GameModeModal({
@@ -42,7 +44,9 @@ export function GameModeModal({
   onClose,
   onStartNewGame,
   onStartVsStockfish,
+  gameStatus,
 }: GameModeModalProps) {
+  const statusMessage = gameStatus ? formatGameStatus(gameStatus) : null;
   const [showStockfishSetup, setShowStockfishSetup] = useState(false);
   const [difficulty, setDifficulty] = useState("Medium");
   const [side, setSide] = useState<SideChoice>("white");
@@ -67,6 +71,12 @@ export function GameModeModal({
     <Modal isOpen={isOpen} onClose={handleClose}>
       <div className="w-full max-w-md">
         <h2 className="text-xl font-bold text-white">Game Mode</h2>
+
+        {statusMessage && (
+          <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-center">
+            <p className="text-lg font-bold text-white">{statusMessage}</p>
+          </div>
+        )}
 
         {!showStockfishSetup ? (
           <div className="mt-6 flex flex-col gap-3">
