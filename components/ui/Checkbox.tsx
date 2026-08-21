@@ -18,16 +18,16 @@ export default function Checkbox({
             {...props}
             id={id}
             type="checkbox"
-            className="h-4 w-4 rounded border border-neutral-700 bg-neutral-800 focus:ring-2 focus:ring-blue-500"
+            className="h-4 w-4 rounded border border-border bg-surface-raised focus:ring-2 focus:ring-accent"
           />
         </div>
         <div className="ml-3 text-sm">
-          <label htmlFor={id} className="text-neutral-400">
+          <label htmlFor={id} className="text-text-dim">
             {label}
           </label>
         </div>
       </div>
-      {error ? <p className="mt-1.5 text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="mt-1.5 text-sm text-bad">{error}</p> : null}
     </div>
   );
 }

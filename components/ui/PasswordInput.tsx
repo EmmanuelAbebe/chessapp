@@ -21,19 +21,19 @@ export default function PasswordInput({
           {...props}
           type={visible ? "text" : "password"}
           aria-invalid={error ? true : undefined}
-          className={`block w-full rounded-lg border p-2.5 pr-10 text-sm text-neutral-100 placeholder-neutral-500 bg-neutral-800 outline-none focus:ring-2 ${
+          className={`block w-full rounded-lg border p-2.5 pr-10 text-sm text-text placeholder-text-faint bg-surface-raised outline-none focus:ring-2 ${
             error
-              ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+              ? "border-bad focus:border-bad focus:ring-bad"
               : success
-                ? "border-green-500 focus:border-green-500 focus:ring-green-500"
-                : "border-neutral-700 focus:border-blue-500 focus:ring-blue-500"
+                ? "border-good focus:border-good focus:ring-good"
+                : "border-border focus:border-accent focus:ring-accent"
           } ${className ?? ""}`}
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? "Hide password" : "Show password"}
-          className="absolute inset-y-0 right-0 flex items-center px-3 text-neutral-500 transition hover:text-neutral-300"
+          className="absolute inset-y-0 right-0 flex items-center px-3 text-text-faint transition hover:text-text"
         >
           {visible ? (
             <FaEyeSlash aria-hidden="true" className="h-4 w-4" />
@@ -43,9 +43,9 @@ export default function PasswordInput({
         </button>
       </div>
       {error ? (
-        <p className="mt-1.5 text-sm text-red-400">{error}</p>
+        <p className="mt-1.5 text-sm text-bad">{error}</p>
       ) : success ? (
-        <p className="mt-1.5 flex items-center gap-1.5 text-sm text-green-400">
+        <p className="mt-1.5 flex items-center gap-1.5 text-sm text-good">
           <FaCheck aria-hidden="true" className="h-3 w-3" />
           {success}
         </p>

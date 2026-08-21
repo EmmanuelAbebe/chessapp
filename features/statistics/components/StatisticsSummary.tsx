@@ -7,7 +7,7 @@ export default function StatisticsSummary() {
         {STATS.map((stat) => (
           <div key={stat.label}>
             <dd className="text-2xl font-bold">{stat.value}</dd>
-            <dt className="text-xs text-neutral-500">{stat.label}</dt>
+            <dt className="text-xs text-text-faint">{stat.label}</dt>
           </div>
         ))}
       </dl>

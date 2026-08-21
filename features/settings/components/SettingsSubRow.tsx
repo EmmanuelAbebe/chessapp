@@ -15,7 +15,7 @@ export default function SettingsSubRow({
 }: SettingsSubRowProps) {
   return (
     <div className="flex w-full items-center justify-between gap-4">
-      <p className="text-xs font-medium text-neutral-400">{label}</p>
+      <p className="text-xs font-medium text-text-dim">{label}</p>
       <SettingsToggle setting={{ label, isSelected, onChange }} />
     </div>
   );

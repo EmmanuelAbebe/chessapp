@@ -26,13 +26,13 @@ export default function SettingsToggle({ setting }: SettingsToggleProps) {
         className="
           flex h-6 w-11 items-center
           rounded-full
-          bg-neutral-700
+          bg-surface-raised
           p-0.5
           transition
 
-          group-data-selected:bg-blue-600
+          group-data-selected:bg-accent
           group-data-focus-visible:ring-2
-          group-data-focus-visible:ring-blue-500
+          group-data-focus-visible:ring-accent
           group-data-focus-visible:ring-offset-2
         "
       >

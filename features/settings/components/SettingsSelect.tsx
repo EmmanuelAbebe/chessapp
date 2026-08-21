@@ -33,21 +33,21 @@ export default function SettingsSelect({ setting }: SettingsSelectProps) {
       <Button
         className="
           flex min-w-36 items-center justify-between gap-3
-          rounded-lg border border-neutral-700
-          bg-neutral-900 px-3 py-2
-          text-sm text-neutral-200
+          rounded-lg border border-border
+          bg-surface px-3 py-2
+          text-sm text-text
           shadow-sm
           outline-none
           transition
 
-          hover:border-neutral-600
+          hover:border-accent
           focus-visible:ring-2
-          focus-visible:ring-blue-500
+          focus-visible:ring-accent
         "
       >
         <SelectValue />
 
-        <span aria-hidden="true" className="text-xs text-neutral-500">
+        <span aria-hidden="true" className="text-xs text-text-faint">
           ▼
         </span>
       </Button>
@@ -57,8 +57,8 @@ export default function SettingsSelect({ setting }: SettingsSelectProps) {
           w-(--trigger-width)
           overflow-hidden
           rounded-xl
-          border border-neutral-700
-          bg-neutral-900
+          border border-border
+          bg-surface
           p-1
           shadow-lg
         "
@@ -72,14 +72,14 @@ export default function SettingsSelect({ setting }: SettingsSelectProps) {
                 cursor-pointer
                 rounded-lg
                 px-3 py-2
-                text-sm text-neutral-300
+                text-sm text-text
                 outline-none
                 transition
 
-                data-hovered:bg-neutral-800
-                data-focused:bg-neutral-800
-                data-selected:bg-blue-500/15
-                data-selected:text-blue-400
+                data-hovered:bg-surface-raised
+                data-focused:bg-surface-raised
+                data-selected:bg-accent/15
+                data-selected:text-accent
                 data-selected:font-medium
               "
             >

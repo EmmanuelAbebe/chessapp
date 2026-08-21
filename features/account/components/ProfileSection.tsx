@@ -21,21 +21,21 @@ export default function ProfileSection() {
       <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
         <FaUserAlt
           aria-hidden="true"
-          className="shrink-0 rounded-full bg-white/10 p-4 text-neutral-500"
+          className="shrink-0 rounded-full bg-white/10 p-4 text-text-faint"
           size={72}
         />
 
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-          <dt className="text-neutral-500">Username</dt>
+          <dt className="text-text-faint">Username</dt>
           <dd className="font-medium">{profile.username}</dd>
 
-          <dt className="text-neutral-500">Email</dt>
+          <dt className="text-text-faint">Email</dt>
           <dd className="font-medium">{profile.email}</dd>
 
-          <dt className="text-neutral-500">Chess rating</dt>
+          <dt className="text-text-faint">Chess rating</dt>
           <dd className="font-medium">1500</dd>
 
-          <dt className="text-neutral-500">Member since</dt>
+          <dt className="text-text-faint">Member since</dt>
           <dd className="font-medium">January 2023</dd>
         </dl>
       </div>

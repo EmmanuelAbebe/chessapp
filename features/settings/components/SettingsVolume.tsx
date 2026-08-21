@@ -35,7 +35,7 @@ export default function SettingsVolume({ setting }: SettingsVolumeProps) {
 
   return (
     <div className="flex items-center gap-3">
-      <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-neutral-500" />
+      <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-text-faint" />
 
       <input
         type="range"
@@ -46,10 +46,10 @@ export default function SettingsVolume({ setting }: SettingsVolumeProps) {
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label={label}
         aria-valuetext={levelLabel(value)}
-        className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-neutral-800 accent-blue-500"
+        className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-surface-raised accent-accent"
       />
 
-      <span className="w-12 shrink-0 text-xs text-neutral-500">
+      <span className="w-12 shrink-0 text-xs text-text-faint">
         {levelLabel(value)}
       </span>
     </div>

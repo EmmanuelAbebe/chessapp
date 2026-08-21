@@ -21,7 +21,7 @@ export default function UpgradePlanModal({
 
   return (
     <Modal isOpen onClose={onClose}>
-      <h2 className="text-xl font-bold text-white">Choose a Plan</h2>
+      <h2 className="text-xl font-bold text-text">Choose a Plan</h2>
 
       <div className="mt-6 flex flex-col gap-3">
         {PLANS.map((planOption) => {
@@ -34,19 +34,19 @@ export default function UpgradePlanModal({
               onClick={() => setSelected(planOption.name)}
               className={`flex flex-col gap-1.5 rounded-lg border p-3 text-left transition ${
                 isSelected
-                  ? "border-blue-500 bg-blue-500/10"
-                  : "border-neutral-700 hover:border-neutral-600"
+                  ? "border-accent bg-accent/10"
+                  : "border-border hover:border-accent"
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-white">
+                <span className="font-semibold text-text">
                   {planOption.name}
                 </span>
-                <span className="text-sm text-neutral-400">
+                <span className="text-sm text-text-dim">
                   {planOption.price}
                 </span>
               </div>
-              <ul className="flex flex-col gap-0.5 text-xs text-neutral-500">
+              <ul className="flex flex-col gap-0.5 text-xs text-text-faint">
                 {planOption.features.map((feature) => (
                   <li key={feature}>{feature}</li>
                 ))}

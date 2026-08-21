@@ -22,8 +22,8 @@ export default function AccountNav() {
                 aria-current={isActive ? "page" : undefined}
                 className={`block rounded-l-md border-r-2 px-3 py-1.5 whitespace-nowrap transition ${
                   isActive
-                    ? "border-blue-400 font-medium text-white"
-                    : "border-transparent text-neutral-500 hover:bg-white/10 hover:text-white"
+                    ? "border-accent font-medium text-text"
+                    : "border-transparent text-text-faint hover:bg-white/10 hover:text-text"
                 }`}
               >
                 {section.label}

@@ -127,7 +127,7 @@ export function BoardScreen() {
   return (
     <>
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-3 overflow-x-auto p-3 sm:p-4">
-        <div className="flex w-(--board-size) flex-col gap-3 [--board-size:min(92vw,78dvh,880px)]">
+        <div className="flex w-(--board-size) flex-col gap-3 [--board-size:min(90vw,78dvh,1100px)]">
           <AiChatPanel />
 
           <div className="flex w-full items-start gap-2">

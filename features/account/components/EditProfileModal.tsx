@@ -35,11 +35,11 @@ export default function EditProfileModal({
 
   return (
     <Modal isOpen onClose={onClose}>
-      <h2 className="text-xl font-bold text-white">Edit Profile</h2>
+      <h2 className="text-xl font-bold text-text">Edit Profile</h2>
 
       <div className="mt-6 flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-neutral-300">Username</span>
+          <span className="font-medium text-text">Username</span>
           <TextInput
             value={username.value}
             onChange={username.onChange}
@@ -50,7 +50,7 @@ export default function EditProfileModal({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-neutral-300">Email</span>
+          <span className="font-medium text-text">Email</span>
           <TextInput
             type="email"
             value={email.value}

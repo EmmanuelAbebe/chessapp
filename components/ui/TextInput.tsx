@@ -15,18 +15,18 @@ export default function TextInput({
       <input
         {...props}
         aria-invalid={error ? true : undefined}
-        className={`block w-full rounded-lg border p-2.5 text-sm text-neutral-100 placeholder-neutral-500 bg-neutral-800 outline-none focus:ring-2 ${
+        className={`block w-full rounded-lg border p-2.5 text-sm text-text placeholder-text-faint bg-surface-raised outline-none focus:ring-2 ${
           error
-            ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+            ? "border-bad focus:border-bad focus:ring-bad"
             : success
-              ? "border-green-500 focus:border-green-500 focus:ring-green-500"
-              : "border-neutral-700 focus:border-blue-500 focus:ring-blue-500"
+              ? "border-good focus:border-good focus:ring-good"
+              : "border-border focus:border-accent focus:ring-accent"
         } ${className ?? ""}`}
       />
       {error ? (
-        <p className="mt-1.5 text-sm text-red-400">{error}</p>
+        <p className="mt-1.5 text-sm text-bad">{error}</p>
       ) : success ? (
-        <p className="mt-1.5 flex items-center gap-1.5 text-sm text-green-400">
+        <p className="mt-1.5 flex items-center gap-1.5 text-sm text-good">
           <FaCheck aria-hidden="true" className="h-3 w-3" />
           {success}
         </p>

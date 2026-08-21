@@ -31,7 +31,7 @@ function NavButton({ icon: Icon, label, onClick }: NavButtonProps) {
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+      className="flex h-7 w-7 items-center justify-center rounded-md text-text-dim hover:bg-surface-raised hover:text-text"
     >
       <Icon className="h-3 w-3" />
     </button>

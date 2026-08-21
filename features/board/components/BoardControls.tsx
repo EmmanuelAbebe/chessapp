@@ -22,7 +22,7 @@ export function BoardControls({
         onClick={openGameMode}
         aria-label="Game mode"
         title="Game mode"
-        className="rounded text-neutral-500 transition hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <FaChess />
       </button>
@@ -31,7 +31,7 @@ export function BoardControls({
         onClick={openBoardSettings}
         aria-label="Board settings"
         title="Board settings"
-        className="rounded text-neutral-500 transition hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <FaGear />
       </button>
@@ -40,7 +40,7 @@ export function BoardControls({
         onClick={toggleOrientation}
         aria-label="Flip board"
         title="Flip board"
-        className="rounded text-neutral-500 transition hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <HiSwitchVertical />
       </button>

@@ -17,7 +17,7 @@ export default function SettingsSection() {
 
   return (
     <section>
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-text-faint">
         These are the full app settings — the gear icon on the board is a
         quick shortcut to the board-related ones below, and both stay in
         sync.

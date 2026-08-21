@@ -3,25 +3,72 @@
 :root {
   --background: #323232;
   --foreground: #f5f5f5;
+
+  --surface: #3a3a3a;
+  --surface-raised: #444444;
+  --border: #5a5a5a;
+  --border-soft: #454545;
+
+  --text: #e8e8e6;
+  --text-dim: #9a9a97;
+  --text-faint: #6b6b68;
+
+  --accent: #5b9dfa;
+  --accent-soft: rgba(91, 157, 250, 0.14);
+
+  --bad: #f2685a;
+  --bad-soft: rgba(242, 104, 90, 0.12);
+  --good: #5fbf8f;
+  --good-soft: rgba(95, 191, 143, 0.12);
 }
 
 :root[data-theme-shade="midnight"] {
   --background: #0a0a0a;
+  --surface: #171717;
+  --surface-raised: #202020;
+  --border: #3a3a3a;
+  --border-soft: #262626;
 }
 
 :root[data-theme-shade="charcoal"] {
   --background: #323232;
+  --surface: #3a3a3a;
+  --surface-raised: #444444;
+  --border: #5a5a5a;
+  --border-soft: #454545;
 }
 
 :root[data-theme-shade="slate"] {
   --background: #11151c;
+  --surface: #191d26;
+  --surface-raised: #212530;
+  --border: #3d4350;
+  --border-soft: #262b35;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
+
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-text-faint: var(--text-faint);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+
+  --font-sans: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 }
 
 body {

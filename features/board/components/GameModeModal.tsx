@@ -101,16 +101,16 @@ export function GameModeModal({
   return (
     <Modal isOpen={isOpen} onClose={handleClose}>
       <div className="w-full max-w-md">
-        <h2 className="text-xl font-bold text-white">Game Mode</h2>
+        <h2 className="text-xl font-bold text-text">Game Mode</h2>
 
         {statusMessage && (
-          <div className="my-9 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-center">
+          <div className="my-9 rounded-lg border border-accent/30 bg-accent/10 px-4 py-3 text-center">
             {WinnerKing && (
               <div className="mx-auto mb-2 h-16 w-16">
                 <WinnerKing />
               </div>
             )}
-            <p className="text-4xl font-bold text-white uppercase text-spacing-wider">
+            <p className="text-4xl font-bold text-text uppercase text-spacing-wider">
               {statusMessage}
             </p>
           </div>
@@ -121,10 +121,10 @@ export function GameModeModal({
             <button
               type="button"
               onClick={handleStartNewGame}
-              className="flex flex-col gap-1 rounded-lg border border-neutral-700 p-3 text-left transition hover:border-neutral-600 hover:bg-white/5"
+              className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
             >
-              <span className="font-semibold text-white">Start New Game</span>
-              <span className="text-xs text-neutral-500">
+              <span className="font-semibold text-text">Start New Game</span>
+              <span className="text-xs text-text-faint">
                 Reset the board and analyze freely.
               </span>
             </button>
@@ -132,12 +132,12 @@ export function GameModeModal({
             <button
               type="button"
               onClick={() => setShowStockfishSetup(true)}
-              className="flex flex-col gap-1 rounded-lg border border-neutral-700 p-3 text-left transition hover:border-neutral-600 hover:bg-white/5"
+              className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
             >
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-text">
                 Play against Stockfish
               </span>
-              <span className="text-xs text-neutral-500">
+              <span className="text-xs text-text-faint">
                 Choose a side and difficulty - the engine plays the other side.
               </span>
             </button>
@@ -146,15 +146,15 @@ export function GameModeModal({
               <div
                 key={item.title}
                 aria-disabled="true"
-                className="flex flex-col gap-1 rounded-lg border border-neutral-800 p-3 text-left opacity-50"
+                className="flex flex-col gap-1 rounded-lg border border-border-soft p-3 text-left opacity-50"
               >
-                <span className="flex items-center gap-2 font-semibold text-white">
+                <span className="flex items-center gap-2 font-semibold text-text">
                   {item.title}
-                  <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-neutral-400">
+                  <span className="rounded-full bg-surface-raised px-2 py-0.5 text-[10px] font-medium text-text-dim">
                     Coming soon
                   </span>
                 </span>
-                <span className="text-xs text-neutral-500">
+                <span className="text-xs text-text-faint">
                   {item.description}
                 </span>
               </div>
@@ -165,13 +165,13 @@ export function GameModeModal({
             <button
               type="button"
               onClick={() => setShowStockfishSetup(false)}
-              className="self-start text-xs font-medium text-neutral-400 hover:text-neutral-200"
+              className="self-start text-xs font-medium text-text-dim hover:text-text"
             >
               ← Back
             </button>
 
             <div>
-              <span className="mb-2 block text-sm font-medium text-neutral-300">
+              <span className="mb-2 block text-sm font-medium text-text">
                 Play as
               </span>
               <div className="flex gap-2">
@@ -187,8 +187,8 @@ export function GameModeModal({
                       title={option}
                       className={`flex flex-1 items-center justify-center rounded-none border p-2 transition ${
                         side === option
-                          ? "border-blue-500 bg-blue-500/10"
-                          : "border-neutral-700 hover:border-neutral-600"
+                          ? "border-accent bg-accent/10"
+                          : "border-border hover:border-accent"
                       }`}
                     >
                       <div className="h-16 w-16">
@@ -212,7 +212,7 @@ export function GameModeModal({
             <button
               type="button"
               onClick={handleStartVsStockfish}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text transition hover:brightness-110"
             >
               Start Game
             </button>

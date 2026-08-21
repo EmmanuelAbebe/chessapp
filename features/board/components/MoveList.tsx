@@ -128,7 +128,7 @@ export function MoveList({
           {highlight && (
             <div
               aria-hidden="true"
-              className="absolute inset-y-0 z-0 rounded bg-blue-500/15 transition-[left,width] duration-500 ease-out"
+              className="absolute inset-y-0 z-0 rounded bg-accent/15 transition-[left,width] duration-500 ease-out"
               style={{ left: highlight.left, width: highlight.width }}
             />
           )}
@@ -138,15 +138,15 @@ export function MoveList({
               key={pair.moveNumber}
               className="flex shrink-0 flex-row items-center"
             >
-              <span className="text-neutral-500">{pair.moveNumber}.</span>
+              <span className="text-text-faint">{pair.moveNumber}.</span>
 
               <button
                 type="button"
                 ref={currentNodeId === pair.white?.id ? currentMoveRef : undefined}
-                className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
+                className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-surface-raised ${
                   currentNodeId === pair.white?.id
-                    ? "font-medium text-blue-400"
-                    : "text-neutral-300"
+                    ? "font-medium text-accent"
+                    : "text-text"
                 }`}
                 onClick={() => pair.white && onSelectNode(pair.white.id)}
               >
@@ -158,10 +158,10 @@ export function MoveList({
               <button
                 type="button"
                 ref={currentNodeId === pair.black?.id ? currentMoveRef : undefined}
-                className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-neutral-800 ${
+                className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-surface-raised ${
                   currentNodeId === pair.black?.id
-                    ? "font-medium text-blue-400"
-                    : "text-neutral-300"
+                    ? "font-medium text-accent"
+                    : "text-text"
                 }`}
                 onClick={() => pair.black && onSelectNode(pair.black.id)}
               >

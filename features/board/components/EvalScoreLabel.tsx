@@ -15,7 +15,7 @@ export function EvalScoreLabel({
 }: EvalScoreLabelProps) {
   return (
     <div
-      className={`-ml-11 flex w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 py-1 font-mono text-xs text-neutral-200 shadow-sm ${
+      className={`-ml-11 flex w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface py-1 font-mono text-xs text-text shadow-sm ${
         visible ? "" : "invisible"
       }`}
     >

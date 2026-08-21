@@ -37,8 +37,8 @@ export function SiteHeader() {
                   title={link.label}
                   className={`flex items-center justify-center rounded-md p-2 transition ${
                     isActive
-                      ? "bg-white/10 text-white"
-                      : "text-neutral-400 hover:bg-white/10 hover:text-white"
+                      ? "bg-white/10 text-text"
+                      : "text-text-dim hover:bg-white/10 hover:text-text"
                   }`}
                 >
                   <Icon className="h-4 w-4" />

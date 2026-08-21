@@ -137,7 +137,7 @@ export function BoardView({
 
   return (
     <div className="flex h-(--board-size) w-(--board-size) shrink-0 [--coord-size:1.5rem]">
-      <div className="flex w-(--coord-size) flex-col font-mono text-xs text-neutral-500">
+      <div className="flex w-(--coord-size) flex-col font-mono text-xs text-text-faint">
         {ranks.map((rank) => (
           <span key={rank} className="flex flex-1 items-center justify-center">
             {rank}
@@ -150,7 +150,7 @@ export function BoardView({
           <Chessboard options={chessboardOptions} />
         </div>
 
-        <div className="flex h-(--coord-size) font-mono text-xs text-neutral-500">
+        <div className="flex h-(--coord-size) font-mono text-xs text-text-faint">
           {files.map((file) => (
             <span key={file} className="flex flex-1 items-center justify-center">
               {file}

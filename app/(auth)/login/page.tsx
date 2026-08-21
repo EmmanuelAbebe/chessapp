@@ -27,29 +27,29 @@ const LoginPage = () => {
 
   return (
     <div className="flex w-full max-w-132.5 flex-col items-center justify-center px-6 py-8 lg:py-0">
-      <div className="w-full rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg md:mt-0 sm:max-w-md xl:p-0">
+      <div className="w-full rounded-lg border border-border-soft bg-surface shadow-lg md:mt-0 sm:max-w-md xl:p-0">
         <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
-          <h1 className="text-xl font-bold leading-tight tracking-tight text-neutral-100 md:text-2xl">
+          <h1 className="text-xl font-bold leading-tight tracking-tight text-text md:text-2xl">
             Sign in to your account
           </h1>
 
           <SocialAuthButtons />
 
           <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-neutral-800" />
-            <span className="text-xs text-neutral-500">
+            <div className="h-px flex-1 bg-surface-raised" />
+            <span className="text-xs text-text-faint">
               or continue with email
             </span>
-            <div className="h-px flex-1 bg-neutral-800" />
+            <div className="h-px flex-1 bg-surface-raised" />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6" noValidate>
             <div>
               <label
                 htmlFor="email"
-                className="block mb-2 text-sm font-medium text-neutral-400"
+                className="block mb-2 text-sm font-medium text-text-dim"
               >
-                Email <span className="text-neutral-600">(optional)</span>
+                Email <span className="text-text-faint">(optional)</span>
               </label>
               <TextInput
                 type="email"
@@ -66,9 +66,9 @@ const LoginPage = () => {
             <div>
               <label
                 htmlFor="password"
-                className="block mb-2 text-sm font-medium text-neutral-400"
+                className="block mb-2 text-sm font-medium text-text-dim"
               >
-                Password <span className="text-neutral-600">(optional)</span>
+                Password <span className="text-text-faint">(optional)</span>
               </label>
               <PasswordInput name="password" id="password" placeholder="••••••••" />
             </div>
@@ -76,7 +76,7 @@ const LoginPage = () => {
               <Checkbox id="remember" label="Remember me" />
               <Link
                 href="/forgot-password"
-                className="text-sm font-medium text-blue-400 hover:underline"
+                className="text-sm font-medium text-accent hover:underline"
               >
                 Forgot password?
               </Link>
@@ -84,15 +84,15 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full text-neutral-200 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 focus:ring-4 focus:outline-none focus:ring-neutral-700/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full text-text bg-surface-raised transition hover:brightness-110 border border-border focus:ring-4 focus:outline-none focus:ring-border/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSubmitting ? "Signing in…" : "Sign in"}
             </button>
-            <p className="text-sm font-light text-neutral-400">
+            <p className="text-sm font-light text-text-dim">
               Don’t have an account yet?{" "}
               <Link
                 href="/register"
-                className="font-medium text-blue-400 hover:underline"
+                className="font-medium text-accent hover:underline"
               >
                 Sign up
               </Link>

@@ -37,11 +37,11 @@ export default function ChangePasswordModal({
 
   return (
     <Modal isOpen onClose={onClose}>
-      <h2 className="text-xl font-bold text-white">Change Password</h2>
+      <h2 className="text-xl font-bold text-text">Change Password</h2>
 
       {success ? (
         <div className="mt-6 flex flex-col gap-4">
-          <p className="text-sm text-green-400">
+          <p className="text-sm text-good">
             Your password has been updated.
           </p>
           <div className="flex justify-end">
@@ -53,7 +53,7 @@ export default function ChangePasswordModal({
       ) : (
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-neutral-300">
+            <span className="font-medium text-text">
               Current Password
             </span>
             <PasswordInput
@@ -66,7 +66,7 @@ export default function ChangePasswordModal({
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-neutral-300">New Password</span>
+            <span className="font-medium text-text">New Password</span>
             <PasswordInput
               value={next.value}
               onChange={next.onChange}
@@ -77,7 +77,7 @@ export default function ChangePasswordModal({
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-neutral-300">
+            <span className="font-medium text-text">
               Confirm New Password
             </span>
             <PasswordInput

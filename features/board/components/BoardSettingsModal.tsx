@@ -38,7 +38,7 @@ export function BoardSettingsModal({
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="w-full max-w-md">
         <header className="px-4 pt-3 pb-6">
-          <h2 className="text-xl font-bold text-white">Settings</h2>
+          <h2 className="text-xl font-bold text-text">Settings</h2>
         </header>
 
         <div className="px-4">
@@ -199,7 +199,7 @@ export function BoardSettingsModal({
         <div className="px-4 pt-6 pb-3 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-neutral-200 bg-neutral-800 rounded-lg hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900 focus:ring-neutral-500"
+            className="px-4 py-2 text-sm font-medium text-text bg-surface-raised rounded-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-border"
           >
             Close
           </button>
