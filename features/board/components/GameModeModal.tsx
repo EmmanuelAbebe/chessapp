@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import { defaultPieces } from "react-chessboard";
 import Modal from "@/components/ui/Modal";
 import SettingsSelect from "@/features/settings/components/SettingsSelect";
@@ -10,6 +10,30 @@ import { formatGameStatus, type GameStatus } from "../lib/game-status";
 const WINNER_KING = {
   white: defaultPieces.wK,
   black: defaultPieces.bK,
+};
+
+const WhiteKing = defaultPieces.wK;
+const BlackKing = defaultPieces.bK;
+
+/** Half of each king's own SVG, clipped side by side - white on the left,
+ * black on the right - to represent "random" without a third made-up icon. */
+function SplitKingIcon() {
+  return (
+    <div className="relative h-full w-full">
+      <div className="absolute inset-0" style={{ clipPath: "inset(0 50% 0 0)" }}>
+        <WhiteKing />
+      </div>
+      <div className="absolute inset-0" style={{ clipPath: "inset(0 0 0 50%)" }}>
+        <BlackKing />
+      </div>
+    </div>
+  );
+}
+
+const SIDE_ICONS: Record<SideChoice, ComponentType> = {
+  white: WhiteKing,
+  black: BlackKing,
+  random: SplitKingIcon,
 };
 
 const DIFFICULTY_PRESETS = [
@@ -151,20 +175,28 @@ export function GameModeModal({
                 Play as
               </span>
               <div className="flex gap-2">
-                {SIDE_OPTIONS.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setSide(option)}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium capitalize transition ${
-                      side === option
-                        ? "border-blue-500 bg-blue-500/10 text-blue-400"
-                        : "border-neutral-700 text-neutral-300 hover:border-neutral-600"
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
+                {SIDE_OPTIONS.map((option) => {
+                  const Icon = SIDE_ICONS[option];
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setSide(option)}
+                      aria-label={option}
+                      aria-pressed={side === option}
+                      title={option}
+                      className={`flex flex-1 items-center justify-center rounded-lg border p-2 transition ${
+                        side === option
+                          ? "border-blue-500 bg-blue-500/10"
+                          : "border-neutral-700 hover:border-neutral-600"
+                      }`}
+                    >
+                      <div className="h-8 w-8">
+                        <Icon />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
