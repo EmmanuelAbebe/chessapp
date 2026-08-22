@@ -11,7 +11,9 @@ const NAV_LINKS = [
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const visibleLinks = NAV_LINKS.filter((link) => link.href !== pathname);
+  const visibleLinks = NAV_LINKS.filter(
+    (link) => pathname !== link.href && !pathname.startsWith(`${link.href}/`),
+  );
 
   return (
     <header className="sticky top-0 z-40 w-full bg-transparent">
