@@ -21,10 +21,10 @@ export default function AccountNav() {
               <Link
                 href={section.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-2 rounded-l-md border-r-2 px-3 py-1.5 whitespace-nowrap transition ${
+                className={`flex items-center gap-2 rounded-l-md whitespace-nowrap transition ${
                   isActive
-                    ? "border-accent font-medium text-text"
-                    : "border-transparent text-text-faint hover:bg-white/10 hover:text-text"
+                    ? "border border-r-0 border-white/10 bg-surface px-4 py-3 font-semibold text-text shadow-lg md:-mr-px"
+                    : "px-3 py-1.5 text-text-faint hover:bg-white/10 hover:text-text"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
