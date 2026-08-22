@@ -15,17 +15,19 @@ export default function AccountNav() {
       <ul className="flex gap-1 overflow-x-auto text-sm md:flex-col md:overflow-visible">
         {SECTIONS.map((section) => {
           const isActive = pathname === section.href;
+          const Icon = section.icon;
           return (
             <li key={section.href} className="shrink-0">
               <Link
                 href={section.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`block rounded-l-md border-r-2 px-3 py-1.5 whitespace-nowrap transition ${
+                className={`flex items-center gap-2 rounded-l-md border-r-2 px-3 py-1.5 whitespace-nowrap transition ${
                   isActive
                     ? "border-accent font-medium text-text"
                     : "border-transparent text-text-faint hover:bg-white/10 hover:text-text"
                 }`}
               >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
                 {section.label}
               </Link>
             </li>
