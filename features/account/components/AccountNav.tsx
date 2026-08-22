@@ -21,7 +21,7 @@ export default function AccountNav() {
               <Link
                 href={section.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-2 rounded-l-md whitespace-nowrap transition ${
+                className={`flex items-center gap-2 rounded-l-md whitespace-nowrap transition-all duration-200 ease-out ${
                   isActive
                     ? "border border-r-0 border-white/10 bg-surface px-4 py-3 font-semibold text-text shadow-lg md:-mr-px"
                     : "px-3 py-1.5 text-text-faint hover:bg-surface-raised hover:text-text"
