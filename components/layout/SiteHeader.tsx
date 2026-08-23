@@ -84,7 +84,7 @@ export function SiteHeader() {
               return (
                 <li
                   key={link.href}
-                  className={`flex items-center gap-2 transition-all duration-200 ease-out ${
+                  className={`group flex items-center gap-2 transition-all duration-200 ease-out ${
                     isOpen
                       ? "translate-y-0 opacity-100"
                       : "pointer-events-none -translate-y-2 opacity-0"
@@ -101,7 +101,7 @@ export function SiteHeader() {
                   >
                     <Icon className="h-4 w-4" />
                   </Link>
-                  <span className="rounded-md border border-white/10 bg-surface px-2 py-1 text-xs text-text-dim shadow-lg">
+                  <span className="rounded-md border border-white/10 bg-surface px-2 py-1 text-xs text-text-dim shadow-lg transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                     {link.label}
                   </span>
                 </li>
