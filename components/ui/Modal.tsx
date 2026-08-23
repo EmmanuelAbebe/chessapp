@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-// Matches the panel's transform transition (the slower of its two
+// Matches the panel's scale transition (the slower of its two
 // properties), so unmount waits for the full close animation instead of
 // cutting the scale short.
 const CLOSE_DURATION_MS = 350;
@@ -19,10 +19,19 @@ export default function Modal({ isOpen, onClose, children }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
-      // Mount in the closed visual state first, then flip to open on the
-      // next frame so the transition has a "from" state to animate out of.
-      const frame = requestAnimationFrame(() => setIsVisible(true));
-      return () => cancelAnimationFrame(frame);
+      // Mount in the closed visual state first. A single rAF can still
+      // land in the same paint as the initial mount (the browser coalesces
+      // it), which skips the transition entirely - two nested rAFs
+      // guarantee a full painted frame in the closed state before flipping
+      // to open, so the transition always has a real "from" state.
+      let innerFrame = 0;
+      const outerFrame = requestAnimationFrame(() => {
+        innerFrame = requestAnimationFrame(() => setIsVisible(true));
+      });
+      return () => {
+        cancelAnimationFrame(outerFrame);
+        cancelAnimationFrame(innerFrame);
+      };
     }
 
     setIsVisible(false);
@@ -49,7 +58,7 @@ export default function Modal({ isOpen, onClose, children }: ModalProps) {
   if (!shouldRender) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ease-out ${
           isVisible ? "opacity-100" : "opacity-0"
@@ -57,12 +66,12 @@ export default function Modal({ isOpen, onClose, children }: ModalProps) {
         onClick={onClose}
       />
       <div
-        className={`relative z-10 w-full max-w-md rounded-2xl bg-surface p-6 shadow-lg ${
+        className={`relative z-10 max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-6 shadow-lg ${
           isVisible ? "scale-100 opacity-100" : "scale-[0.85] opacity-0"
         }`}
         style={{
           transition:
-            "transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease-out",
+            "scale 350ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease-out",
         }}
       >
         {children}
