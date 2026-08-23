@@ -105,3 +105,62 @@ button {
 .no-scrollbar {
   -ms-overflow-style: none;
 }
+
+/* Page transitions: old page slides left, new page slides in from the
+   right - one fixed direction for every navigation (this app is flat,
+   not a hierarchy, so there's no forward/back distinction to encode). */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(.nav-forward) {
+  --slide-offset: -60px;
+  animation:
+    150ms ease-in both via-fade reverse,
+    400ms ease-in-out both via-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 60px;
+  animation:
+    210ms ease-out 150ms both via-fade,
+    400ms ease-in-out both via-slide;
+}
+
+@keyframes via-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes via-slide {
+  from {
+    translate: var(--slide-offset);
+  }
+  to {
+    translate: 0;
+  }
+}
+
+/* Keep the sticky header fixed in place during the slide instead of
+   letting it get swept into the default crossfade. */
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

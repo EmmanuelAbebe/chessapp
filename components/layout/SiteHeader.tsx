@@ -70,7 +70,10 @@ export function SiteHeader() {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-transparent">
+    <header
+      className="sticky top-0 z-40 w-full bg-transparent"
+      style={{ viewTransitionName: "site-header" }}
+    >
       <nav
         aria-label="Primary"
         className="container mx-auto flex h-14 items-center gap-3 px-4 sm:px-6"
