@@ -22,6 +22,7 @@ export function SiteHeader() {
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [isDialOpen, setIsDialOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const dialRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
@@ -61,9 +62,11 @@ export function SiteHeader() {
     };
   }, [isDesktop, isDialOpen]);
 
-  // Selecting a link navigates - collapse the dial once the route changes.
+  // Selecting a link navigates - collapse the dial and clear the pending
+  // spinner once the route actually changes.
   useEffect(() => {
     setIsDialOpen(false);
+    setPendingHref(null);
   }, [pathname]);
 
   return (
@@ -97,9 +100,18 @@ export function SiteHeader() {
                     href={link.href}
                     aria-label={link.label}
                     tabIndex={isOpen ? 0 : -1}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-surface text-text-dim shadow-lg transition hover:text-text"
+                    onClick={() => {
+                      if (link.href !== pathname) setPendingHref(link.href);
+                    }}
+                    className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-surface text-text-dim shadow-lg transition hover:text-text"
                   >
                     <Icon className="h-4 w-4" />
+                    {pendingHref === link.href && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-accent"
+                      />
+                    )}
                   </Link>
                   <span className="rounded-md border border-white/10 bg-surface px-2 py-1 text-xs text-text-dim shadow-lg transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                     {link.label}
