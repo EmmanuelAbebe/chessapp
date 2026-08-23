@@ -71,6 +71,13 @@
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 }
 
+html {
+  /* Reserve the scrollbar's width permanently so toggling body's overflow
+     (modals lock scroll while open) never shifts the layout by however
+     wide the scrollbar happens to be. */
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
