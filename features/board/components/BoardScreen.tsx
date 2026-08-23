@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import type { Arrow } from "react-chessboard";
+import { Collapsible } from "@/components/ui/Collapsible";
 import { EvalBar } from "./EvalBar";
 import { EvalScoreLabel } from "./EvalScoreLabel";
 import { BoardView } from "./BoardView";
@@ -144,7 +145,12 @@ export function BoardScreen() {
         >
           <AiChatPanel />
 
-          {showMoveList && (
+          <Collapsible
+            visible={showMoveList}
+            axis="height"
+            expandedClassName="h-9"
+            className="w-full"
+          >
             <div className="flex h-9 w-full items-center gap-2">
               <EvalScoreLabel
                 visible={showEvalScore && !isPlayingStockfish}
@@ -170,7 +176,7 @@ export function BoardScreen() {
                 onEnd={goToEnd}
               />
             </div>
-          )}
+          </Collapsible>
 
           <div className="flex h-(--board-size) w-full gap-2">
             <EvalBar
