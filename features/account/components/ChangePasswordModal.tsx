@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import type {} from "react/canary";
+import { startTransition, useState, ViewTransition, type FormEvent } from "react";
 import Modal from "@/components/ui/Modal";
 import PasswordInput from "@/components/ui/PasswordInput";
 import {
@@ -32,77 +33,85 @@ export default function ChangePasswordModal({
     const isNextValid = next.validateNow();
     const isConfirmValid = confirm.validateNow();
     if (!isCurrentValid || !isNextValid || !isConfirmValid) return;
-    setSuccess(true);
+    startTransition(() => setSuccess(true));
   }
 
   return (
     <Modal isOpen onClose={onClose}>
       <h2 className="text-xl font-bold text-text">Change Password</h2>
 
-      {success ? (
-        <div className="mt-6 flex flex-col gap-4">
-          <p className="text-sm text-good">
-            Your password has been updated.
-          </p>
-          <div className="flex justify-end">
-            <button onClick={onClose} className={primaryButtonClass}>
-              Done
-            </button>
+      <ViewTransition
+        key={success ? "success" : "form"}
+        name="change-password-step"
+        share="auto"
+        enter="auto"
+        default="none"
+      >
+        {success ? (
+          <div className="mt-6 flex flex-col gap-4">
+            <p className="text-sm text-good">
+              Your password has been updated.
+            </p>
+            <div className="flex justify-end">
+              <button onClick={onClose} className={primaryButtonClass}>
+                Done
+              </button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-text">
-              Current Password
-            </span>
-            <PasswordInput
-              value={current.value}
-              onChange={current.onChange}
-              onBlur={current.onBlur}
-              error={current.error}
-              success={current.isValid ? "Looks good!" : undefined}
-            />
-          </label>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-text">
+                Current Password
+              </span>
+              <PasswordInput
+                value={current.value}
+                onChange={current.onChange}
+                onBlur={current.onBlur}
+                error={current.error}
+                success={current.isValid ? "Looks good!" : undefined}
+              />
+            </label>
 
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-text">New Password</span>
-            <PasswordInput
-              value={next.value}
-              onChange={next.onChange}
-              onBlur={next.onBlur}
-              error={next.error}
-              success={next.isValid ? "Looks good!" : undefined}
-            />
-          </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-text">New Password</span>
+              <PasswordInput
+                value={next.value}
+                onChange={next.onChange}
+                onBlur={next.onBlur}
+                error={next.error}
+                success={next.isValid ? "Looks good!" : undefined}
+              />
+            </label>
 
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-text">
-              Confirm New Password
-            </span>
-            <PasswordInput
-              value={confirm.value}
-              onChange={confirm.onChange}
-              onBlur={confirm.onBlur}
-              error={confirm.error}
-              success={confirm.isValid ? "Passwords match!" : undefined}
-            />
-          </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-text">
+                Confirm New Password
+              </span>
+              <PasswordInput
+                value={confirm.value}
+                onChange={confirm.onChange}
+                onBlur={confirm.onBlur}
+                error={confirm.error}
+                success={confirm.isValid ? "Passwords match!" : undefined}
+              />
+            </label>
 
-          <div className="mt-2 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className={secondaryButtonClass}
-            >
-              Cancel
-            </button>
-            <button type="submit" className={primaryButtonClass}>
-              Update Password
-            </button>
-          </div>
-        </form>
-      )}
+            <div className="mt-2 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className={secondaryButtonClass}
+              >
+                Cancel
+              </button>
+              <button type="submit" className={primaryButtonClass}>
+                Update Password
+              </button>
+            </div>
+          </form>
+        )}
+      </ViewTransition>
     </Modal>
   );
 }

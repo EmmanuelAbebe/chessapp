@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ComponentType } from "react";
+import type {} from "react/canary";
+import { startTransition, useState, ViewTransition, type ComponentType } from "react";
 import { defaultPieces } from "react-chessboard";
 import Modal from "@/components/ui/Modal";
 import SettingsSelect from "@/features/settings/components/SettingsSelect";
@@ -87,6 +88,14 @@ export function GameModeModal({
     onClose();
   }
 
+  function openStockfishSetup() {
+    startTransition(() => setShowStockfishSetup(true));
+  }
+
+  function closeStockfishSetup() {
+    startTransition(() => setShowStockfishSetup(false));
+  }
+
   function handleStartNewGame() {
     onStartNewGame();
     handleClose();
@@ -116,108 +125,116 @@ export function GameModeModal({
           </div>
         )}
 
-        {!showStockfishSetup ? (
-          <div className="mt-6 flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={handleStartNewGame}
-              className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
-            >
-              <span className="font-semibold text-text">Start New Game</span>
-              <span className="text-xs text-text-faint">
-                Reset the board and analyze freely.
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowStockfishSetup(true)}
-              className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
-            >
-              <span className="font-semibold text-text">
-                Play against Stockfish
-              </span>
-              <span className="text-xs text-text-faint">
-                Choose a side and difficulty - the engine plays the other side.
-              </span>
-            </button>
-
-            {COMING_SOON.map((item) => (
-              <div
-                key={item.title}
-                aria-disabled="true"
-                className="flex flex-col gap-1 rounded-lg border border-border-soft p-3 text-left opacity-50"
+        <ViewTransition
+          key={showStockfishSetup ? "stockfish" : "list"}
+          name="game-mode-step"
+          share="auto"
+          enter="auto"
+          default="none"
+        >
+          {!showStockfishSetup ? (
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handleStartNewGame}
+                className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
               >
-                <span className="flex items-center gap-2 font-semibold text-text">
-                  {item.title}
-                  <span className="rounded-full bg-surface-raised px-2 py-0.5 text-[10px] font-medium text-text-dim">
-                    Coming soon
-                  </span>
+                <span className="font-semibold text-text">Start New Game</span>
+                <span className="text-xs text-text-faint">
+                  Reset the board and analyze freely.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={openStockfishSetup}
+                className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
+              >
+                <span className="font-semibold text-text">
+                  Play against Stockfish
                 </span>
                 <span className="text-xs text-text-faint">
-                  {item.description}
+                  Choose a side and difficulty - the engine plays the other side.
                 </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-6 flex flex-col gap-4">
-            <button
-              type="button"
-              onClick={() => setShowStockfishSetup(false)}
-              className="self-start text-xs font-medium text-text-dim hover:text-text"
-            >
-              ← Back
-            </button>
+              </button>
 
-            <div>
-              <span className="mb-2 block text-sm font-medium text-text">
-                Play as
-              </span>
-              <div className="flex gap-2">
-                {SIDE_OPTIONS.map((option) => {
-                  const Icon = SIDE_ICONS[option];
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setSide(option)}
-                      aria-label={option}
-                      aria-pressed={side === option}
-                      title={option}
-                      className={`flex flex-1 items-center justify-center rounded-none border p-2 transition ${
-                        side === option
-                          ? "border-accent bg-accent/10"
-                          : "border-border hover:border-accent"
-                      }`}
-                    >
-                      <div className="h-16 w-16">
-                        <Icon />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              {COMING_SOON.map((item) => (
+                <div
+                  key={item.title}
+                  aria-disabled="true"
+                  className="flex flex-col gap-1 rounded-lg border border-border-soft p-3 text-left opacity-50"
+                >
+                  <span className="flex items-center gap-2 font-semibold text-text">
+                    {item.title}
+                    <span className="rounded-full bg-surface-raised px-2 py-0.5 text-[10px] font-medium text-text-dim">
+                      Coming soon
+                    </span>
+                  </span>
+                  <span className="text-xs text-text-faint">
+                    {item.description}
+                  </span>
+                </div>
+              ))}
             </div>
+          ) : (
+            <div className="mt-6 flex flex-col gap-4">
+              <button
+                type="button"
+                onClick={closeStockfishSetup}
+                className="self-start text-xs font-medium text-text-dim hover:text-text"
+              >
+                ← Back
+              </button>
 
-            <SettingsSelect
-              setting={{
-                label: "Difficulty",
-                value: difficulty,
-                options: DIFFICULTY_PRESETS.map((p) => p.label),
-                onChange: setDifficulty,
-              }}
-            />
+              <div>
+                <span className="mb-2 block text-sm font-medium text-text">
+                  Play as
+                </span>
+                <div className="flex gap-2">
+                  {SIDE_OPTIONS.map((option) => {
+                    const Icon = SIDE_ICONS[option];
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setSide(option)}
+                        aria-label={option}
+                        aria-pressed={side === option}
+                        title={option}
+                        className={`flex flex-1 items-center justify-center rounded-none border p-2 transition ${
+                          side === option
+                            ? "border-accent bg-accent/10"
+                            : "border-border hover:border-accent"
+                        }`}
+                      >
+                        <div className="h-16 w-16">
+                          <Icon />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-            <button
-              type="button"
-              onClick={handleStartVsStockfish}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text transition hover:brightness-110"
-            >
-              Start Game
-            </button>
-          </div>
-        )}
+              <SettingsSelect
+                setting={{
+                  label: "Difficulty",
+                  value: difficulty,
+                  options: DIFFICULTY_PRESETS.map((p) => p.label),
+                  onChange: setDifficulty,
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={handleStartVsStockfish}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text transition hover:brightness-110"
+              >
+                Start Game
+              </button>
+            </div>
+          )}
+        </ViewTransition>
       </div>
     </Modal>
   );
