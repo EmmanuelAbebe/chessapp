@@ -3,18 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FaChessBoard, FaHouse, FaPlus, FaUser } from "react-icons/fa6";
+import { FaChessBoard, FaHouse, FaPlus } from "react-icons/fa6";
 import { SECTIONS } from "@/features/account/data";
 
-const NAV_LINKS = [
-  { href: "/", label: "Home", icon: FaHouse },
-  { href: "/board", label: "Board", icon: FaChessBoard },
-  { href: "/dashboard", label: "Dashboard", icon: FaUser },
-];
-
-// The mobile dial flattens dashboard sub-sections in directly, so jumping
-// straight to e.g. Settings doesn't need a Board -> Dashboard -> Settings
-// detour the way the desktop row (which just links to /dashboard) does.
+// Flattens dashboard sub-sections in directly (rather than a single
+// generic "Dashboard" link) so jumping straight to e.g. Settings is one
+// tap/click instead of a Board -> Dashboard -> Settings detour. Shared by
+// both the desktop row and the mobile dial - desktop just renders it
+// permanently open with no trigger, mobile toggles it.
 const DIAL_LINKS = [
   { href: "/", label: "Home", icon: FaHouse },
   { href: "/board", label: "Board", icon: FaChessBoard },
@@ -23,10 +19,7 @@ const DIAL_LINKS = [
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const visibleNavLinks = NAV_LINKS.filter(
-    (link) => pathname !== link.href && !pathname.startsWith(`${link.href}/`),
-  );
-  const visibleDialLinks = DIAL_LINKS.filter((link) => pathname !== link.href);
+  const visibleLinks = DIAL_LINKS.filter((link) => pathname !== link.href);
 
   const [isDialOpen, setIsDialOpen] = useState(false);
   const dialRef = useRef<HTMLDivElement | null>(null);
@@ -66,7 +59,7 @@ export function SiteHeader() {
         className="container mx-auto flex h-14 items-center gap-3 px-4 sm:px-6"
       >
         <ul className="hidden items-center gap-1 sm:flex">
-          {visibleNavLinks.map((link) => {
+          {visibleLinks.map((link) => {
             const Icon = link.icon;
 
             return (
@@ -88,7 +81,7 @@ export function SiteHeader() {
             yet - swap FaPlus for the real logo once it's built. */}
         <div ref={dialRef} className="relative sm:hidden">
           <ul className="absolute top-full left-0 mt-2 flex flex-col items-start gap-2">
-            {visibleDialLinks.map((link, index) => {
+            {visibleLinks.map((link, index) => {
               const Icon = link.icon;
 
               return (
