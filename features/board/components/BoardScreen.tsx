@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import type { Arrow } from "react-chessboard";
-import { Collapsible } from "@/components/ui/Collapsible";
 import { EvalBar } from "./EvalBar";
 import { EvalScoreLabel } from "./EvalScoreLabel";
 import { BoardView } from "./BoardView";
@@ -79,11 +78,10 @@ export function BoardScreen() {
   // (chat panel, move-list row, board itself all share it). It's set from
   // 100dvh minus the actual fixed-pixel chrome around it - sticky header
   // (56px), outer padding (32px), AiChatPanel (112px), gaps (12px each),
-  // and the move-list row (36px, only when shown) - so the page never grows
-  // taller than the viewport and needs to scroll.
-  const boardSizeValue = showMoveList
-    ? "min(90vw, calc(100dvh - 260px), 1100px)"
-    : "min(90vw, calc(100dvh - 212px), 1100px)";
+  // and the move-list row (36px, always reserved so toggling it fades in
+  // place instead of resizing/shifting the board) - so the page never
+  // grows taller than the viewport and needs to scroll.
+  const boardSizeValue = "min(90vw, calc(100dvh - 260px), 1100px)";
 
   // Suggestions/eval reveal what the engine would play - hide them entirely
   // while it's the opponent in an actual game, not just the arrows.
@@ -145,38 +143,35 @@ export function BoardScreen() {
         >
           <AiChatPanel />
 
-          <Collapsible
-            visible={showMoveList}
-            axis="height"
-            expandedClassName="h-9"
-            className="w-full"
+          <div
+            className={`flex h-9 w-full items-center gap-2 transition-opacity duration-200 ease-out ${
+              showMoveList ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
           >
-            <div className="flex h-9 w-full items-center gap-2">
-              <EvalScoreLabel
-                visible={showEvalScore && !isPlayingStockfish}
-                displayScore={evalScore.displayScore}
-                displayMate={evalScore.displayMate}
-              />
+            <EvalScoreLabel
+              visible={showEvalScore && !isPlayingStockfish}
+              displayScore={evalScore.displayScore}
+              displayMate={evalScore.displayMate}
+            />
 
-              <div className="min-w-0 flex-1">
-                <MoveList
-                  currentLine={currentLine}
-                  currentNodeId={currentNodeId}
-                  onSelectNode={goToNode}
-                  onSelectStart={goToStart}
-                />
-              </div>
-
-              <MoveNavigation
-                canGoPrevious={canGoPrevious}
-                canGoNext={canGoNext}
-                onStart={goToStart}
-                onPrevious={goToPrevious}
-                onNext={goToNext}
-                onEnd={goToEnd}
+            <div className="min-w-0 flex-1">
+              <MoveList
+                currentLine={currentLine}
+                currentNodeId={currentNodeId}
+                onSelectNode={goToNode}
+                onSelectStart={goToStart}
               />
             </div>
-          </Collapsible>
+
+            <MoveNavigation
+              canGoPrevious={canGoPrevious}
+              canGoNext={canGoNext}
+              onStart={goToStart}
+              onPrevious={goToPrevious}
+              onNext={goToNext}
+              onEnd={goToEnd}
+            />
+          </div>
 
           <div className="flex h-(--board-size) w-full gap-2">
             <EvalBar
