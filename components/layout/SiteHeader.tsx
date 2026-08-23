@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FaChessBoard, FaHouse, FaPlus } from "react-icons/fa6";
 import { SECTIONS } from "@/features/account/data";
 
+const DESKTOP_QUERY = "(min-width: 640px)"; // Tailwind's `sm` breakpoint
+
 // Flattens dashboard sub-sections in directly (rather than a single
 // generic "Dashboard" link) so jumping straight to e.g. Settings is one
-// tap/click instead of a Board -> Dashboard -> Settings detour. Shared by
-// both the desktop row and the mobile dial - desktop just renders it
-// permanently open with no trigger, mobile toggles it.
+// click instead of a Board -> Dashboard -> Settings detour.
 const DIAL_LINKS = [
   { href: "/", label: "Home", icon: FaHouse },
   { href: "/board", label: "Board", icon: FaChessBoard },
@@ -21,13 +21,28 @@ export function SiteHeader() {
   const pathname = usePathname();
   const visibleLinks = DIAL_LINKS.filter((link) => pathname !== link.href);
 
+  const [isDesktop, setIsDesktop] = useState(false);
   const [isDialOpen, setIsDialOpen] = useState(false);
   const dialRef = useRef<HTMLDivElement | null>(null);
 
+  useLayoutEffect(() => {
+    const mediaQuery = window.matchMedia(DESKTOP_QUERY);
+    setIsDesktop(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) =>
+      setIsDesktop(event.matches);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  // Desktop has no trigger to toggle - the dial is always open there.
+  const isOpen = isDesktop || isDialOpen;
+
   // Close on outside click/tap and on Escape - standard menu-dismissal
-  // behavior, needed since the dial has no backdrop of its own.
+  // behavior, needed since the dial has no backdrop of its own. Only
+  // relevant on mobile, where the dial is actually toggleable.
   useEffect(() => {
-    if (!isDialOpen) return;
+    if (isDesktop || !isDialOpen) return;
 
     function handlePointerDown(event: PointerEvent) {
       if (dialRef.current && !dialRef.current.contains(event.target as Node)) {
@@ -45,7 +60,7 @@ export function SiteHeader() {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isDialOpen]);
+  }, [isDesktop, isDialOpen]);
 
   // Selecting a link navigates - collapse the dial once the route changes.
   useEffect(() => {
@@ -58,28 +73,10 @@ export function SiteHeader() {
         aria-label="Primary"
         className="container mx-auto flex h-14 items-center gap-3 px-4 sm:px-6"
       >
-        <ul className="hidden items-center gap-1 sm:flex">
-          {visibleLinks.map((link) => {
-            const Icon = link.icon;
-
-            return (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  aria-label={link.label}
-                  title={link.label}
-                  className="flex items-center justify-center rounded-md p-2 text-text-dim transition hover:bg-white/10 hover:text-text"
-                >
-                  <Icon className="h-4 w-4" />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-
         {/* Trigger icon is a placeholder for a logo mark that doesn't exist
-            yet - swap FaPlus for the real logo once it's built. */}
-        <div ref={dialRef} className="relative sm:hidden">
+            yet - swap FaPlus for the real logo once it's built. On desktop
+            the dial is permanently open, so the click has no visible effect. */}
+        <div ref={dialRef} className="relative">
           <ul className="absolute top-full left-0 mt-2 flex flex-col items-start gap-2">
             {visibleLinks.map((link, index) => {
               const Icon = link.icon;
@@ -88,18 +85,18 @@ export function SiteHeader() {
                 <li
                   key={link.href}
                   className={`flex items-center gap-2 transition-all duration-200 ease-out ${
-                    isDialOpen
+                    isOpen
                       ? "translate-y-0 opacity-100"
                       : "pointer-events-none -translate-y-2 opacity-0"
                   }`}
                   style={{
-                    transitionDelay: isDialOpen ? `${index * 40}ms` : "0ms",
+                    transitionDelay: isOpen ? `${index * 40}ms` : "0ms",
                   }}
                 >
                   <Link
                     href={link.href}
                     aria-label={link.label}
-                    tabIndex={isDialOpen ? 0 : -1}
+                    tabIndex={isOpen ? 0 : -1}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-surface text-text-dim shadow-lg transition hover:text-text"
                   >
                     <Icon className="h-4 w-4" />
@@ -115,13 +112,13 @@ export function SiteHeader() {
           <button
             type="button"
             onClick={() => setIsDialOpen((open) => !open)}
-            aria-label={isDialOpen ? "Close menu" : "Open menu"}
-            aria-expanded={isDialOpen}
+            aria-label={isOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isOpen}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-surface text-text-dim shadow-lg transition hover:text-text"
           >
             <FaPlus
               className={`h-4 w-4 transition-transform duration-200 ease-out ${
-                isDialOpen ? "rotate-45" : ""
+                isOpen ? "rotate-45" : ""
               }`}
             />
           </button>
