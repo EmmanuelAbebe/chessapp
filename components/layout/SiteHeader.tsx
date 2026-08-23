@@ -19,7 +19,6 @@ const DIAL_LINKS = [
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const visibleLinks = DIAL_LINKS.filter((link) => pathname !== link.href);
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [isDialOpen, setIsDialOpen] = useState(false);
@@ -78,7 +77,7 @@ export function SiteHeader() {
             the dial is permanently open, so the click has no visible effect. */}
         <div ref={dialRef} className="relative">
           <ul className="absolute top-full left-0 mt-2 flex flex-col items-start gap-2">
-            {visibleLinks.map((link, index) => {
+            {DIAL_LINKS.map((link, index) => {
               const Icon = link.icon;
 
               return (
