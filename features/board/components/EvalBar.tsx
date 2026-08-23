@@ -15,8 +15,8 @@ export function EvalBar({
 }: EvalBarProps) {
   return (
     <div
-      className={`relative -ml-6 w-4 shrink-0 overflow-hidden border border-border ${
-        visible ? "" : "invisible"
+      className={`relative -ml-6 w-4 shrink-0 overflow-hidden border border-border transition-opacity duration-200 ease-out ${
+        visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       title={`Depth ${depth}${bestMove ? ` • ${bestMove}` : ""}`}
     >
