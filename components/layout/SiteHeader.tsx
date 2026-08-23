@@ -73,8 +73,9 @@ export function SiteHeader() {
         className="container mx-auto flex h-14 items-center gap-3 px-4 sm:px-6"
       >
         {/* Trigger icon is a placeholder for a logo mark that doesn't exist
-            yet - swap FaPlus for the real logo once it's built. On desktop
-            the dial is permanently open, so the click has no visible effect. */}
+            yet - swap FaPlus for the real logo once it's built. Hidden on
+            desktop, where the dial is permanently open and toggling it
+            would do nothing. */}
         <div ref={dialRef} className="relative">
           <ul className="absolute top-full left-0 mt-2 flex flex-col items-start gap-2">
             {DIAL_LINKS.map((link, index) => {
@@ -113,7 +114,7 @@ export function SiteHeader() {
             onClick={() => setIsDialOpen((open) => !open)}
             aria-label={isOpen ? "Close menu" : "Open menu"}
             aria-expanded={isOpen}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-surface text-text-dim shadow-lg transition hover:text-text"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-surface text-text-dim shadow-lg transition hover:text-text sm:hidden"
           >
             <FaPlus
               className={`h-4 w-4 transition-transform duration-200 ease-out ${
