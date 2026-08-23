@@ -3,18 +3,30 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FaChessBoard, FaPlus, FaUser } from "react-icons/fa6";
+import { FaChessBoard, FaHouse, FaPlus, FaUser } from "react-icons/fa6";
+import { SECTIONS } from "@/features/account/data";
 
 const NAV_LINKS = [
+  { href: "/", label: "Home", icon: FaHouse },
   { href: "/board", label: "Board", icon: FaChessBoard },
   { href: "/dashboard", label: "Dashboard", icon: FaUser },
 ];
 
+// The mobile dial flattens dashboard sub-sections in directly, so jumping
+// straight to e.g. Settings doesn't need a Board -> Dashboard -> Settings
+// detour the way the desktop row (which just links to /dashboard) does.
+const DIAL_LINKS = [
+  { href: "/", label: "Home", icon: FaHouse },
+  { href: "/board", label: "Board", icon: FaChessBoard },
+  ...SECTIONS,
+];
+
 export function SiteHeader() {
   const pathname = usePathname();
-  const visibleLinks = NAV_LINKS.filter(
+  const visibleNavLinks = NAV_LINKS.filter(
     (link) => pathname !== link.href && !pathname.startsWith(`${link.href}/`),
   );
+  const visibleDialLinks = DIAL_LINKS.filter((link) => pathname !== link.href);
 
   const [isDialOpen, setIsDialOpen] = useState(false);
   const dialRef = useRef<HTMLDivElement | null>(null);
@@ -53,12 +65,8 @@ export function SiteHeader() {
         aria-label="Primary"
         className="container mx-auto flex h-14 items-center gap-3 px-4 sm:px-6"
       >
-        <Link href="/" className="text-sm font-semibold tracking-tight">
-          CoachMeChess
-        </Link>
-
         <ul className="hidden items-center gap-1 sm:flex">
-          {visibleLinks.map((link) => {
+          {visibleNavLinks.map((link) => {
             const Icon = link.icon;
 
             return (
@@ -76,9 +84,11 @@ export function SiteHeader() {
           })}
         </ul>
 
+        {/* Trigger icon is a placeholder for a logo mark that doesn't exist
+            yet - swap FaPlus for the real logo once it's built. */}
         <div ref={dialRef} className="relative sm:hidden">
-          <ul className="absolute top-full right-0 mt-2 flex flex-col items-end gap-2">
-            {visibleLinks.map((link, index) => {
+          <ul className="absolute top-full left-0 mt-2 flex flex-col items-start gap-2">
+            {visibleDialLinks.map((link, index) => {
               const Icon = link.icon;
 
               return (
@@ -93,9 +103,6 @@ export function SiteHeader() {
                     transitionDelay: isDialOpen ? `${index * 40}ms` : "0ms",
                   }}
                 >
-                  <span className="rounded-md border border-white/10 bg-surface px-2 py-1 text-xs text-text-dim shadow-lg">
-                    {link.label}
-                  </span>
                   <Link
                     href={link.href}
                     aria-label={link.label}
@@ -104,6 +111,9 @@ export function SiteHeader() {
                   >
                     <Icon className="h-4 w-4" />
                   </Link>
+                  <span className="rounded-md border border-white/10 bg-surface px-2 py-1 text-xs text-text-dim shadow-lg">
+                    {link.label}
+                  </span>
                 </li>
               );
             })}
