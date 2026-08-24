@@ -141,7 +141,9 @@ export function BoardScreen() {
           className="flex w-(--board-size) flex-col gap-3"
           style={{ "--board-size": boardSizeValue } as React.CSSProperties}
         >
-          <AiChatPanel />
+          <AiChatPanel
+            moveNumber={currentLine[currentLine.length - 1]?.moveNumber ?? 0}
+          />
 
           <div
             className={`flex h-9 w-full items-center gap-2 transition-opacity duration-200 ease-out ${
