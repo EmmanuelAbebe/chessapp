@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FaChessBoard, FaHouse, FaPlus } from "react-icons/fa6";
+import { FaChessBoard, FaHouse, FaPlus, FaSitemap } from "react-icons/fa6";
 import { SECTIONS } from "@/features/account/data";
 
 const DESKTOP_QUERY = "(min-width: 640px)"; // Tailwind's `sm` breakpoint
@@ -14,6 +14,7 @@ const DESKTOP_QUERY = "(min-width: 640px)"; // Tailwind's `sm` breakpoint
 const DIAL_LINKS = [
   { href: "/", label: "Home", icon: FaHouse },
   { href: "/board", label: "Board", icon: FaChessBoard },
+  { href: "/board/map", label: "Map", icon: FaSitemap },
   ...SECTIONS,
 ];
 
@@ -71,7 +72,13 @@ export function SiteHeader() {
 
   return (
     <header
-      className="sticky top-0 z-40 w-full bg-transparent"
+      // The header's own box renders nothing visible on desktop - the dial
+      // list is positioned starting at its bottom edge - but as a plain
+      // full-width element it still sat above (and silently absorbed
+      // clicks meant for) anything a page positions in that top strip.
+      // pointer-events-none here, re-enabled only on the actual dial
+      // below, makes the empty part of the bar click-through.
+      className="pointer-events-none sticky top-0 z-40 w-full bg-transparent"
       style={{ viewTransitionName: "site-header" }}
     >
       <nav
@@ -82,7 +89,7 @@ export function SiteHeader() {
             yet - swap FaPlus for the real logo once it's built. Hidden on
             desktop, where the dial is permanently open and toggling it
             would do nothing. */}
-        <div ref={dialRef} className="relative">
+        <div ref={dialRef} className="pointer-events-auto relative">
           <ul className="absolute top-full left-0 mt-2 flex flex-col items-start gap-2">
             {DIAL_LINKS.map((link, index) => {
               const Icon = link.icon;

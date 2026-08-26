@@ -199,6 +199,7 @@ export function useBoardGame() {
     onSquareClick,
     resetBoard,
     playUciMove,
+    playMoveAt: moveTree.playMoveAt,
 
     goToNode: moveTree.goToNode,
     goToStart: moveTree.goToStart,

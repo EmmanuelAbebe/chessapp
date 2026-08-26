@@ -1,13 +1,20 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { FaArrowLeft } from "react-icons/fa6";
-import { defaultPieces } from "react-chessboard";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { FaGear } from "react-icons/fa6";
+import { Chessboard } from "react-chessboard";
+import type { Arrow, SquareHandlerArgs } from "react-chessboard";
+import { Chess, type Square } from "chess.js";
+import Modal from "@/components/ui/Modal";
+import SettingsItem from "@/features/settings/components/SettingsItem";
+import SettingsToggle from "@/features/settings/components/SettingsToggle";
 import { useBoardGameContext } from "../BoardGameContext";
+import { getMoveOptions } from "../lib/board-helpers";
+import { boardTheme } from "../lib/board-theme";
 import { computeHyperbolicLayout } from "../lib/move-tree-hyperbolic-layout";
 import { drawGeodesic, lerpComplex, mobiusTranslate, transformedRing, type Complex } from "../lib/poincare-disk";
-import type { MoveNode, MoveTreeState } from "../types";
+import { MoveList } from "./MoveList";
+import type { MoveNode, MoveTreeState, OptionSquares } from "../types";
 
 const ORIGIN: Complex = { x: 0, y: 0 };
 const FOCUS_ANIM_MS = 450;
@@ -86,6 +93,21 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
+const RING_HIGHLIGHT_STEP = 0.18; // per-frame ease rate, ~5-6 frames to settle at 60fps
+
+// Eases every tracked ply's intensity toward 1 if it's the current target,
+// toward 0 otherwise, and drops entries once they've fully faded out so the
+// map doesn't grow forever as the cursor wanders across rings.
+function stepIntensityMap(map: Map<number, number>, targetPly: number | null) {
+  if (targetPly !== null && !map.has(targetPly)) map.set(targetPly, 0);
+  for (const [ply, value] of map) {
+    const target = ply === targetPly ? 1 : 0;
+    const next = value + (target - value) * RING_HIGHLIGHT_STEP;
+    if (target === 0 && next < 0.01) map.delete(ply);
+    else map.set(ply, next);
+  }
+}
+
 function StatPill({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex min-w-[88px] flex-col gap-0.5 rounded-[10px] border border-border-soft px-2.5 py-1.5">
@@ -100,46 +122,137 @@ function StatPill({ label, value, accent }: { label: string; value: string; acce
   );
 }
 
-function MiniBoard({ fen }: { fen: string }) {
-  const rows = fen.split(" ")[0]?.split("/") ?? [];
-  const squares: { file: number; rank: number; piece: string | null }[] = [];
+// A real, playable board for the previewed node - lets a sideline be tried
+// out right from the map without first jumping the whole game there. Moves
+// play via click-to-move (same interaction as the main board) and land as a
+// new branch off `node` via `playMoveAt`; `onMove` reports the resulting
+// node id so the caller can keep the preview card pointed at it.
+function PlayableMiniBoard({
+  node,
+  tree,
+  animateEntry,
+  onMove,
+}: {
+  node: MoveNode;
+  tree: MoveTreeState;
+  animateEntry: boolean;
+  onMove: (nodeId: string) => void;
+}) {
+  const { playMoveAt } = useBoardGameContext();
+  const [moveFrom, setMoveFrom] = useState("");
+  const [optionSquares, setOptionSquares] = useState<OptionSquares>({});
+  // Read after mount rather than in a lazy initializer - the card now
+  // renders by default (not just on hover/pin), including during SSR/build
+  // prerendering where `document` doesn't exist. A raw SVG stroke attribute
+  // (unlike a CSS property) won't resolve a `var(--accent)` reference
+  // either, so the resolved color still has to come from the DOM once
+  // there is one.
+  const [accentColor, setAccentColor] = useState("#5b9dfa");
+  useEffect(() => {
+    setAccentColor(readThemeColors().accent);
+  }, []);
 
-  rows.forEach((row, rankIdx) => {
-    let file = 0;
-    for (const ch of row) {
-      if (/\d/.test(ch)) {
-        for (let i = 0; i < Number(ch); i++) {
-          squares.push({ file, rank: rankIdx, piece: null });
-          file++;
-        }
-      } else {
-        squares.push({ file, rank: rankIdx, piece: ch });
-        file++;
-      }
+  // What the board actually displays, plus whether the *next* position
+  // update should animate - lets a click on any node (however far from
+  // whatever was on screen before) always play as one clean single-move
+  // slide: snap instantly to the position just before that move, then
+  // animate forward into it, rather than animating a jump between two
+  // unrelated positions (or not animating at all).
+  const [displayFen, setDisplayFen] = useState(node.fen);
+  const [animateNow, setAnimateNow] = useState(false);
+
+  // Runs before paint so the "snap to the pre-move position" step is never
+  // itself visible as a flash of the wrong position.
+  useLayoutEffect(() => {
+    setMoveFrom("");
+    setOptionSquares({});
+
+    const parent = node.parentId ? tree.nodes[node.parentId] : null;
+    setAnimateNow(false);
+    setDisplayFen(animateEntry && parent ? parent.fen : node.fen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id]);
+
+  // One tick later (after the snap above has actually painted) transition
+  // to the real position with animation turned on, so react-chessboard has
+  // a "before" frame to diff against instead of collapsing both updates
+  // into a single unanimated jump.
+  useEffect(() => {
+    const parent = node.parentId ? tree.nodes[node.parentId] : null;
+    if (!animateEntry || !parent) return;
+    const raf = requestAnimationFrame(() => {
+      setAnimateNow(true);
+      setDisplayFen(node.fen);
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id]);
+
+  const chess = useMemo(() => new Chess(node.fen), [node.fen]);
+
+  // Every move already explored from this position - shown as arrows so
+  // "moving forward" needs no dedicated control: it's just clicking a move
+  // that already has a visible destination, same as playing a brand new one.
+  const exploredArrows = useMemo<Arrow[]>(() => {
+    return node.children
+      .map((childId) => tree.nodes[childId]?.uci)
+      .filter((uci): uci is string => !!uci)
+      .map((uci) => ({
+        startSquare: uci.slice(0, 2),
+        endSquare: uci.slice(2, 4),
+        color: accentColor,
+      }));
+  }, [node.children, tree.nodes, accentColor]);
+
+  function onSquareClick({ square, piece }: SquareHandlerArgs) {
+    if (chess.isGameOver()) return;
+
+    if (!moveFrom && piece) {
+      const nextOptions = getMoveOptions(chess, square as Square);
+      setOptionSquares(nextOptions ?? {});
+      if (nextOptions) setMoveFrom(square);
+      return;
     }
-  });
+
+    const moves = chess.moves({ square: moveFrom as Square, verbose: true });
+    const foundMove = moves.find((m) => m.from === moveFrom && m.to === square);
+
+    if (!foundMove) {
+      const nextOptions = getMoveOptions(chess, square as Square);
+      setOptionSquares(nextOptions ?? {});
+      setMoveFrom(nextOptions ? square : "");
+      return;
+    }
+
+    const resultId = playMoveAt(node.id, { from: moveFrom, to: square, promotion: "q" });
+    if (resultId) onMove(resultId);
+    setMoveFrom("");
+    setOptionSquares({});
+  }
+
+  const options = useMemo(
+    () => ({
+      id: "move-tree-preview-board",
+      position: displayFen,
+      onSquareClick,
+      squareStyles: optionSquares,
+      allowDragging: false,
+      allowDrawingArrows: false,
+      arrows: exploredArrows,
+      showAnimations: animateNow,
+      animationDurationInMs: 280,
+      showNotation: false,
+      darkSquareStyle: boardTheme.darkSquareStyle,
+      lightSquareStyle: boardTheme.lightSquareStyle,
+      boardStyle: boardTheme.boardStyle,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [displayFen, animateNow, optionSquares, moveFrom, exploredArrows],
+  );
 
   return (
-    <div className="grid aspect-square w-full grid-cols-8 overflow-hidden rounded-md border border-border-soft">
-      {squares.map(({ file, rank, piece }) => {
-        const light = (file + rank) % 2 === 0;
-        const side = piece ? (piece === piece.toUpperCase() ? "w" : "b") : null;
-        const letter = piece ? piece.toUpperCase() : null;
-        const Icon = side && letter ? defaultPieces[`${side}${letter}` as keyof typeof defaultPieces] : null;
-
-        return (
-          <div
-            key={`${file}-${rank}`}
-            className={`flex items-center justify-center ${light ? "bg-[#d7dbc8]" : "bg-[#7a8a5c]"}`}
-          >
-            {Icon && (
-              <span className="block h-[85%] w-[85%]">
-                <Icon />
-              </span>
-            )}
-          </div>
-        );
-      })}
+    <div className="aspect-square w-full overflow-hidden rounded-md border border-border-soft">
+      <Chessboard options={options} />
     </div>
   );
 }
@@ -147,14 +260,29 @@ function MiniBoard({ fen }: { fen: string }) {
 type FocusAnim = { from: Complex; toId: string; start: number };
 
 export function MoveTreeMap() {
-  const { tree, currentNodeId, goToNode } = useBoardGameContext();
+  const { tree, currentNodeId, currentLine, goToNode } = useBoardGameContext();
 
   const [focusId, setFocusId] = useState(currentNodeId);
   const [k, setK] = useState(K_DEFAULT);
   const [showRings, setShowRings] = useState(true);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [previewPos, setPreviewPos] = useState<{ left: number; top: number } | null>(null);
+  // The preview card is always showing something by default (falling back
+  // to the live current node) - closing it is a deliberate action, and
+  // interacting with any node again is what brings it back.
+  const [cardClosed, setCardClosed] = useState(false);
+
+  // The compaction slider, depth-rings checkbox, and node/ply/fork counters
+  // are secondary controls most sessions never touch - hidden by default to
+  // save space, individually toggleable from the settings modal, and shown
+  // as a floating panel (top-left) instead of permanent page rows when on.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showStatsPanel, setShowStatsPanel] = useState(false);
+  const [showCompactionPanel, setShowCompactionPanel] = useState(false);
+  const [showRingsTogglePanel, setShowRingsTogglePanel] = useState(false);
+  const [hoveredRingPly, setHoveredRingPly] = useState<number | null>(null);
+  const [ringTooltipPos, setRingTooltipPos] = useState<{ left: number; top: number } | null>(null);
+  const [selectedRingPly, setSelectedRingPly] = useState<number | null>(null);
 
   // The map always follows the live game position - clicking elsewhere in
   // the tree only moves the view (see doSetFocus), never the actual game,
@@ -174,7 +302,6 @@ export function MoveTreeMap() {
   // point of this layout) never triggers a relayout, unlike the Euclidean
   // map this replaces.
   const canon = useMemo(() => computeHyperbolicLayout(tree, k).canon, [tree, k]);
-  const breadcrumb = useMemo(() => getBreadcrumb(tree, focusId), [tree, focusId]);
 
   const { totalNodes, maxPly, widestFork } = useMemo(() => {
     let maxPlySeen = 0, widest = 0;
@@ -187,10 +314,26 @@ export function MoveTreeMap() {
     return { totalNodes: ids.length, maxPly: maxPlySeen, widestFork: widest };
   }, [tree]);
 
+  const nodesOnSelectedRing = useMemo(() => {
+    if (selectedRingPly === null) return [];
+    return Object.values(tree.nodes).filter((n) => n.ply === selectedRingPly);
+  }, [tree, selectedRingPly]);
+
+  const hoveredRingSample = useMemo(() => {
+    if (hoveredRingPly === null) return null;
+    return Object.values(tree.nodes).find((n) => n.ply === hoveredRingPly) ?? null;
+  }, [tree, hoveredRingPly]);
+
   const stageRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animRef = useRef<FocusAnim | null>(null);
   const renderedPosRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  // Per-ply highlight strength (0..1), eased toward whichever ply is
+  // hovered/selected each frame rather than snapping - lets a ring fade
+  // out smoothly too, since more than one entry can be mid-fade at once
+  // (the ring you just left, and the one you're entering).
+  const ringHoverIntensityRef = useRef<Map<number, number>>(new Map());
+  const ringSelectIntensityRef = useRef<Map<number, number>>(new Map());
 
   // Everything the draw loop and pointer handlers need is mirrored into
   // refs on every render (a plain assignment, not an effect - cheap and
@@ -204,6 +347,11 @@ export function MoveTreeMap() {
   // on every fractional change instead of a smooth redraw.
   const hoveredIdRef = useRef<string | null>(null);
   const pinnedIdRef = useRef<string | null>(null);
+  const goToNodeRef = useRef(goToNode);
+  // When the currently-hovered node last *became* hovered - lets the bounce
+  // in the draw loop damp out over a fixed window instead of pulsing for as
+  // long as the cursor happens to sit still.
+  const hoverStartRef = useRef(0);
   const showRingsRef = useRef(showRings);
   const canonRef = useRef(canon);
   const treeRef = useRef(tree);
@@ -211,8 +359,11 @@ export function MoveTreeMap() {
   const currentNodeIdRef = useRef(currentNodeId);
   const kRef = useRef(k);
   const maxPlyRef = useRef(maxPly);
+  const hoveredRingPlyRef = useRef<number | null>(null);
+  const selectedRingPlyRef = useRef<number | null>(null);
   hoveredIdRef.current = hoveredId;
   pinnedIdRef.current = pinnedId;
+  goToNodeRef.current = goToNode;
   showRingsRef.current = showRings;
   canonRef.current = canon;
   treeRef.current = tree;
@@ -220,6 +371,8 @@ export function MoveTreeMap() {
   currentNodeIdRef.current = currentNodeId;
   kRef.current = k;
   maxPlyRef.current = maxPly;
+  hoveredRingPlyRef.current = hoveredRingPly;
+  selectedRingPlyRef.current = selectedRingPly;
 
   // Reads whatever's currently on screen (mid-transition or settled) so a
   // fresh click can smoothly retarget from wherever the view actually is,
@@ -244,17 +397,6 @@ export function MoveTreeMap() {
     const now = performance.now();
     animRef.current = { from: currentFocusComplex(now), toId: id, start: now };
     setFocusId(id);
-  }
-
-  function updatePreviewPosition(id: string) {
-    const stage = stageRef.current;
-    const pos = renderedPosRef.current.get(id);
-    if (!stage || !pos) return;
-    const rect = stage.getBoundingClientRect();
-    const cardW = 220, cardH = 320;
-    const left = Math.min(Math.max(pos.x + 16, 8), rect.width - cardW - 8);
-    const top = Math.min(Math.max(pos.y - cardH / 2, 8), rect.height - cardH - 8);
-    setPreviewPos({ left, top });
   }
 
   // Canvas render loop + interaction, set up once on mount. Every value it
@@ -293,17 +435,41 @@ export function MoveTreeMap() {
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(stage);
 
+    // Shared by the draw loop and the pointer handlers below, so hit-testing
+    // a ring always agrees with wherever it's actually drawn this frame.
+    function frameGeometry() {
+      const rect = stage!.getBoundingClientRect();
+      const cx = rect.width / 2, cy = rect.height / 2;
+      const scale = (Math.min(rect.width, rect.height) / 2) * 0.92;
+      const focusA = currentFocusComplex(performance.now());
+      return { rect, cx, cy, scale, focusA };
+    }
+
+    const RING_HIT_PX = 6;
+    function hitTestRing(mx: number, my: number, cx: number, cy: number, scale: number, focusA: Complex): number | null {
+      let best: number | null = null;
+      let bestDelta = Infinity;
+      for (let ply = 1; ply <= maxPlyRef.current; ply++) {
+        const canonR = Math.tanh(kRef.current * ply);
+        if (canonR > 0.999) continue;
+        const ring = transformedRing(canonR, focusA);
+        if (!ring || !isFinite(ring.r)) continue;
+        const delta = Math.abs(Math.hypot(mx - (cx + ring.x * scale), my - (cy + ring.y * scale)) - ring.r * scale);
+        if (delta < RING_HIT_PX && delta < bestDelta) {
+          bestDelta = delta;
+          best = ply;
+        }
+      }
+      return best;
+    }
+
     let raf = 0;
     function draw() {
-      const rect = stage!.getBoundingClientRect();
       const dpr = devicePixelRatio;
+      const { rect, cx, cy, scale, focusA } = frameGeometry();
       ctx!.save();
       ctx!.scale(dpr, dpr);
       ctx!.clearRect(0, 0, rect.width, rect.height);
-
-      const cx = rect.width / 2, cy = rect.height / 2;
-      const scale = Math.min(rect.width, rect.height) / 2 * 0.92;
-      const focusA = currentFocusComplex(performance.now());
 
       ctx!.strokeStyle = boundaryColor;
       ctx!.lineWidth = 1.5;
@@ -311,26 +477,59 @@ export function MoveTreeMap() {
       ctx!.arc(cx, cy, scale, 0, Math.PI * 2);
       ctx!.stroke();
 
+      // Stepped every frame regardless of whether rings are shown, so a
+      // fade-out already in progress doesn't freeze mid-transition and
+      // then jump when rings are toggled back on.
+      stepIntensityMap(ringHoverIntensityRef.current, showRingsRef.current ? hoveredRingPlyRef.current : null);
+      stepIntensityMap(ringSelectIntensityRef.current, showRingsRef.current ? selectedRingPlyRef.current : null);
+
       if (showRingsRef.current) {
         for (let ply = 1; ply <= maxPlyRef.current; ply++) {
           const canonR = Math.tanh(kRef.current * ply);
           if (canonR > 0.999) continue;
           const ring = transformedRing(canonR, focusA);
           if (!ring || !isFinite(ring.r) || ring.r * scale > 8000) continue;
-          const major = ply % 5 === 0 || ply === maxPly;
+          // Every ply is a half-move (one side's move); a ring only lands on
+          // a completed full move once both sides have moved, i.e. at an
+          // even ply - so only those get labeled by default. Odd (half-move)
+          // rings still exist and are still hoverable, just unlabeled for now.
+          const major = ply % 2 === 0;
+          const ringCx = cx + ring.x * scale, ringCy = cy + ring.y * scale, ringR = ring.r * scale;
+
           ctx!.strokeStyle = major ? ringMajorColor : colors.borderSoft;
           ctx!.lineWidth = major ? 1.2 : 0.75;
           ctx!.beginPath();
-          ctx!.arc(cx + ring.x * scale, cy + ring.y * scale, ring.r * scale, 0, Math.PI * 2);
+          ctx!.arc(ringCx, ringCy, ringR, 0, Math.PI * 2);
           ctx!.stroke();
-          if (major) {
-            const lx = cx + ring.x * scale, ly = cy + (ring.y - ring.r) * scale;
+
+          const hoverI = ringHoverIntensityRef.current.get(ply) ?? 0;
+          const selectI = ringSelectIntensityRef.current.get(ply) ?? 0;
+          const highlightI = Math.max(hoverI * 0.7, selectI);
+          if (highlightI > 0.01) {
+            ctx!.strokeStyle = hexToRgba(colors.accent, 0.12 + 0.68 * highlightI);
+            ctx!.lineWidth = (major ? 1.2 : 0.75) + 1.6 * highlightI;
+            ctx!.beginPath();
+            ctx!.arc(ringCx, ringCy, ringR, 0, Math.PI * 2);
+            ctx!.stroke();
+          }
+
+          if (major || highlightI > 0.02) {
+            const lx = ringCx, ly = cy + (ring.y - ring.r) * scale;
             if (lx > -20 && lx < rect.width + 20 && ly > -20 && ly < rect.height + 20) {
-              ctx!.font = "10px ui-monospace, monospace";
-              ctx!.fillStyle = colors.textFaint;
+              // The move number (both plies of a full move share one), not
+              // the raw ply count - matches how the hover/select panels
+              // already label these rings elsewhere.
+              const moveNumberLabel = String(Math.ceil(ply / 2));
+              ctx!.font = `${highlightI > 0.5 ? "bold " : ""}${10 + highlightI}px ui-monospace, monospace`;
               ctx!.textAlign = "center";
               ctx!.textBaseline = "middle";
-              ctx!.fillText(String(ply), lx, ly);
+              ctx!.globalAlpha = 1 - highlightI;
+              ctx!.fillStyle = colors.textFaint;
+              ctx!.fillText(moveNumberLabel, lx, ly);
+              ctx!.globalAlpha = highlightI;
+              ctx!.fillStyle = colors.accent;
+              ctx!.fillText(moveNumberLabel, lx, ly);
+              ctx!.globalAlpha = 1;
             }
           }
         }
@@ -340,17 +539,31 @@ export function MoveTreeMap() {
       const rendered = new Map<string, Complex>();
       for (const [id, pos] of canonRef.current) rendered.set(id, mobiusTranslate(pos, focusA));
 
-      ctx!.lineWidth = 1.1;
+      // Every node from the game's start down to wherever play actually is
+      // right now - the edges along it get a distinct highlight so the
+      // "main line" reads at a glance against the rest of the tree.
+      const mainLineIds = new Set(
+        getBreadcrumb(currentTree, currentNodeIdRef.current).map((n) => n.id),
+      );
+
       for (const id in currentTree.nodes) {
         const node = currentTree.nodes[id];
         if (!node.parentId) continue;
         const p = rendered.get(node.parentId), q = rendered.get(id);
         if (!p || !q) continue;
-        ctx!.strokeStyle = isHub(currentTree.nodes[node.parentId]) ? hexToRgba(HUB_COLOR, 0.35) : colors.border;
-        drawGeodesic(ctx!, p, q, cx, cy, scale);
+        const onMainLine = mainLineIds.has(id);
+        const parentIsHub = isHub(currentTree.nodes[node.parentId]);
+        ctx!.lineWidth = onMainLine ? 1.8 : 1.1;
+        ctx!.strokeStyle = onMainLine
+          ? hexToRgba(colors.accent, 0.6)
+          : parentIsHub
+            ? hexToRgba(HUB_COLOR, 0.35)
+            : colors.border;
+        drawGeodesic(ctx!, p, q, cx, cy, scale, onMainLine ? colors.accent : parentIsHub ? HUB_COLOR : colors.textFaint);
       }
 
       renderedPosRef.current.clear();
+      const now = performance.now();
       for (const id in currentTree.nodes) {
         const node = currentTree.nodes[id];
         const z = rendered.get(id);
@@ -361,32 +574,81 @@ export function MoveTreeMap() {
 
         const isFocus = id === focusIdRef.current && !animRef.current;
         const isCurrent = id === currentNodeIdRef.current;
-        const closeness = 1 - Math.min(1, mag);
+        const ringSpotlight = ringSelectIntensityRef.current.get(node.ply) ?? 0;
+        const closenessRaw = 1 - Math.min(1, mag);
+        // Clicking a ring spotlights every move at that ply - eased toward a
+        // comfortably visible size/opacity regardless of how compacted or
+        // far from focus it actually is, so distant rings stay inspectable
+        // without needing to recenter onto them first.
+        const closeness = Math.max(closenessRaw, 0.85 * ringSpotlight);
         const radius = isFocus ? 7 : 2 + closeness * 8;
 
+        // Who moved into this position, at a glance: a solid light dot for a
+        // White move, a hollow (rim-only) dot for a Black move - same
+        // convention as light/dark checkers pieces, and it survives the
+        // closeness fade since the rim's alpha fades instead of the fill.
+        const isBlackMove = node.side === "b";
+        const isHovered = id === hoveredIdRef.current;
+        // Focus and hover are called out via outer rings below, not by
+        // recoloring the dot - its mover color stays intact, just pushed to
+        // full brightness instead of the usual closeness-based fade.
+        const brighten = isFocus || isHovered;
+        // Hovering the node that's already selected wouldn't otherwise show
+        // any feedback at all - its focus/current ring is already showing
+        // regardless of hover - so pulse its size instead. The pulse damps
+        // out over a fixed 3s window (from whenever this hover started)
+        // rather than continuing indefinitely while the cursor sits still.
+        const hoverElapsed = now - hoverStartRef.current;
+        const bounceEnvelope = isHovered && hoverElapsed < 3000 ? 1 - hoverElapsed / 3000 : 0;
+        const bounceScale =
+          (isFocus || isCurrent) && bounceEnvelope > 0
+            ? 1 + 0.16 * bounceEnvelope * Math.sin(now / 130)
+            : 1;
+        const drawRadius = radius * bounceScale;
+
         ctx!.beginPath();
-        ctx!.arc(sx, sy, radius, 0, Math.PI * 2);
-        if (isFocus) ctx!.fillStyle = colors.accent;
-        else if (id === hoveredIdRef.current) ctx!.fillStyle = colors.text;
-        else if (isHub(node)) ctx!.fillStyle = HUB_COLOR;
-        else ctx!.fillStyle = hexToRgba(colors.text, 0.35 + closeness * 0.5);
+        ctx!.arc(sx, sy, drawRadius, 0, Math.PI * 2);
+        if (isHub(node)) ctx!.fillStyle = HUB_COLOR;
+        else if (isBlackMove) ctx!.fillStyle = colors.background;
+        else ctx!.fillStyle = hexToRgba(colors.text, brighten ? 1 : 0.35 + closeness * 0.5);
         ctx!.fill();
+
+        if (isBlackMove && !isHub(node)) {
+          ctx!.strokeStyle = hexToRgba(colors.text, brighten ? 1 : 0.4 + closeness * 0.5);
+          ctx!.lineWidth = brighten ? 1.8 : 1.3;
+          ctx!.beginPath();
+          ctx!.arc(sx, sy, drawRadius, 0, Math.PI * 2);
+          ctx!.stroke();
+        }
 
         if (isFocus) {
           ctx!.strokeStyle = hexToRgba(colors.accent, 0.5);
           ctx!.lineWidth = 2;
           ctx!.beginPath();
-          ctx!.arc(sx, sy, radius + 4, 0, Math.PI * 2);
+          ctx!.arc(sx, sy, drawRadius + 4, 0, Math.PI * 2);
           ctx!.stroke();
         } else if (isCurrent) {
           ctx!.strokeStyle = colors.accent;
           ctx!.lineWidth = 2;
           ctx!.beginPath();
+          ctx!.arc(sx, sy, drawRadius + 3, 0, Math.PI * 2);
+          ctx!.stroke();
+        } else if (ringSpotlight > 0.01) {
+          ctx!.strokeStyle = hexToRgba(colors.accent, 0.6 * ringSpotlight);
+          ctx!.lineWidth = 1.6 * ringSpotlight;
+          ctx!.beginPath();
+          ctx!.arc(sx, sy, radius + 3, 0, Math.PI * 2);
+          ctx!.stroke();
+        } else if (isHovered) {
+          ctx!.strokeStyle = hexToRgba(colors.text, 0.55);
+          ctx!.lineWidth = 1.5;
+          ctx!.beginPath();
           ctx!.arc(sx, sy, radius + 3, 0, Math.PI * 2);
           ctx!.stroke();
         }
 
-        const labelOpacity = Math.max(0, closeness * 0.9 - 0.05) + (isFocus ? 0.9 : 0);
+        const baseLabelOpacity = Math.max(0, closeness * 0.9 - 0.05) + (isFocus ? 0.9 : 0);
+        const labelOpacity = Math.max(baseLabelOpacity, 0.95 * ringSpotlight);
         if (labelOpacity > 0.06) {
           ctx!.font = "11px ui-monospace, monospace";
           ctx!.fillStyle = hexToRgba(colors.text, Math.min(1, labelOpacity));
@@ -422,32 +684,68 @@ export function MoveTreeMap() {
 
     function onPointerMove(e: PointerEvent) {
       const rect = stage!.getBoundingClientRect();
-      const hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      const hit = hitTest(mx, my);
       if (hit !== hoveredIdRef.current) {
         setHoveredId(hit);
-        if (hit && !pinnedIdRef.current) updatePreviewPosition(hit);
-        if (!hit && !pinnedIdRef.current) setPreviewPos(null);
-      } else if (hit) {
-        updatePreviewPosition(hit);
+        hoverStartRef.current = performance.now();
+        if (hit) setCardClosed(false);
+      }
+
+      // A node under the cursor always takes priority over a ring behind it.
+      if (hit) {
+        if (hoveredRingPlyRef.current !== null) {
+          hoveredRingPlyRef.current = null;
+          setHoveredRingPly(null);
+        }
+        return;
+      }
+      const { cx, cy, scale, focusA } = frameGeometry();
+      const ringHit = hitTestRing(mx, my, cx, cy, scale, focusA);
+      if (ringHit !== hoveredRingPlyRef.current) {
+        hoveredRingPlyRef.current = ringHit;
+        setHoveredRingPly(ringHit);
+      }
+      if (ringHit !== null) {
+        setRingTooltipPos({ left: Math.min(mx + 14, rect.width - 120), top: Math.max(my - 28, 8) });
       }
     }
     function onPointerLeave() {
       if (!pinnedIdRef.current) {
         setHoveredId(null);
-        setPreviewPos(null);
+      }
+      if (hoveredRingPlyRef.current !== null) {
+        hoveredRingPlyRef.current = null;
+        setHoveredRingPly(null);
       }
     }
     function onClick(e: MouseEvent) {
       const rect = stage!.getBoundingClientRect();
-      const hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      const hit = hitTest(mx, my);
       if (hit) {
-        doSetFocus(hit);
+        // Clicking a node commits to it - same effect the old "Go to this
+        // move" button had - so the main-line highlight always tracks
+        // whatever was just clicked instead of needing a separate confirm.
+        goToNodeRef.current(hit);
         setPinnedId(hit);
-        updatePreviewPosition(hit);
-      } else {
-        setPinnedId(null);
-        setPreviewPos(null);
+        setCardClosed(false);
+        selectedRingPlyRef.current = null;
+        setSelectedRingPly(null);
+        return;
       }
+      const { cx, cy, scale, focusA } = frameGeometry();
+      const ringHit = hitTestRing(mx, my, cx, cy, scale, focusA);
+      if (ringHit !== null) {
+        const next = selectedRingPlyRef.current === ringHit ? null : ringHit;
+        selectedRingPlyRef.current = next;
+        setSelectedRingPly(next);
+        setPinnedId(null);
+        return;
+      }
+      setPinnedId(null);
+      selectedRingPlyRef.current = null;
+      setSelectedRingPly(null);
     }
 
     canvas.addEventListener("wheel", onWheel, { passive: false });
@@ -468,114 +766,270 @@ export function MoveTreeMap() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const previewNode = pinnedId ? tree.nodes[pinnedId] : hoveredId ? tree.nodes[hoveredId] : null;
+  const previewNode = cardClosed
+    ? null
+    : pinnedId
+      ? tree.nodes[pinnedId]
+      : hoveredId
+        ? tree.nodes[hoveredId]
+        : (tree.nodes[currentNodeId] ?? null);
 
   return (
-    <div className="flex w-full flex-1 flex-col items-center gap-3 overflow-x-auto p-3 sm:p-4">
-      <div className="flex w-full max-w-5xl flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/board"
-            className="flex items-center gap-1.5 rounded text-sm text-text-faint transition hover:text-text"
-          >
-            <FaArrowLeft className="text-xs" />
-            Board
-          </Link>
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 font-mono text-sm text-text-faint">
-            {breadcrumb.map((node, i) => (
-              <React.Fragment key={node.id}>
-                {i > 0 && <span className="text-border">›</span>}
-                {i === breadcrumb.length - 1 ? (
-                  <span className="text-accent">{nodeLabel(node)}</span>
-                ) : (
+    // Fixed to the viewport rather than filling `main`'s flex space: the
+    // sticky site header reserves a full h-14 of layout height even though
+    // its own box renders nothing visible on desktop (the icon dial is
+    // absolutely positioned starting at its bottom edge) - fixed-to-viewport
+    // sidesteps that reserved gap entirely and reclaims the full screen.
+    <div className="fixed inset-0 flex flex-col overflow-hidden">
+      <div ref={stageRef} className="relative min-h-0 w-full flex-1 bg-background">
+        {/* Absolutely positioned rather than a normal-flow block: a canvas
+            is a replaced element, and its intrinsic/attribute size can leak
+            into an ancestor flex item's content-based min-height even with
+            `h-full` set, quietly growing the whole page taller than the
+            viewport and making it scrollable. Taking it out of flow makes
+            that impossible regardless of the exact resolution order. */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 block h-full w-full cursor-pointer touch-none"
+        />
+
+        {/* Top-center: the same move list as the board view - fixed width
+            so it scrolls internally (MoveList's own overflow-x-auto)
+            instead of growing without bound as the game gets longer.
+            "Back to board" now lives in the main header's nav dial, next to
+            the map's own entry there, rather than duplicated here. */}
+        <div className="absolute top-3 left-1/2 z-20 w-[min(60vw,420px)] -translate-x-1/2 rounded-[14px] border border-border-soft bg-surface/95 px-2 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+          <MoveList
+            currentLine={currentLine}
+            currentNodeId={currentNodeId}
+            onSelectNode={goToNode}
+            onSelectStart={() => goToNode(tree.rootId)}
+          />
+        </div>
+
+        {/* Top-right: whichever of the ring move-list / node preview card is
+            currently showing (the two never show at once). */}
+        <div className="absolute top-3 right-3 z-20 flex max-w-[min(70vw,320px)] flex-col items-end gap-2">
+          {selectedRingPly !== null && nodesOnSelectedRing.length > 0 && (
+            <div className="w-[220px] rounded-[14px] border border-accent bg-surface p-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="font-mono text-sm font-bold text-accent">
+                  Move {nodesOnSelectedRing[0].moveNumber}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRingPly(null)}
+                  aria-label="Close"
+                  className="text-text-faint transition hover:text-text"
+                >
+                  ×
+                </button>
+              </div>
+              <p className="mb-2 font-mono text-xs text-text-faint">
+                ply {selectedRingPly} · {nodesOnSelectedRing.length} move{nodesOnSelectedRing.length === 1 ? "" : "s"}
+              </p>
+              <div className="flex flex-col gap-1">
+                {nodesOnSelectedRing.map((node) => (
                   <button
+                    key={node.id}
                     type="button"
-                    onClick={() => doSetFocus(node.id)}
-                    className="rounded px-1 py-0.5 text-text-dim hover:bg-surface-raised hover:text-text"
+                    onClick={() => goToNode(node.id)}
+                    className="rounded-lg border border-border bg-surface-raised px-2 py-1.5 text-left text-sm text-text-dim transition hover:border-accent hover:text-text"
+                    style={isHub(node) ? { color: HUB_COLOR } : undefined}
                   >
                     {nodeLabel(node)}
                   </button>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 rounded-[10px] border border-border-soft bg-surface px-3 py-2 text-sm text-text-dim">
-          <label htmlFor="map-compaction" className="whitespace-nowrap">
-            Compaction
-          </label>
-          <input
-            id="map-compaction"
-            type="range"
-            min={K_MIN * 1000}
-            max={K_MAX * 1000}
-            value={k * 1000}
-            onChange={(e) => setK(Number(e.target.value) / 1000)}
-            className="flex-1 accent-accent"
-          />
-          <label className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={showRings}
-              onChange={(e) => setShowRings(e.target.checked)}
-              className="accent-accent"
-            />
-            depth rings
-          </label>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <StatPill label="Nodes" value={String(totalNodes)} />
-          <StatPill label="Focus ply" value={String(tree.nodes[focusId]?.ply ?? 0)} />
-          <StatPill label="Widest fork" value={widestFork >= 3 ? `${widestFork}-way` : "—"} accent />
-        </div>
-
-        <div className="overflow-hidden rounded-[10px] border border-border-soft bg-background">
-          <div ref={stageRef} className="relative h-[min(75vw,600px)] w-full bg-background">
-            <canvas ref={canvasRef} className="block h-full w-full cursor-pointer touch-none" />
-
-            <div className="pointer-events-none absolute bottom-3 left-3 max-w-[60ch] text-[0.74rem] text-text-faint">
-              <b className="text-text-dim">Click</b> a node to bring it to center ·{" "}
-              <b className="text-text-dim">scroll</b> to change compaction
+                ))}
+              </div>
             </div>
+          )}
 
-            {previewNode && previewPos && (
-              <div
-                className="absolute z-20 w-[220px] rounded-[14px] border border-border bg-surface p-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)]"
-                style={{ left: previewPos.left, top: previewPos.top }}
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <span
-                    className="font-mono text-sm font-bold text-text"
-                    style={isHub(previewNode) ? { color: HUB_COLOR } : undefined}
+          {previewNode && (
+            <div className="w-[220px] rounded-[14px] border border-border bg-surface p-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span
+                  className="font-mono text-sm font-bold text-text"
+                  style={isHub(previewNode) ? { color: HUB_COLOR } : undefined}
+                >
+                  {nodeLabel(previewNode) === "Start" ? "Start position" : nodeLabel(previewNode)}
+                </span>
+                <span className="flex items-center gap-2 font-mono text-xs text-text-faint">
+                  {previewNode.ply ? `ply ${previewNode.ply}` : ""}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPinnedId(null);
+                      setCardClosed(true);
+                    }}
+                    aria-label="Close"
+                    className="text-text-faint transition hover:text-text"
                   >
-                    {nodeLabel(previewNode) === "Start" ? "Start position" : nodeLabel(previewNode)}
-                  </span>
-                  <span className="font-mono text-xs text-text-faint">
-                    {previewNode.ply ? `ply ${previewNode.ply}` : ""}
-                  </span>
-                </div>
+                    ×
+                  </button>
+                </span>
+              </div>
 
-                <MiniBoard fen={previewNode.fen} />
+              <PlayableMiniBoard
+                node={previewNode}
+                tree={tree}
+                animateEntry={pinnedId === previewNode.id}
+                onMove={setPinnedId}
+              />
 
+              {previewNode.parentId && (
                 <button
                   type="button"
-                  onClick={() => goToNode(previewNode.id)}
+                  onClick={() => {
+                    const parentId = previewNode.parentId!;
+                    goToNode(parentId);
+                    setPinnedId(parentId);
+                  }}
                   className="mt-2 block w-full rounded-lg border border-border bg-surface-raised px-2 py-1.5 text-center text-sm text-text-dim transition hover:border-accent hover:text-text"
                 >
-                  Go to this move
+                  ← Back
                 </button>
-                {isHub(previewNode) && (
-                  <p className="mt-2 text-center text-xs" style={{ color: HUB_COLOR }}>
-                    {previewNode.children.length}-way fork
-                  </p>
-                )}
-              </div>
-            )}
+              )}
+              {isHub(previewNode) && (
+                <p className="mt-2 text-center text-xs" style={{ color: HUB_COLOR }}>
+                  {previewNode.children.length}-way fork
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom-left: the optional compaction/rings/stats panel above the
+            static hint text, both anchored to the same corner as a group. */}
+        <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex max-w-[min(80vw,260px)] flex-col gap-2">
+          {(showStatsPanel || showCompactionPanel || showRingsTogglePanel) && (
+            <div className="pointer-events-auto flex flex-col gap-2 rounded-[14px] border border-border bg-surface p-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
+              {showStatsPanel && (
+                <div className="flex flex-wrap gap-2">
+                  <StatPill label="Nodes" value={String(totalNodes)} />
+                  <StatPill label="Focus ply" value={String(tree.nodes[focusId]?.ply ?? 0)} />
+                  <StatPill label="Widest fork" value={widestFork >= 3 ? `${widestFork}-way` : "—"} accent />
+                </div>
+              )}
+              {showCompactionPanel && (
+                <div className="flex items-center gap-2 text-sm text-text-dim">
+                  <label htmlFor="map-compaction" className="whitespace-nowrap">
+                    Compaction
+                  </label>
+                  <input
+                    id="map-compaction"
+                    type="range"
+                    min={K_MIN * 1000}
+                    max={K_MAX * 1000}
+                    value={k * 1000}
+                    onChange={(e) => setK(Number(e.target.value) / 1000)}
+                    className="flex-1 accent-accent"
+                  />
+                </div>
+              )}
+              {showRingsTogglePanel && (
+                <label className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-text-dim">
+                  <input
+                    type="checkbox"
+                    checked={showRings}
+                    onChange={(e) => setShowRings(e.target.checked)}
+                    className="accent-accent"
+                  />
+                  depth rings
+                </label>
+              )}
+            </div>
+          )}
+
+          <div className="max-w-[60ch] text-[0.74rem] text-text-faint">
+            <b className="text-text-dim">Click</b> a node to go to that move ·{" "}
+            <b className="text-text-dim">click a ring</b> to see every move on it ·{" "}
+            <b className="text-text-dim">scroll</b> to change compaction
           </div>
         </div>
+
+        {/* Bottom-right: the settings trigger, floating the same way the
+            site's own nav icons already do - nothing else needs to reserve
+            layout space for it, so the map can fill the whole screen. */}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Map settings"
+          className="absolute right-3 bottom-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface text-text-dim shadow-lg transition hover:text-text"
+        >
+          <FaGear />
+        </button>
+
+        {hoveredRingPly !== null && selectedRingPly === null && ringTooltipPos && hoveredRingSample && (
+          <div
+            className="pointer-events-none absolute z-20 rounded-md border border-accent bg-surface-raised px-2 py-1 font-mono text-xs text-text"
+            style={{ left: ringTooltipPos.left, top: ringTooltipPos.top }}
+          >
+            Move {hoveredRingSample.moveNumber} · ply {hoveredRingPly}
+          </div>
+        )}
       </div>
+
+      <Modal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
+        <div className="w-full max-w-sm">
+          <header className="px-4 pt-3 pb-6">
+            <h2 className="text-xl font-bold text-text">Map settings</h2>
+          </header>
+
+          <div className="px-4">
+            <SettingsItem
+              item={{
+                title: "Node/ply/fork counters",
+                content: (
+                  <SettingsToggle
+                    setting={{
+                      label: "Node/ply/fork counters",
+                      isSelected: showStatsPanel,
+                      onChange: setShowStatsPanel,
+                    }}
+                  />
+                ),
+              }}
+            />
+            <SettingsItem
+              item={{
+                title: "Compaction slider",
+                content: (
+                  <SettingsToggle
+                    setting={{
+                      label: "Compaction slider",
+                      isSelected: showCompactionPanel,
+                      onChange: setShowCompactionPanel,
+                    }}
+                  />
+                ),
+              }}
+            />
+            <SettingsItem
+              item={{
+                title: "Depth rings toggle",
+                content: (
+                  <SettingsToggle
+                    setting={{
+                      label: "Depth rings toggle",
+                      isSelected: showRingsTogglePanel,
+                      onChange: setShowRingsTogglePanel,
+                    }}
+                  />
+                ),
+              }}
+            />
+          </div>
+
+          <div className="flex justify-end px-4 pt-6 pb-3">
+            <button
+              onClick={() => setSettingsOpen(false)}
+              className="rounded-lg bg-surface-raised px-4 py-2 text-sm font-medium text-text transition hover:brightness-110 focus:ring-2 focus:ring-border focus:ring-offset-2 focus:ring-offset-background focus:outline-none"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

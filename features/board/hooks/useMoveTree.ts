@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Chess, type Square } from "chess.js";
-import type { MoveNode } from "../types";
+import type { MoveNode, MoveTreeState } from "../types";
 import {
   appendChildNode,
   createMoveTree,
@@ -20,6 +20,39 @@ type PlayMoveInput = {
   to: string;
   promotion?: string;
 };
+
+function applyMove(
+  tree: MoveTreeState,
+  parentId: string,
+  input: PlayMoveInput,
+): { tree: MoveTreeState; nodeId: string } | null {
+  const parent = tree.nodes[parentId];
+  const chess = new Chess(parent.fen);
+
+  const move = chess.move({
+    from: input.from as Square,
+    to: input.to as Square,
+    promotion: input.promotion as "q" | "r" | "b" | "n" | undefined,
+  });
+
+  if (!move) return null;
+
+  const uci = `${move.from}${move.to}${move.promotion ?? ""}`;
+  const existingChildId = findChildByUci(tree, parentId, uci);
+
+  if (existingChildId) {
+    return { tree, nodeId: existingChildId };
+  }
+
+  const nextTree = appendChildNode(tree, parentId, {
+    san: move.san,
+    uci,
+    fen: chess.fen(),
+    side: move.color,
+  });
+
+  return { tree: nextTree, nodeId: nextTree.currentNodeId };
+}
 
 export function useMoveTree() {
   const [tree, setTree] = useState(() => createMoveTree());
@@ -133,46 +166,24 @@ export function useMoveTree() {
   }
 
   function playMove(input: PlayMoveInput) {
-    let nextNodeId: string | null = null;
+    return playMoveAt(tree.currentNodeId, input);
+  }
+
+  // Plays a move from an arbitrary node, not just the current one - lets a
+  // sideline be explored (e.g. from the move-tree map's preview board)
+  // without first navigating there. The played move still becomes the new
+  // current node, same as playing directly on the main board.
+  function playMoveAt(nodeId: string, input: PlayMoveInput) {
+    let resultNodeId: string | null = null;
 
     setTree((prev) => {
-      const parent = prev.nodes[prev.currentNodeId];
-      const chess = new Chess(parent.fen);
-
-      const move = chess.move({
-        from: input.from as Square,
-        to: input.to as Square,
-        promotion: input.promotion as "q" | "r" | "b" | "n" | undefined,
-      });
-
-      if (!move) {
-        return prev;
-      }
-
-      const uci = `${move.from}${move.to}${move.promotion ?? ""}`;
-      const existingChildId = findChildByUci(prev, parent.id, uci);
-
-      if (existingChildId) {
-        nextNodeId = existingChildId;
-
-        return {
-          ...prev,
-          currentNodeId: existingChildId,
-        };
-      }
-
-      const nextTree = appendChildNode(prev, parent.id, {
-        san: move.san,
-        uci,
-        fen: chess.fen(),
-        side: move.color,
-      });
-
-      nextNodeId = nextTree.currentNodeId;
-      return nextTree;
+      const result = applyMove(prev, nodeId, input);
+      if (!result) return prev;
+      resultNodeId = result.nodeId;
+      return { ...result.tree, currentNodeId: result.nodeId };
     });
 
-    return nextNodeId;
+    return resultNodeId;
   }
 
   return {
@@ -192,6 +203,7 @@ export function useMoveTree() {
 
     resetTree,
     playMove,
+    playMoveAt,
     goToNode,
     goToStart,
     goToPrevious,
