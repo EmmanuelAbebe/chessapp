@@ -65,7 +65,6 @@ const COMING_SOON = [
 type GameModeModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onStartNewGame: () => void;
   onStartVsStockfish: (side: SideChoice, skillLevel: number) => void;
   gameStatus?: GameStatus;
 };
@@ -73,7 +72,6 @@ type GameModeModalProps = {
 export function GameModeModal({
   isOpen,
   onClose,
-  onStartNewGame,
   onStartVsStockfish,
   gameStatus,
 }: GameModeModalProps) {
@@ -94,11 +92,6 @@ export function GameModeModal({
 
   function closeStockfishSetup() {
     startTransition(() => setShowStockfishSetup(false));
-  }
-
-  function handleStartNewGame() {
-    onStartNewGame();
-    handleClose();
   }
 
   function handleStartVsStockfish() {
@@ -134,17 +127,6 @@ export function GameModeModal({
         >
           {!showStockfishSetup ? (
             <div className="mt-6 flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={handleStartNewGame}
-                className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
-              >
-                <span className="font-semibold text-text">Start New Game</span>
-                <span className="text-xs text-text-faint">
-                  Reset the board and analyze freely.
-                </span>
-              </button>
-
               <button
                 type="button"
                 onClick={openStockfishSetup}

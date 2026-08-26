@@ -28,6 +28,23 @@ export function useEngineOpponent({
   onMove,
 }: UseEngineOpponentArgs) {
   const engineRef = useRef<StockfishEngine | null>(null);
+  // The fen an in-flight "go" was actually issued for, vs. whatever fen is
+  // live right now - if the player navigates (undo, jump to a different
+  // node, replay a branch) while the engine is still thinking, its eventual
+  // bestmove belongs to a position that's no longer current. Applying it
+  // anyway would either silently fail (illegal for the new position) or,
+  // worse, land a legal-but-wrong move - this is what "the opponent just
+  // stops responding" after undo actually was.
+  const pendingFenRef = useRef<string | null>(null);
+  const latestFenRef = useRef(fen);
+  latestFenRef.current = fen;
+  // `onLine` is only ever registered once, in the mount effect below - a
+  // ref is what keeps it calling the *current* onMove (which closes over
+  // the live tree/currentNodeId) instead of whatever onMove existed at
+  // mount time, which would go on applying every reply to that original,
+  // long-stale position forever.
+  const onMoveRef = useRef(onMove);
+  onMoveRef.current = onMove;
 
   useEffect(() => {
     if (!enabled) return;
@@ -36,12 +53,20 @@ export function useEngineOpponent({
     engineRef.current = engine;
     engine.postMessage("uci");
     engine.postMessage("isready");
+    engine.onLine((line) => {
+      const move = parseBestMove(line);
+      if (!move) return;
+      if (pendingFenRef.current !== latestFenRef.current) return;
+      onMoveRef.current(move);
+    });
 
     return () => {
       engine.postMessage("stop");
       engine.terminate();
       engineRef.current = null;
+      pendingFenRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
   useEffect(() => {
@@ -51,14 +76,14 @@ export function useEngineOpponent({
     const engine = engineRef.current;
     if (!engine) return;
 
-    engine.onLine((line) => {
-      const move = parseBestMove(line);
-      if (move) onMove(move);
-    });
-
+    // Abandon whatever position it was previously thinking about before
+    // asking about this one, so a stale search doesn't keep running (the
+    // fen check above is what actually guards against acting on it, but
+    // there's no reason to let the engine keep burning time on it too).
+    engine.postMessage("stop");
+    pendingFenRef.current = fen;
     engine.postMessage(`setoption name Skill Level value ${skillLevel}`);
     engine.postMessage(`position fen ${fen}`);
     engine.postMessage(`go movetime ${MOVE_TIME_MS}`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, fen, turn, playerSide, skillLevel]);
 }

@@ -7,6 +7,8 @@ import type { Orientation, OptionSquares } from "../types";
 import { getMoveOptions } from "../lib/board-helpers";
 import { getGameStatus } from "../lib/game-status";
 import { useMoveTree } from "./useMoveTree";
+import { useGameMode } from "./useGameMode";
+import { useEngineOpponent } from "./useEngineOpponent";
 import { useSettings } from "@/features/settings/SettingsContext";
 
 const ILLEGAL_MOVE_FLASH_MS = 400;
@@ -172,6 +174,23 @@ export function useBoardGame() {
     updateSettings({ orientation: nextOrientation });
   }
 
+  // Lives here (not in BoardScreen) so it survives navigating to the map
+  // and back - it's part of the shared game, not board-page UI state.
+  // Undoing, jumping to another node, or leaving for the map page never
+  // touches it, so who you're playing against stays put regardless of
+  // where in the tree you look.
+  const gameMode = useGameMode();
+  const isPlayingStockfish = gameMode.mode === "vsStockfish";
+
+  useEngineOpponent({
+    enabled: isPlayingStockfish,
+    fen: moveTree.currentFen,
+    turn: currentChess.turn(),
+    playerSide: gameMode.playerSide === "white" ? "w" : "b",
+    skillLevel: gameMode.skillLevel,
+    onMove: playUciMove,
+  });
+
   return {
     orientation,
     optionSquares,
@@ -187,6 +206,13 @@ export function useBoardGame() {
     currentLine: moveTree.currentLine,
     currentChildren: moveTree.currentChildren,
     currentNodeId: moveTree.currentNodeId,
+
+    gameMode: gameMode.mode,
+    isPlayingStockfish,
+    playerSide: gameMode.playerSide,
+    skillLevel: gameMode.skillLevel,
+    startAnalysis: gameMode.startAnalysis,
+    startVsStockfish: gameMode.startVsStockfish,
 
     canGoPrevious: moveTree.canGoPrevious,
     canGoNext: moveTree.canGoNext,

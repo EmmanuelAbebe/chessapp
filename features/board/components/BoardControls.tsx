@@ -2,19 +2,21 @@
 
 import React from "react";
 import Link from "next/link";
-import { FaChess, FaGear, FaSitemap } from "react-icons/fa6";
+import { FaChess, FaGear, FaMagnifyingGlass, FaSitemap } from "react-icons/fa6";
 import { HiSwitchVertical } from "react-icons/hi";
 
 type BoardControlsProps = {
   toggleOrientation: () => void;
   openBoardSettings: () => void;
   openGameMode: () => void;
+  onAnalysis: () => void;
 };
 
 export function BoardControls({
   toggleOrientation,
   openBoardSettings,
   openGameMode,
+  onAnalysis,
 }: BoardControlsProps) {
   return (
     <div className="flex shrink-0 flex-col items-center gap-3 p-2">
@@ -26,6 +28,15 @@ export function BoardControls({
         className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <FaChess />
+      </button>
+      <button
+        type="button"
+        onClick={onAnalysis}
+        aria-label="Analysis"
+        title="Analysis"
+        className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <FaMagnifyingGlass />
       </button>
       <button
         type="button"

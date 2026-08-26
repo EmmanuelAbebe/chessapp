@@ -14,8 +14,6 @@ import { AiChatPanel } from "./AiChatPanel";
 import { useBoardGameContext } from "../BoardGameContext";
 import { useBoardSettings } from "../hooks/useBoardSettings";
 import { useEvalScore, type CandidateMove } from "../hooks/useEvalScore";
-import { useGameMode } from "../hooks/useGameMode";
-import { useEngineOpponent } from "../hooks/useEngineOpponent";
 import { selectCloseCandidates } from "../lib/eval-format";
 import { useSettings } from "@/features/settings/SettingsContext";
 
@@ -30,7 +28,6 @@ export function BoardScreen() {
     illegalSquares,
     orientation,
     analysisFen,
-    turn,
     gameStatus,
     currentLine,
     currentNodeId,
@@ -40,29 +37,20 @@ export function BoardScreen() {
     changeOrientation,
     onSquareClick,
     resetBoard,
-    playUciMove,
     goToNode,
     goToStart,
     goToPrevious,
     goToNext,
     goToEnd,
+    isPlayingStockfish,
+    startAnalysis,
+    startVsStockfish,
   } = useBoardGameContext();
 
   const { isBoardSettingsOpen, openBoardSettings, closeBoardSettings } =
     useBoardSettings();
 
   const [isGameModeOpen, setIsGameModeOpen] = useState(false);
-  const gameMode = useGameMode();
-  const isPlayingStockfish = gameMode.mode === "vsStockfish";
-
-  useEngineOpponent({
-    enabled: isPlayingStockfish,
-    fen: chessPosition,
-    turn,
-    playerSide: gameMode.playerSide === "white" ? "w" : "b",
-    skillLevel: gameMode.skillLevel,
-    onMove: playUciMove,
-  });
 
   const { settings } = useSettings();
   const {
@@ -120,16 +108,11 @@ export function BoardScreen() {
     return () => clearTimeout(timeout);
   }, [gameStatus.isOver]);
 
-  function handleStartNewGame() {
-    gameMode.startAnalysis();
-    resetBoard();
-  }
-
   function handleStartVsStockfish(
-    side: Parameters<typeof gameMode.startVsStockfish>[0],
+    side: Parameters<typeof startVsStockfish>[0],
     skillLevel: number,
   ) {
-    const resolvedSide = gameMode.startVsStockfish(side, skillLevel);
+    const resolvedSide = startVsStockfish(side, skillLevel);
     resetBoard();
     changeOrientation(resolvedSide);
   }
@@ -201,6 +184,7 @@ export function BoardScreen() {
             <BoardControls
               openBoardSettings={openBoardSettings}
               openGameMode={() => setIsGameModeOpen(true)}
+              onAnalysis={startAnalysis}
               toggleOrientation={toggleOrientation}
             />
           </div>
@@ -215,7 +199,6 @@ export function BoardScreen() {
       <GameModeModal
         isOpen={isGameModeOpen}
         onClose={() => setIsGameModeOpen(false)}
-        onStartNewGame={handleStartNewGame}
         onStartVsStockfish={handleStartVsStockfish}
         gameStatus={gameStatus}
       />
