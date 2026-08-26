@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { FaChess, FaGear } from "react-icons/fa6";
+import Link from "next/link";
+import { FaChess, FaGear, FaSitemap } from "react-icons/fa6";
 import { HiSwitchVertical } from "react-icons/hi";
 
 type BoardControlsProps = {
@@ -44,6 +45,14 @@ export function BoardControls({
       >
         <HiSwitchVertical />
       </button>
+      <Link
+        href="/board/map"
+        aria-label="Move tree map"
+        title="Move tree map"
+        className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <FaSitemap />
+      </Link>
     </div>
   );
 }

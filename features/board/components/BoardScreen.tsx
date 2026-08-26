@@ -11,7 +11,7 @@ import { GameModeModal } from "./GameModeModal";
 import { MoveList } from "./MoveList";
 import { MoveNavigation } from "./MoveNavigation";
 import { AiChatPanel } from "./AiChatPanel";
-import { useBoardGame } from "../hooks/useBoardGame";
+import { useBoardGameContext } from "../BoardGameContext";
 import { useBoardSettings } from "../hooks/useBoardSettings";
 import { useEvalScore, type CandidateMove } from "../hooks/useEvalScore";
 import { useGameMode } from "../hooks/useGameMode";
@@ -46,7 +46,7 @@ export function BoardScreen() {
     goToPrevious,
     goToNext,
     goToEnd,
-  } = useBoardGame();
+  } = useBoardGameContext();
 
   const { isBoardSettingsOpen, openBoardSettings, closeBoardSettings } =
     useBoardSettings();

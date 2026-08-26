@@ -183,6 +183,7 @@ export function useBoardGame() {
     turn: currentChess.turn(),
     gameStatus,
 
+    tree: moveTree.tree,
     currentLine: moveTree.currentLine,
     currentChildren: moveTree.currentChildren,
     currentNodeId: moveTree.currentNodeId,
