@@ -12,7 +12,14 @@ import SettingsItem from "@/features/settings/components/SettingsItem";
 import SettingsToggle from "@/features/settings/components/SettingsToggle";
 import { useBoardGameContext } from "../BoardGameContext";
 import { K_MAX, K_MIN, useMoveTreeCanvas } from "../hooks/useMoveTreeCanvas";
-import { HUB_COLOR, isHub, nodeLabel } from "../lib/move-tree-map-helpers";
+import {
+  HUB_COLOR,
+  MAP_COLOR_DEFAULTS,
+  MAP_COLOR_GROUPS,
+  MAP_COLOR_LABELS,
+  isHub,
+  nodeLabel,
+} from "../lib/move-tree-map-helpers";
 import type { MoveNode } from "../types";
 import { MoveList } from "./MoveList";
 import { PlayableMiniBoard } from "./PlayableMiniBoard";
@@ -66,6 +73,9 @@ export function MoveTreeMap() {
     totalNodes,
     maxPly,
     widestFork,
+    mapColors,
+    setMapColor,
+    resetMapColors,
   } = useMoveTreeCanvas(tree, currentNodeId, goToNode);
 
   // The compaction slider, depth-rings checkbox, and node/ply/fork counters
@@ -487,6 +497,48 @@ export function MoveTreeMap() {
                 ),
               }}
             />
+
+            {/* A live color-tuning tool, not a toggle for a floating panel
+                like the items above - every swatch repaints the canvas on
+                the very next frame, so trying out a palette needs no extra
+                confirm step. */}
+            <div className="mt-2 border-t border-border-soft pt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-text">Map colors</h3>
+                <button
+                  type="button"
+                  onClick={resetMapColors}
+                  className="text-xs text-text-faint underline-offset-2 transition hover:text-text hover:underline"
+                >
+                  Reset to theme
+                </button>
+              </div>
+              <div className="flex flex-col gap-3">
+                {MAP_COLOR_GROUPS.map((group) => (
+                  <div key={group.title}>
+                    <p className="mb-1.5 text-[0.68rem] font-semibold tracking-wide text-text-faint uppercase">
+                      {group.title}
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                      {group.keys.map((key) => (
+                        <label
+                          key={key}
+                          className="flex items-center gap-2 text-xs text-text-dim"
+                        >
+                          <input
+                            type="color"
+                            value={mapColors[key] ?? MAP_COLOR_DEFAULTS[key]}
+                            onChange={(e) => setMapColor(key, e.target.value)}
+                            className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border-soft bg-transparent p-0"
+                          />
+                          <span className="truncate">{MAP_COLOR_LABELS[key]}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end px-4 pt-6 pb-3">

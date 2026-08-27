@@ -64,6 +64,8 @@ function normAngle(a: number): number {
 // give no visual hint of which way the move goes. The tip has to stop short
 // of the node's own center: edges are drawn before nodes, so a tip placed
 // exactly at the child's position would just be painted over by its dot.
+// `size` (its length) is the caller's call - see drawGeodesic for why it's
+// not a fixed constant.
 function fillArrowhead(
   ctx: CanvasRenderingContext2D,
   childX: number,
@@ -71,18 +73,18 @@ function fillArrowhead(
   dirX: number,
   dirY: number,
   backOff: number,
+  size: number,
 ) {
   const len = Math.hypot(dirX, dirY);
   if (len < 1e-6) return;
   const ux = dirX / len, uy = dirY / len;
   const tipX = childX - ux * backOff, tipY = childY - uy * backOff;
   const px = -uy, py = ux;
-  const SIZE = 6.5;
-  const backX = tipX - ux * SIZE, backY = tipY - uy * SIZE;
+  const backX = tipX - ux * size, backY = tipY - uy * size;
   ctx.beginPath();
   ctx.moveTo(tipX, tipY);
-  ctx.lineTo(backX + px * SIZE * 0.55, backY + py * SIZE * 0.55);
-  ctx.lineTo(backX - px * SIZE * 0.55, backY - py * SIZE * 0.55);
+  ctx.lineTo(backX + px * size * 0.55, backY + py * size * 0.55);
+  ctx.lineTo(backX - px * size * 0.55, backY - py * size * 0.55);
   ctx.closePath();
   ctx.fill();
 }
@@ -107,10 +109,16 @@ export function drawGeodesic(
   const dist2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
   if (dist2 < 1e-8) return;
   ctx.fillStyle = arrowColor;
-  // Capped by the edge's own on-screen length so a very short edge (nodes
-  // packed close together under heavy compaction) doesn't push the
-  // arrowhead back past its parent.
-  const backOff = Math.min(10, Math.sqrt(dist2) * scale * 0.4);
+  // Both the arrowhead's size and how far its tip sits back from the child
+  // scale with the edge's own on-screen length, not a fixed pixel count -
+  // otherwise a constant-size arrowhead increasingly dominates (or even
+  // spans clear across) an edge that's gotten short on screen, whether from
+  // heavy compaction or just being far from the current focus, which is
+  // what made arrows look like they'd "moved" onto the middle of the curve
+  // at some zoom levels but not others.
+  const edgeLenPx = Math.sqrt(dist2) * scale;
+  const size = Math.max(3, Math.min(6.5, edgeLenPx * 0.35));
+  const backOff = Math.min(10, edgeLenPx * 0.4);
   const inv1 = invertPoint(p1);
   const circ = inv1 ? circumcircle(p1, p2, inv1) : null;
   ctx.beginPath();
@@ -118,7 +126,7 @@ export function drawGeodesic(
     ctx.moveTo(cx + p1.x * scale, cy + p1.y * scale);
     ctx.lineTo(cx + p2.x * scale, cy + p2.y * scale);
     ctx.stroke();
-    fillArrowhead(ctx, cx + p2.x * scale, cy + p2.y * scale, p2.x - p1.x, p2.y - p1.y, backOff);
+    fillArrowhead(ctx, cx + p2.x * scale, cy + p2.y * scale, p2.x - p1.x, p2.y - p1.y, backOff, size);
     return;
   }
   const a1 = Math.atan2(p1.y - circ.y, p1.x - circ.x);
@@ -142,6 +150,7 @@ export function drawGeodesic(
     tangentSign * -Math.sin(a2),
     tangentSign * Math.cos(a2),
     backOff,
+    size,
   );
 }
 

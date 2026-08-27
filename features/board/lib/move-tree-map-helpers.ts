@@ -47,6 +47,69 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+// Every color the canvas draws that's worth letting someone tune live
+// instead of hunting through the draw loop's source - grouped the same way
+// the map itself reads visually: curves (boundary/rings/edges), nodes, and
+// the highlight rings drawn around a node/ring for focus, current, hover, or
+// a selected ply. Each is a plain hex string so it can back a native
+// `<input type="color">` directly; the draw loop applies whatever alpha a
+// given element needs on top of it.
+export type MapColorKey =
+  | "boundary"
+  | "ringMajor"
+  | "ringMinor"
+  | "edge"
+  | "edgeMainLine"
+  | "edgeHubParent"
+  | "nodeWhite"
+  | "nodeBlack"
+  | "highlightFocus"
+  | "highlightCurrent"
+  | "highlightHover"
+  | "highlightRingSelect";
+
+export type MapColorOverrides = Partial<Record<MapColorKey, string>>;
+
+export const MAP_COLOR_GROUPS: { title: string; keys: MapColorKey[] }[] = [
+  { title: "Curves", keys: ["boundary", "ringMajor", "ringMinor", "edge", "edgeMainLine", "edgeHubParent"] },
+  { title: "Nodes", keys: ["nodeWhite", "nodeBlack"] },
+  { title: "Highlights", keys: ["highlightFocus", "highlightCurrent", "highlightHover", "highlightRingSelect"] },
+];
+
+export const MAP_COLOR_LABELS: Record<MapColorKey, string> = {
+  boundary: "Disk boundary",
+  ringMajor: "Major depth ring",
+  ringMinor: "Minor depth ring",
+  edge: "Edge (default)",
+  edgeMainLine: "Edge (main line)",
+  edgeHubParent: "Edge (from a fork)",
+  nodeWhite: "Node - White move",
+  nodeBlack: "Node - Black move",
+  highlightFocus: "Focus ring",
+  highlightCurrent: "Current-move ring",
+  highlightHover: "Hover ring",
+  highlightRingSelect: "Selected-ply ring",
+};
+
+// Seed values for the picker before anything's overridden - close
+// approximations of the live theme-derived defaults, not a live read of
+// them, since these need to exist before the canvas (and its DOM access)
+// has necessarily mounted.
+export const MAP_COLOR_DEFAULTS: Record<MapColorKey, string> = {
+  boundary: "#5b9dfa",
+  ringMajor: "#5b9dfa",
+  ringMinor: "#262626",
+  edge: "#3a3a3a",
+  edgeMainLine: "#5b9dfa",
+  edgeHubParent: HUB_COLOR,
+  nodeWhite: "#e8e8e6",
+  nodeBlack: "#e8e8e6",
+  highlightFocus: "#5b9dfa",
+  highlightCurrent: "#5b9dfa",
+  highlightHover: "#e8e8e6",
+  highlightRingSelect: "#5b9dfa",
+};
+
 export function isHub(node: MoveNode): boolean {
   return node.children.length >= 3;
 }

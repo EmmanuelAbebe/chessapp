@@ -18,6 +18,8 @@ import {
   nodeLabel,
   readThemeColors,
   stepIntensityMap,
+  type MapColorKey,
+  type MapColorOverrides,
 } from "../lib/move-tree-map-helpers";
 import type { MoveTreeState } from "../types";
 
@@ -55,6 +57,16 @@ export function useMoveTreeCanvas(
   const [hoveredRingPly, setHoveredRingPly] = useState<number | null>(null);
   const [ringTooltipPos, setRingTooltipPos] = useState<{ left: number; top: number } | null>(null);
   const [selectedRingPly, setSelectedRingPly] = useState<number | null>(null);
+  // Debug/preview tool - lets someone try out different colors for the
+  // map's curves/nodes/highlights live, without a code change. Empty by
+  // default, meaning "use the current theme's colors" for everything.
+  const [mapColors, setMapColors] = useState<MapColorOverrides>({});
+  function setMapColor(key: MapColorKey, value: string) {
+    setMapColors((prev) => ({ ...prev, [key]: value }));
+  }
+  function resetMapColors() {
+    setMapColors({});
+  }
 
   // The map always follows the live game position - clicking elsewhere in
   // the tree only moves the view (see doSetFocus), never the actual game,
@@ -148,6 +160,8 @@ export function useMoveTreeCanvas(
   const maxPlyRef = useRef(maxPly);
   const hoveredRingPlyRef = useRef<number | null>(null);
   const selectedRingPlyRef = useRef<number | null>(null);
+  const mapColorsRef = useRef<MapColorOverrides>(mapColors);
+  mapColorsRef.current = mapColors;
   hoveredIdRef.current = hoveredId;
   pinnedIdRef.current = pinnedId;
   goToNodeRef.current = goToNode;
@@ -241,12 +255,17 @@ export function useMoveTreeCanvas(
     if (!ctx) return;
 
     let colors = readThemeColors();
-    let boundaryColor = hexToRgba(colors.accent, 0.22);
-    let ringMajorColor = hexToRgba(colors.accent, 0.16);
+    // An override (from the color-tuning tool) substitutes for the theme's
+    // own base color, but the alpha a given element draws with is still the
+    // draw loop's own call - overriding a color never has to mean also
+    // reproducing its opacity. Read live every frame (not cached alongside
+    // `colors` below) since a picker edit should show up immediately, not
+    // wait for the next theme change.
+    function baseColor(key: MapColorKey, fallback: string): string {
+      return mapColorsRef.current[key] ?? fallback;
+    }
     function refreshColors() {
       colors = readThemeColors();
-      boundaryColor = hexToRgba(colors.accent, 0.22);
-      ringMajorColor = hexToRgba(colors.accent, 0.16);
     }
     // Theme shade can change while the map is open; the effect no longer
     // re-attaches on its own to pick that up incidentally, so watch for it.
@@ -301,7 +320,7 @@ export function useMoveTreeCanvas(
       ctx!.scale(dpr, dpr);
       ctx!.clearRect(0, 0, rect.width, rect.height);
 
-      ctx!.strokeStyle = boundaryColor;
+      ctx!.strokeStyle = hexToRgba(baseColor("boundary", colors.accent), 0.22);
       ctx!.lineWidth = 1.5;
       ctx!.beginPath();
       ctx!.arc(cx, cy, scale, 0, Math.PI * 2);
@@ -326,7 +345,9 @@ export function useMoveTreeCanvas(
           const major = ply % 2 === 0;
           const ringCx = cx + ring.x * scale, ringCy = cy + ring.y * scale, ringR = ring.r * scale;
 
-          ctx!.strokeStyle = major ? ringMajorColor : colors.borderSoft;
+          ctx!.strokeStyle = major
+            ? hexToRgba(baseColor("ringMajor", colors.accent), 0.16)
+            : baseColor("ringMinor", colors.borderSoft);
           ctx!.lineWidth = major ? 1.2 : 0.75;
           ctx!.beginPath();
           ctx!.arc(ringCx, ringCy, ringR, 0, Math.PI * 2);
@@ -336,7 +357,7 @@ export function useMoveTreeCanvas(
           const selectI = ringSelectIntensityRef.current.get(ply) ?? 0;
           const highlightI = Math.max(hoverI * 0.7, selectI);
           if (highlightI > 0.01) {
-            ctx!.strokeStyle = hexToRgba(colors.accent, 0.12 + 0.68 * highlightI);
+            ctx!.strokeStyle = hexToRgba(baseColor("highlightRingSelect", colors.accent), 0.12 + 0.68 * highlightI);
             ctx!.lineWidth = (major ? 1.2 : 0.75) + 1.6 * highlightI;
             ctx!.beginPath();
             ctx!.arc(ringCx, ringCy, ringR, 0, Math.PI * 2);
@@ -385,11 +406,23 @@ export function useMoveTreeCanvas(
         const parentIsHub = isHub(currentTree.nodes[node.parentId]);
         ctx!.lineWidth = onMainLine ? 1.8 : 1.1;
         ctx!.strokeStyle = onMainLine
-          ? hexToRgba(colors.accent, 0.6)
+          ? hexToRgba(baseColor("edgeMainLine", colors.accent), 0.6)
           : parentIsHub
-            ? hexToRgba(HUB_COLOR, 0.35)
-            : colors.border;
-        drawGeodesic(ctx!, p, q, cx, cy, scale, onMainLine ? colors.accent : parentIsHub ? HUB_COLOR : colors.textFaint);
+            ? hexToRgba(baseColor("edgeHubParent", HUB_COLOR), 0.35)
+            : baseColor("edge", colors.border);
+        drawGeodesic(
+          ctx!,
+          p,
+          q,
+          cx,
+          cy,
+          scale,
+          onMainLine
+            ? baseColor("edgeMainLine", colors.accent)
+            : parentIsHub
+              ? baseColor("edgeHubParent", HUB_COLOR)
+              : baseColor("edge", colors.textFaint),
+        );
       }
 
       renderedPosRef.current.clear();
@@ -437,13 +470,16 @@ export function useMoveTreeCanvas(
 
         ctx!.beginPath();
         ctx!.arc(sx, sy, drawRadius, 0, Math.PI * 2);
-        if (isHub(node)) ctx!.fillStyle = HUB_COLOR;
-        else if (isBlackMove) ctx!.fillStyle = colors.background;
-        else ctx!.fillStyle = hexToRgba(colors.text, brighten ? 1 : 0.35 + closeness * 0.5);
+        // A node's color is only ever about who moved into it (light/dark
+        // dot) - whether it's a fork is an edge-level fact (see the
+        // hub-parent edge color above), not something the node itself
+        // should visually change for.
+        if (isBlackMove) ctx!.fillStyle = colors.background;
+        else ctx!.fillStyle = hexToRgba(baseColor("nodeWhite", colors.text), brighten ? 1 : 0.35 + closeness * 0.5);
         ctx!.fill();
 
-        if (isBlackMove && !isHub(node)) {
-          ctx!.strokeStyle = hexToRgba(colors.text, brighten ? 1 : 0.4 + closeness * 0.5);
+        if (isBlackMove) {
+          ctx!.strokeStyle = hexToRgba(baseColor("nodeBlack", colors.text), brighten ? 1 : 0.4 + closeness * 0.5);
           ctx!.lineWidth = brighten ? 1.8 : 1.3;
           ctx!.beginPath();
           ctx!.arc(sx, sy, drawRadius, 0, Math.PI * 2);
@@ -451,25 +487,25 @@ export function useMoveTreeCanvas(
         }
 
         if (isFocus) {
-          ctx!.strokeStyle = hexToRgba(colors.accent, 0.5);
+          ctx!.strokeStyle = hexToRgba(baseColor("highlightFocus", colors.accent), 0.5);
           ctx!.lineWidth = 2;
           ctx!.beginPath();
           ctx!.arc(sx, sy, drawRadius + 4, 0, Math.PI * 2);
           ctx!.stroke();
         } else if (isCurrent) {
-          ctx!.strokeStyle = colors.accent;
+          ctx!.strokeStyle = baseColor("highlightCurrent", colors.accent);
           ctx!.lineWidth = 2;
           ctx!.beginPath();
           ctx!.arc(sx, sy, drawRadius + 3, 0, Math.PI * 2);
           ctx!.stroke();
         } else if (ringSpotlight > 0.01) {
-          ctx!.strokeStyle = hexToRgba(colors.accent, 0.6 * ringSpotlight);
+          ctx!.strokeStyle = hexToRgba(baseColor("highlightRingSelect", colors.accent), 0.6 * ringSpotlight);
           ctx!.lineWidth = 1.6 * ringSpotlight;
           ctx!.beginPath();
           ctx!.arc(sx, sy, radius + 3, 0, Math.PI * 2);
           ctx!.stroke();
         } else if (isHovered) {
-          ctx!.strokeStyle = hexToRgba(colors.text, 0.55);
+          ctx!.strokeStyle = hexToRgba(baseColor("highlightHover", colors.text), 0.55);
           ctx!.lineWidth = 1.5;
           ctx!.beginPath();
           ctx!.arc(sx, sy, radius + 3, 0, Math.PI * 2);
@@ -626,5 +662,8 @@ export function useMoveTreeCanvas(
     totalNodes,
     maxPly,
     widestFork,
+    mapColors,
+    setMapColor,
+    resetMapColors,
   };
 }
