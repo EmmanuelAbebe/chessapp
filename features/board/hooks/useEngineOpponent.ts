@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createEngine } from "@/features/engine/lib/stockfish-client";
 import type { StockfishEngine } from "@/features/engine/types";
 import { parseBestMove } from "@/features/engine/lib/stockfish-parser";
@@ -46,6 +46,11 @@ export function useEngineOpponent({
   const onMoveRef = useRef(onMove);
   onMoveRef.current = onMove;
 
+  // Whether a search is currently in flight - drives the "thinking" spinner
+  // on the play-vs-Stockfish button, so it's only ever true between a `go`
+  // going out and either its reply landing or the position moving on.
+  const [isThinking, setIsThinking] = useState(false);
+
   useEffect(() => {
     if (!enabled) return;
 
@@ -57,6 +62,7 @@ export function useEngineOpponent({
       const move = parseBestMove(line);
       if (!move) return;
       if (pendingFenRef.current !== latestFenRef.current) return;
+      setIsThinking(false);
       onMoveRef.current(move);
     });
 
@@ -70,8 +76,10 @@ export function useEngineOpponent({
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled) return;
-    if (turn === playerSide) return;
+    if (!enabled || turn === playerSide) {
+      setIsThinking(false);
+      return;
+    }
 
     const engine = engineRef.current;
     if (!engine) return;
@@ -82,8 +90,11 @@ export function useEngineOpponent({
     // there's no reason to let the engine keep burning time on it too).
     engine.postMessage("stop");
     pendingFenRef.current = fen;
+    setIsThinking(true);
     engine.postMessage(`setoption name Skill Level value ${skillLevel}`);
     engine.postMessage(`position fen ${fen}`);
     engine.postMessage(`go movetime ${MOVE_TIME_MS}`);
   }, [enabled, fen, turn, playerSide, skillLevel]);
+
+  return { isThinking };
 }

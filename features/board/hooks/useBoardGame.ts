@@ -182,7 +182,7 @@ export function useBoardGame() {
   const gameMode = useGameMode();
   const isPlayingStockfish = gameMode.mode === "vsStockfish";
 
-  useEngineOpponent({
+  const { isThinking: isEngineThinking } = useEngineOpponent({
     enabled: isPlayingStockfish,
     fen: moveTree.currentFen,
     turn: currentChess.turn(),
@@ -209,6 +209,7 @@ export function useBoardGame() {
 
     gameMode: gameMode.mode,
     isPlayingStockfish,
+    isEngineThinking,
     playerSide: gameMode.playerSide,
     skillLevel: gameMode.skillLevel,
     startAnalysis: gameMode.startAnalysis,

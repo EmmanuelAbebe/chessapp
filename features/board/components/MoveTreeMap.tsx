@@ -5,6 +5,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { FaCaretLeft, FaFish } from "react-icons/fa6";
 import { GrConfigure } from "react-icons/gr";
 import Modal from "@/components/ui/Modal";
 import SettingsItem from "@/features/settings/components/SettingsItem";
@@ -12,12 +13,37 @@ import SettingsToggle from "@/features/settings/components/SettingsToggle";
 import { useBoardGameContext } from "../BoardGameContext";
 import { K_MAX, K_MIN, useMoveTreeCanvas } from "../hooks/useMoveTreeCanvas";
 import { HUB_COLOR, isHub, nodeLabel } from "../lib/move-tree-map-helpers";
+import type { MoveNode } from "../types";
 import { MoveList } from "./MoveList";
 import { PlayableMiniBoard } from "./PlayableMiniBoard";
 import { StatPill } from "./StatPill";
 
 export function MoveTreeMap() {
-  const { tree, currentNodeId, currentLine, goToNode } = useBoardGameContext();
+  const {
+    tree,
+    currentNodeId,
+    currentLine,
+    goToNode,
+    startVsStockfish,
+    skillLevel,
+    changeOrientation,
+    isEngineThinking,
+  } = useBoardGameContext();
+
+  // Jumps the live game to the previewed node and hands it to Stockfish -
+  // the point during analysis is picking up play from *this* position, not
+  // whatever the engine would've reached on its own, so the human side is
+  // whoever's actually on the move here. Stays right here on the map (no
+  // navigation) - pinning the node keeps the preview card following the
+  // game as it continues, on this page or after switching to the board and
+  // back, exactly like any other in-progress game.
+  function playFromNode(node: MoveNode) {
+    const sideToMove = node.fen.split(" ")[1] === "b" ? "black" : "white";
+    goToNode(node.id);
+    setPinnedId(node.id);
+    startVsStockfish(sideToMove, skillLevel);
+    changeOrientation(sideToMove);
+  }
 
   const {
     stageRef,
@@ -182,6 +208,27 @@ export function MoveTreeMap() {
                 <div className="h-8 w-1 rounded-full bg-border" />
               </div>
 
+              {/* Above the board rather than overlaid on it - it's a card
+                  action, not a move-in-progress control, so it shouldn't
+                  compete with the board's own squares for clicks. */}
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => playFromNode(previewNode)}
+                  aria-label="Play against Stockfish from here"
+                  title="Play against Stockfish from here"
+                  className="relative flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface/90 text-xs text-text-dim shadow transition hover:border-accent hover:text-text"
+                >
+                  <FaFish />
+                  {isEngineThinking && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-accent"
+                    />
+                  )}
+                </button>
+              </div>
+
               <PlayableMiniBoard
                 node={previewNode}
                 tree={tree}
@@ -204,14 +251,16 @@ export function MoveTreeMap() {
                       }}
                       aria-label="Back"
                       title="Back"
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface/90 text-xs text-text-dim shadow transition hover:border-accent hover:text-text"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center text-xs text-text-dim transition hover:border-accent hover:text-text"
                     >
-                      ←
+                      <FaCaretLeft />
                     </button>
                   )}
                   <span
                     className="truncate font-mono text-sm font-bold text-text"
-                    style={isHub(previewNode) ? { color: HUB_COLOR } : undefined}
+                    style={
+                      isHub(previewNode) ? { color: HUB_COLOR } : undefined
+                    }
                   >
                     {nodeLabel(previewNode) === "Start"
                       ? "Start position"
@@ -239,11 +288,6 @@ export function MoveTreeMap() {
                 />
               </div>
 
-              {isHub(previewNode) && (
-                <p className="text-center text-xs" style={{ color: HUB_COLOR }}>
-                  {previewNode.children.length}-way fork
-                </p>
-              )}
             </div>
           )}
 
@@ -312,17 +356,24 @@ export function MoveTreeMap() {
           {(showStatsPanel || showCompactionPanel || showRingsTogglePanel) && (
             <div className="pointer-events-auto flex flex-col gap-2 rounded-[14px] border border-border bg-surface p-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
               {showStatsPanel && (
-                <div className="flex flex-wrap gap-2">
-                  <StatPill label="Nodes" value={String(totalNodes)} />
-                  <StatPill
-                    label="Focus ply"
-                    value={String(tree.nodes[focusId]?.ply ?? 0)}
-                  />
-                  <StatPill
-                    label="Widest fork"
-                    value={widestFork >= 3 ? `${widestFork}-way` : "—"}
-                    accent
-                  />
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-wrap gap-2">
+                    <StatPill label="Nodes" value={String(totalNodes)} />
+                    <StatPill
+                      label="Focus ply"
+                      value={String(tree.nodes[focusId]?.ply ?? 0)}
+                    />
+                    <StatPill
+                      label="Widest fork"
+                      value={widestFork >= 3 ? `${widestFork}-way` : "—"}
+                      accent
+                    />
+                  </div>
+                  {previewNode && isHub(previewNode) && (
+                    <p className="text-xs" style={{ color: HUB_COLOR }}>
+                      {previewNode.children.length}-way fork
+                    </p>
+                  )}
                 </div>
               )}
               {showCompactionPanel && (
