@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { FaChess, FaGear, FaMagnifyingGlass, FaSitemap } from "react-icons/fa6";
+import { FaBookOpen, FaPlay } from "react-icons/fa6";
+import { GrConfigure } from "react-icons/gr";
 import { HiSwitchVertical } from "react-icons/hi";
 
 type BoardControlsProps = {
@@ -27,7 +27,7 @@ export function BoardControls({
         title="Game mode"
         className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        <FaChess />
+        <FaPlay />
       </button>
       <button
         type="button"
@@ -36,7 +36,7 @@ export function BoardControls({
         title="Analysis"
         className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        <FaMagnifyingGlass />
+        <FaBookOpen />
       </button>
       <button
         type="button"
@@ -45,7 +45,7 @@ export function BoardControls({
         title="Board settings"
         className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        <FaGear />
+        <GrConfigure />
       </button>
       <button
         type="button"
@@ -56,14 +56,6 @@ export function BoardControls({
       >
         <HiSwitchVertical />
       </button>
-      <Link
-        href="/board/map"
-        aria-label="Move tree map"
-        title="Move tree map"
-        className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      >
-        <FaSitemap />
-      </Link>
     </div>
   );
 }

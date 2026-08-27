@@ -1,9 +1,9 @@
-import { FaChartLine, FaCreditCard, FaGear, FaUser } from "react-icons/fa6";
+import { FaChartPie, FaCreditCard, FaGear, FaUser } from "react-icons/fa6";
 
 export const SECTIONS = [
   { href: "/dashboard/profile", label: "Profile", icon: FaUser },
   { href: "/dashboard/subscription", label: "Subscription", icon: FaCreditCard },
-  { href: "/dashboard/statistics", label: "Statistics", icon: FaChartLine },
+  { href: "/dashboard/statistics", label: "Statistics", icon: FaChartPie },
   { href: "/dashboard/settings", label: "Settings", icon: FaGear },
 ];
 

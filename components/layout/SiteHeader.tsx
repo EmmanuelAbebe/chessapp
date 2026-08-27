@@ -3,7 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FaChessBoard, FaHouse, FaPlus, FaSitemap } from "react-icons/fa6";
+import { FaChessBoard, FaHouse, FaPlus } from "react-icons/fa6";
+import { PiGraph } from "react-icons/pi";
 import { SECTIONS } from "@/features/account/data";
 
 const DESKTOP_QUERY = "(min-width: 640px)"; // Tailwind's `sm` breakpoint
@@ -14,7 +15,7 @@ const DESKTOP_QUERY = "(min-width: 640px)"; // Tailwind's `sm` breakpoint
 const DIAL_LINKS = [
   { href: "/", label: "Home", icon: FaHouse },
   { href: "/board", label: "Board", icon: FaChessBoard },
-  { href: "/board/map", label: "Map", icon: FaSitemap },
+  { href: "/map", label: "Map", icon: PiGraph },
   ...SECTIONS,
 ];
 
