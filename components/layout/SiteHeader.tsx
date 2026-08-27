@@ -79,7 +79,13 @@ export function SiteHeader() {
       // clicks meant for) anything a page positions in that top strip.
       // pointer-events-none here, re-enabled only on the actual dial
       // below, makes the empty part of the bar click-through.
-      className="pointer-events-none sticky top-0 z-40 w-full bg-transparent"
+      //
+      // `fixed` rather than `sticky` so it never reserves its own h-14 row
+      // in the page's normal flow either - every page's content can start
+      // right at the viewport's top edge instead of leaving a dead gap
+      // under an invisible bar, with the (floating, pointer-events-auto)
+      // dial simply overlaid on top of whatever's now there.
+      className="pointer-events-none fixed top-0 z-40 w-full bg-transparent"
       style={{ viewTransitionName: "site-header" }}
     >
       <nav

@@ -64,12 +64,14 @@ export function BoardScreen() {
 
   // --board-size drives width/height for the whole board-page composition
   // (chat panel, move-list row, board itself all share it). It's set from
-  // 100dvh minus the actual fixed-pixel chrome around it - sticky header
-  // (56px), outer padding (32px), AiChatPanel (112px), gaps (12px each),
-  // and the move-list row (36px, always reserved so toggling it fades in
-  // place instead of resizing/shifting the board) - so the page never
-  // grows taller than the viewport and needs to scroll.
-  const boardSizeValue = "min(90vw, calc(100dvh - 260px), 1100px)";
+  // 100dvh minus the actual fixed-pixel chrome around it - outer padding
+  // (32px), AiChatPanel (112px), gaps (12px each), and the move-list row
+  // (36px, always reserved so toggling it fades in place instead of
+  // resizing/shifting the board) - so the page never grows taller than the
+  // viewport and needs to scroll. Nothing is spent on the header: it's
+  // `fixed` now (see SiteHeader), not `sticky`, so it never reserves a row
+  // for `main` to sit below in the first place.
+  const boardSizeValue = "min(90vw, calc(100dvh - 204px), 1100px)";
 
   // Suggestions/eval reveal what the engine would play - hide them entirely
   // while it's the opponent in an actual game, not just the arrows.
