@@ -292,6 +292,21 @@ export function MoveTreeMap() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentNodeId]);
 
+  // If the pinned preview card was showing exactly the live position, keep
+  // it there as that position advances - e.g. the engine opponent replying
+  // right after a move played on the card itself. Without this, the tree
+  // gains the reply as a new node (and the explored-move arrow for it), but
+  // the card's own board never actually shows it happening. A pin left on
+  // some other, unrelated node (deliberately reviewing history) is never
+  // yanked forward by this - only a pin that was already at the live tip.
+  const lastCurrentNodeIdRef = useRef(currentNodeId);
+  useEffect(() => {
+    const prevNodeId = lastCurrentNodeIdRef.current;
+    lastCurrentNodeIdRef.current = currentNodeId;
+    if (currentNodeId === prevNodeId) return;
+    setPinnedId((pinned) => (pinned === prevNodeId ? currentNodeId : pinned));
+  }, [currentNodeId]);
+
   useEffect(() => {
     if (!tree.nodes[focusId]) setFocusId(tree.nodes[currentNodeId] ? currentNodeId : tree.rootId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
