@@ -78,6 +78,17 @@ export function PlayableMiniBoard({
 
   const chess = useMemo(() => new Chess(node.fen), [node.fen]);
 
+  // Which move got here, shown the same way the main board does it (a tinted
+  // background on the from/to squares) instead of as a text label - reads at
+  // a glance without taking up any of the card's own layout.
+  const lastMoveSquares = useMemo<OptionSquares>(() => {
+    if (!node.uci) return {};
+    const from = node.uci.slice(0, 2);
+    const to = node.uci.slice(2, 4);
+    const highlight = { backgroundColor: "rgba(255, 170, 0, 0.3)" };
+    return { [from]: highlight, [to]: highlight };
+  }, [node.uci]);
+
   // Every move already explored from this position - shown as arrows so
   // "moving forward" needs no dedicated control: it's just clicking a move
   // that already has a visible destination, same as playing a brand new one.
@@ -127,7 +138,7 @@ export function PlayableMiniBoard({
       id: "move-tree-preview-board",
       position: displayFen,
       onSquareClick,
-      squareStyles: optionSquares,
+      squareStyles: { ...lastMoveSquares, ...optionSquares },
       allowDragging: false,
       allowDrawingArrows: false,
       arrows: exploredArrows,
@@ -139,7 +150,7 @@ export function PlayableMiniBoard({
       boardStyle: boardTheme.boardStyle,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [displayFen, animateNow, optionSquares, moveFrom, exploredArrows],
+    [displayFen, animateNow, optionSquares, lastMoveSquares, moveFrom, exploredArrows],
   );
 
   return (

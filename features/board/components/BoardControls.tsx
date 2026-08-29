@@ -10,6 +10,9 @@ type BoardControlsProps = {
   openBoardSettings: () => void;
   openGameMode: () => void;
   onAnalysis: () => void;
+  // Vertical beside the board on desktop; horizontal below the move list on
+  // mobile, where there's no side column to put a tall stack of icons in.
+  layout?: "column" | "row";
 };
 
 export function BoardControls({
@@ -17,9 +20,12 @@ export function BoardControls({
   openBoardSettings,
   openGameMode,
   onAnalysis,
+  layout = "column",
 }: BoardControlsProps) {
   return (
-    <div className="flex shrink-0 flex-col items-center gap-3 p-2">
+    <div
+      className={`flex shrink-0 items-center justify-center gap-3 p-2 ${layout === "row" ? "flex-row" : "flex-col"}`}
+    >
       <button
         type="button"
         onClick={openGameMode}

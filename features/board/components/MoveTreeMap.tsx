@@ -290,10 +290,14 @@ export function MoveTreeMap() {
                 <div className="h-8 w-1 rounded-full bg-border" />
               </div>
 
-              {/* Above the board rather than overlaid on it - it's a card
-                  action, not a move-in-progress control, so it shouldn't
-                  compete with the board's own squares for clicks. */}
-              <div className="flex items-center">
+              {/* Above the board rather than overlaid on it - it's a row of
+                  card actions/status, not move-in-progress controls, so it
+                  shouldn't compete with the board's own squares for clicks.
+                  Fish stays on the left; back and the turn indicator sit
+                  together on the right, in that order. Which move got here
+                  is shown on the board itself now (see PlayableMiniBoard's
+                  own last-move highlight) rather than as a text label. */}
+              <div className="flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => playFromNode(previewNode)}
@@ -321,20 +325,8 @@ export function MoveTreeMap() {
                     />
                   )}
                 </button>
-              </div>
 
-              <PlayableMiniBoard
-                node={previewNode}
-                tree={tree}
-                animateEntry={pinnedId === previewNode.id}
-                onMove={setPinnedId}
-              />
-
-              {/* Bottom bar: back, the move that got here, and whose turn is
-                  next - everything about the previewed position in one row
-                  under the board instead of scattered around its edges. */}
-              <div className="flex items-center justify-between gap-2 px-0.5">
-                <div className="flex min-w-0 items-center gap-2">
+                <div className="flex items-center gap-2">
                   {previewNode.parentId && (
                     <button
                       type="button"
@@ -351,36 +343,33 @@ export function MoveTreeMap() {
                     </button>
                   )}
                   <span
-                    className="truncate font-mono text-sm font-bold text-text"
-                    style={
-                      isHub(previewNode) ? { color: HUB_COLOR } : undefined
-                    }
-                  >
-                    {nodeLabel(previewNode) === "Start"
-                      ? "Start position"
-                      : nodeLabel(previewNode)}
-                  </span>
-                </div>
-                <span
-                  aria-label={
-                    previewNode.fen.split(" ")[1] === "b"
-                      ? "Black to move"
-                      : "White to move"
-                  }
-                  title={
-                    previewNode.fen.split(" ")[1] === "b"
-                      ? "Black to move"
-                      : "White to move"
-                  }
-                  className="h-3.5 w-3.5 shrink-0 rounded-full border border-border-soft"
-                  style={{
-                    background:
+                    aria-label={
                       previewNode.fen.split(" ")[1] === "b"
-                        ? "#1a1a1a"
-                        : "#f2f2f2",
-                  }}
-                />
+                        ? "Black to move"
+                        : "White to move"
+                    }
+                    title={
+                      previewNode.fen.split(" ")[1] === "b"
+                        ? "Black to move"
+                        : "White to move"
+                    }
+                    className="h-3.5 w-3.5 shrink-0 rounded-full border border-border-soft"
+                    style={{
+                      background:
+                        previewNode.fen.split(" ")[1] === "b"
+                          ? "#1a1a1a"
+                          : "#f2f2f2",
+                    }}
+                  />
+                </div>
               </div>
+
+              <PlayableMiniBoard
+                node={previewNode}
+                tree={tree}
+                animateEntry={pinnedId === previewNode.id}
+                onMove={setPinnedId}
+              />
             </div>
           )}
 

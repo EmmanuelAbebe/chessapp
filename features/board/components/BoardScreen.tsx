@@ -130,6 +130,44 @@ export function BoardScreen() {
             moveNumber={currentLine[currentLine.length - 1]?.moveNumber ?? 0}
           />
 
+          <div className="flex h-(--board-size) w-full gap-2">
+            <EvalBar
+              visible={showEvalBar && !isPlayingStockfish}
+              whitePercent={evalScore.whitePercent}
+              depth={evalScore.depth}
+              bestMove={evalScore.bestMove}
+            />
+
+            <BoardView
+              chessPosition={chessPosition}
+              orientation={orientation}
+              optionSquares={{
+                ...lastMoveSquares,
+                ...checkSquares,
+                ...optionSquares,
+                ...illegalSquares,
+              }}
+              onSquareClick={onSquareClick}
+              showCoordinates={showCoordinates}
+              coordinatesPlacement={coordinatesPlacement}
+              aiArrows={aiArrows}
+            />
+
+            {/* Desktop only - no side column to put a tall icon stack in on
+                mobile, so it moves below the move list there instead (see
+                the row-layout copy further down). `contents` keeps this
+                wrapper out of the flex layout entirely, so BoardControls
+                sits exactly as if it were BoardView's direct sibling. */}
+            <div className="hidden sm:contents">
+              <BoardControls
+                openBoardSettings={openBoardSettings}
+                openGameMode={() => setIsGameModeOpen(true)}
+                onAnalysis={startAnalysis}
+                toggleOrientation={toggleOrientation}
+              />
+            </div>
+          </div>
+
           <div
             className={`flex h-9 w-full items-center gap-2 transition-opacity duration-200 ease-out ${
               showMoveList ? "opacity-100" : "pointer-events-none opacity-0"
@@ -160,30 +198,10 @@ export function BoardScreen() {
             />
           </div>
 
-          <div className="flex h-(--board-size) w-full gap-2">
-            <EvalBar
-              visible={showEvalBar && !isPlayingStockfish}
-              whitePercent={evalScore.whitePercent}
-              depth={evalScore.depth}
-              bestMove={evalScore.bestMove}
-            />
-
-            <BoardView
-              chessPosition={chessPosition}
-              orientation={orientation}
-              optionSquares={{
-                ...lastMoveSquares,
-                ...checkSquares,
-                ...optionSquares,
-                ...illegalSquares,
-              }}
-              onSquareClick={onSquareClick}
-              showCoordinates={showCoordinates}
-              coordinatesPlacement={coordinatesPlacement}
-              aiArrows={aiArrows}
-            />
-
+          {/* Mobile only - the desktop side column above is hidden here. */}
+          <div className="sm:hidden">
             <BoardControls
+              layout="row"
               openBoardSettings={openBoardSettings}
               openGameMode={() => setIsGameModeOpen(true)}
               onAnalysis={startAnalysis}
