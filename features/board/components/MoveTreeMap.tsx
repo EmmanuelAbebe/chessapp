@@ -78,6 +78,8 @@ export function MoveTreeMap() {
     mapColors,
     setMapColor,
     resetMapColors,
+    maxDisplayPly,
+    setMaxDisplayPly,
   } = useMoveTreeCanvas(tree, currentNodeId, goToNode);
 
   // The compaction slider, depth-rings checkbox, and node/ply/fork counters
@@ -432,6 +434,31 @@ export function MoveTreeMap() {
                   <p className="text-xs text-soft">{k.toFixed(2)}x</p>
                 </div>
               )}
+              {showCompactionPanel && (
+                <div className="flex items-center gap-2 text-sm text-text-dim">
+                  <label
+                    htmlFor="map-max-ply"
+                    className="whitespace-nowrap font-mono text-[0.70rem] tracking-wide text-text-faint uppercase"
+                  >
+                    Plies shown
+                  </label>
+                  <input
+                    id="map-max-ply"
+                    type="range"
+                    min={1}
+                    max={Math.max(1, maxPly)}
+                    value={maxDisplayPly ?? Math.max(1, maxPly)}
+                    onChange={(e) => {
+                      const next = Number(e.target.value);
+                      setMaxDisplayPly(next >= maxPly ? null : next);
+                    }}
+                    className="flex-1 accent-accent h-1 bg-border appearance-none cursor-pointer"
+                  />
+                  <p className="text-xs text-soft">
+                    {maxDisplayPly === null ? "all" : maxDisplayPly}
+                  </p>
+                </div>
+              )}
               {showRingsTogglePanel && (
                 <label className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-text-dim">
                   <input
@@ -510,11 +537,11 @@ export function MoveTreeMap() {
             />
             <SettingsItem
               item={{
-                title: "Compaction slider",
+                title: "Compaction & ply limit sliders",
                 content: (
                   <SettingsToggle
                     setting={{
-                      label: "Compaction slider",
+                      label: "Compaction & ply limit sliders",
                       isSelected: showCompactionPanel,
                       onChange: setShowCompactionPanel,
                     }}

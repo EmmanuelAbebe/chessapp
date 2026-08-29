@@ -67,6 +67,14 @@ export function useMoveTreeCanvas(
   function resetMapColors() {
     setMapColors({});
   }
+  // Caps how deep the map actually draws/hit-tests, independent of how deep
+  // the tree really goes - `null` means "no cap, show everything" (today's
+  // behavior). Meant for when a much bigger merged-games tree makes drawing
+  // (and just visually parsing) the whole thing impractical - a fixed ply
+  // budget that doesn't creep back open on its own as deeper moves get
+  // explored is what makes it useful as a "browse the first N plies" control
+  // rather than something you have to keep re-dragging after every move.
+  const [maxDisplayPly, setMaxDisplayPly] = useState<number | null>(null);
 
   // The map always follows the live game position - clicking elsewhere in
   // the tree only moves the view (see doSetFocus), never the actual game,
@@ -158,6 +166,7 @@ export function useMoveTreeCanvas(
   const currentNodeIdRef = useRef(currentNodeId);
   const kRef = useRef(k);
   const maxPlyRef = useRef(maxPly);
+  const maxDisplayPlyRef = useRef(maxDisplayPly);
   const hoveredRingPlyRef = useRef<number | null>(null);
   const selectedRingPlyRef = useRef<number | null>(null);
   const mapColorsRef = useRef<MapColorOverrides>(mapColors);
@@ -190,6 +199,7 @@ export function useMoveTreeCanvas(
   currentNodeIdRef.current = currentNodeId;
   kRef.current = k;
   maxPlyRef.current = maxPly;
+  maxDisplayPlyRef.current = maxDisplayPly;
   hoveredRingPlyRef.current = hoveredRingPly;
   selectedRingPlyRef.current = selectedRingPly;
 
@@ -293,11 +303,18 @@ export function useMoveTreeCanvas(
       return { rect, cx, cy, scale, focusA };
     }
 
+    // The lower of "how deep the tree actually goes" and "how deep the
+    // display-ply slider currently allows" - the single bound every ring
+    // loop and the node/edge pass below all draw and hit-test against.
+    function effectiveMaxPly(): number {
+      return Math.min(maxPlyRef.current, maxDisplayPlyRef.current ?? Infinity);
+    }
+
     const RING_HIT_PX = 6;
     function hitTestRing(mx: number, my: number, cx: number, cy: number, scale: number, focusA: Complex): number | null {
       let best: number | null = null;
       let bestDelta = Infinity;
-      for (let ply = 1; ply <= maxPlyRef.current; ply++) {
+      for (let ply = 1; ply <= effectiveMaxPly(); ply++) {
         const canonR = Math.tanh(kRef.current * ply);
         if (canonR > 0.999) continue;
         const ring = transformedRing(canonR, focusA);
@@ -333,7 +350,7 @@ export function useMoveTreeCanvas(
       stepIntensityMap(ringSelectIntensityRef.current, showRingsRef.current ? selectedRingPlyRef.current : null);
 
       if (showRingsRef.current) {
-        for (let ply = 1; ply <= maxPlyRef.current; ply++) {
+        for (let ply = 1; ply <= effectiveMaxPly(); ply++) {
           const canonR = Math.tanh(kRef.current * ply);
           if (canonR > 0.999) continue;
           const ring = transformedRing(canonR, focusA);
@@ -387,8 +404,16 @@ export function useMoveTreeCanvas(
       }
 
       const currentTree = treeRef.current;
+      const displayLimit = effectiveMaxPly();
       const rendered = new Map<string, Complex>();
-      for (const [id, pos] of effectiveCanon(now)) rendered.set(id, mobiusTranslate(pos, focusA));
+      for (const [id, pos] of effectiveCanon(now)) {
+        // A node past the display-ply cap is skipped entirely here, so it's
+        // simultaneously invisible, un-hit-testable, and (since an edge only
+        // draws once both its ends are in `rendered`) never leaves a
+        // dangling edge toward whatever's been cut off.
+        if ((currentTree.nodes[id]?.ply ?? 0) > displayLimit) continue;
+        rendered.set(id, mobiusTranslate(pos, focusA));
+      }
 
       // Every node from the game's start down to wherever play actually is
       // right now - the edges along it get a distinct highlight so the
@@ -665,5 +690,7 @@ export function useMoveTreeCanvas(
     mapColors,
     setMapColor,
     resetMapColors,
+    maxDisplayPly,
+    setMaxDisplayPly,
   };
 }

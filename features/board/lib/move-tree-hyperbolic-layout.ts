@@ -37,7 +37,7 @@ function computeSubtreeSizes(tree: MoveTreeState): Map<string, number> {
 // more available than it needs - overwhelmingly the root, where a small
 // sibling group would otherwise spread across the entire circle for what's
 // just 2-3 alternative replies to the same position.
-const MAX_SPAN_PER_CHILD = Math.PI / 2; // 60deg
+const MAX_SPAN_PER_CHILD = Math.PI / 2.5; // 72deg
 
 // Each node inherits an angular sector from its parent (the full 2*PI at the
 // root) and sits at that sector's midpoint; its own children subdivide a
