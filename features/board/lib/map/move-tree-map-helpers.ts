@@ -1,4 +1,4 @@
-import type { MoveNode, MoveTreeState } from "../types";
+import type { MoveNode, MoveTreeState } from "../../types";
 
 // Forks aren't part of the app's neutral theme token set (like `bad`/`good`,
 // this is a new semantic this feature introduces) - fixed regardless of

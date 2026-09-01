@@ -3,6 +3,7 @@
 import type {} from "react/canary";
 import { startTransition, useState, ViewTransition, type ComponentType } from "react";
 import { defaultPieces } from "react-chessboard";
+import { Chess } from "chess.js";
 import Modal from "@/components/ui/Modal";
 import SettingsSelect from "@/features/settings/components/SettingsSelect";
 import type { SideChoice } from "../hooks/useGameMode";
@@ -62,10 +63,14 @@ const COMING_SOON = [
   },
 ];
 
+type GameModeStep = "list" | "stockfish" | "position";
+
 type GameModeModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onStartVsStockfish: (side: SideChoice, skillLevel: number) => void;
+  onSetupPosition: (fen: string) => void;
+  onOpenBoardEditor: () => void;
   gameStatus?: GameStatus;
 };
 
@@ -73,30 +78,46 @@ export function GameModeModal({
   isOpen,
   onClose,
   onStartVsStockfish,
+  onSetupPosition,
+  onOpenBoardEditor,
   gameStatus,
 }: GameModeModalProps) {
   const statusMessage = gameStatus ? formatGameStatus(gameStatus) : null;
   const WinnerKing = gameStatus?.winner ? WINNER_KING[gameStatus.winner] : null;
-  const [showStockfishSetup, setShowStockfishSetup] = useState(false);
+  const [step, setStep] = useState<GameModeStep>("list");
   const [difficulty, setDifficulty] = useState("Medium");
   const [side, setSide] = useState<SideChoice>("white");
+  const [customFen, setCustomFen] = useState("");
+  const [fenError, setFenError] = useState<string | null>(null);
 
   function handleClose() {
-    setShowStockfishSetup(false);
+    setStep("list");
+    setFenError(null);
     onClose();
   }
 
-  function openStockfishSetup() {
-    startTransition(() => setShowStockfishSetup(true));
-  }
-
-  function closeStockfishSetup() {
-    startTransition(() => setShowStockfishSetup(false));
+  function openStep(next: GameModeStep) {
+    startTransition(() => setStep(next));
   }
 
   function handleStartVsStockfish() {
     const preset = DIFFICULTY_PRESETS.find((p) => p.label === difficulty);
     onStartVsStockfish(side, preset?.skill ?? 10);
+    handleClose();
+  }
+
+  function handleSetupPosition() {
+    const fen = customFen.trim();
+    try {
+      // Throws for anything structurally invalid - chess.js's own
+      // validation, same as every other FEN parse in this app.
+      new Chess(fen);
+    } catch {
+      setFenError("That doesn't look like a valid FEN.");
+      return;
+    }
+    setFenError(null);
+    onSetupPosition(fen);
     handleClose();
   }
 
@@ -119,17 +140,17 @@ export function GameModeModal({
         )}
 
         <ViewTransition
-          key={showStockfishSetup ? "stockfish" : "list"}
+          key={step}
           name="game-mode-step"
           share="auto"
           enter="auto"
           default="none"
         >
-          {!showStockfishSetup ? (
+          {step === "list" ? (
             <div className="mt-6 flex flex-col gap-3">
               <button
                 type="button"
-                onClick={openStockfishSetup}
+                onClick={() => openStep("stockfish")}
                 className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
               >
                 <span className="font-semibold text-text">
@@ -137,6 +158,18 @@ export function GameModeModal({
                 </span>
                 <span className="text-xs text-text-faint">
                   Choose a side and difficulty - the engine plays the other side.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openStep("position")}
+                className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
+              >
+                <span className="font-semibold text-text">Set up position</span>
+                <span className="text-xs text-text-faint">
+                  Start from any FEN - an endgame tactic, a book position,
+                  anything not reachable by playing from move 1.
                 </span>
               </button>
 
@@ -158,11 +191,11 @@ export function GameModeModal({
                 </div>
               ))}
             </div>
-          ) : (
+          ) : step === "stockfish" ? (
             <div className="mt-6 flex flex-col gap-4">
               <button
                 type="button"
-                onClick={closeStockfishSetup}
+                onClick={() => openStep("list")}
                 className="self-start text-xs font-medium text-text-dim hover:text-text"
               >
                 ← Back
@@ -213,6 +246,70 @@ export function GameModeModal({
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text transition hover:brightness-110"
               >
                 Start Game
+              </button>
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-col gap-4">
+              <button
+                type="button"
+                onClick={() => openStep("list")}
+                className="self-start text-xs font-medium text-text-dim hover:text-text"
+              >
+                ← Back
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenBoardEditor();
+                  handleClose();
+                }}
+                className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
+              >
+                <span className="font-semibold text-text">
+                  Drag pieces on the board
+                </span>
+                <span className="text-xs text-text-faint">
+                  Build the position visually instead of typing a FEN.
+                </span>
+              </button>
+
+              <div className="flex items-center gap-2 text-xs text-text-faint">
+                <div className="h-px flex-1 bg-border" />
+                or paste a FEN
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="custom-fen"
+                  className="mb-2 block text-sm font-medium text-text"
+                >
+                  FEN
+                </label>
+                <input
+                  id="custom-fen"
+                  type="text"
+                  value={customFen}
+                  onChange={(e) => {
+                    setCustomFen(e.target.value);
+                    setFenError(null);
+                  }}
+                  placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                  className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 font-mono text-xs text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+                />
+                {fenError && (
+                  <p className="mt-1.5 text-xs text-red-400">{fenError}</p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSetupPosition}
+                disabled={!customFen.trim()}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-50"
+              >
+                Start from this position
               </button>
             </div>
           )}

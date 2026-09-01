@@ -91,8 +91,8 @@ export function useMoveTree() {
     [tree],
   );
 
-  function resetTree() {
-    setTree(createMoveTree());
+  function resetTree(startFen?: string) {
+    setTree(createMoveTree(startFen));
   }
 
   function goToNode(nodeId: string) {

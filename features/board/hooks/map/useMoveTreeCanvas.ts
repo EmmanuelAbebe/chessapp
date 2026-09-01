@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { drawGeodesic, transformedRing, type Complex } from "../../lib/map/poincare-disk";
+import { projectToDisk, recenterPolar } from "../../lib/map/hyperboloid";
 import {
-  drawGeodesic,
-  lerpComplex,
-  mobiusTranslate,
-  transformedRing,
-  type Complex,
-} from "../lib/poincare-disk";
-import { computeHyperbolicLayout } from "../lib/move-tree-hyperbolic-layout";
+  computeHyperbolicLayout,
+  type Polar,
+} from "../../lib/map/move-tree-hyperbolic-layout";
+import { computeThetaDeltas } from "../../lib/map/move-tree-angles";
 import {
   HUB_COLOR,
   easeOutCubic,
@@ -20,17 +19,33 @@ import {
   stepIntensityMap,
   type MapColorKey,
   type MapColorOverrides,
-} from "../lib/move-tree-map-helpers";
-import type { MoveTreeState } from "../types";
+} from "../../lib/map/move-tree-map-helpers";
+import type { MoveTreeState } from "../../types";
 
-const ORIGIN: Complex = { x: 0, y: 0 };
 const FOCUS_ANIM_MS = 450;
 export const K_MIN = 0.06;
 export const K_MAX = 0.42;
 export const K_DEFAULT = 0.2;
 const MIN_HIT_RADIUS = 16;
+// Below this on-screen radius/distance-from-boundary, a node or ring is
+// smaller than can actually be seen - drawing, labeling, or hit-testing it
+// is pure waste, and a heavily-branched or very deep tree can have a lot of
+// these once compaction or focus pushes most of it up against the edge.
+const MIN_VISIBLE_PX = 0.5;
 
-type FocusAnim = { from: Complex; toId: string; start: number };
+// A node's projected disk radius is within ~1/t of the boundary - convert
+// "closer than minVisiblePx to the boundary" into the camera-relative t
+// threshold that implies, given the current canvas scale (recomputed every
+// frame since scale itself can change on resize). Exact inverse of
+// projectToDisk's radius formula, not just the 1/t approximation, so it
+// stays correct even when minVisiblePx/scale isn't tiny.
+function pruneThresholdT(scale: number): number {
+  const eps = MIN_VISIBLE_PX / scale;
+  const q = (1 - eps) ** 2;
+  return (1 + q) / (1 - q);
+}
+
+type FocusAnim = { fromId: string; toId: string; start: number };
 
 /** Owns the hyperbolic move-tree canvas: the rAF draw loop, hit-testing, and
  * every pointer/wheel interaction on it, plus the state a caller needs to
@@ -130,7 +145,7 @@ export function useMoveTreeCanvas(
   // adding one node can shift how much of the disk every sibling subtree
   // gets. A generic per-node position tween, not move-specific, so it'll
   // still hold up once search/analysis can add many nodes at once later.
-  const layoutAnimRef = useRef<{ from: Map<string, Complex>; start: number } | null>(null);
+  const layoutAnimRef = useRef<{ from: Map<string, Polar>; start: number } | null>(null);
   // Distinguishes "the tree changed shape" from "only k changed" for the
   // layout-animation trigger below - see the comment there.
   const treeIdentityRef = useRef(tree);
@@ -203,11 +218,20 @@ export function useMoveTreeCanvas(
   hoveredRingPlyRef.current = hoveredRingPly;
   selectedRingPlyRef.current = selectedRingPly;
 
+  // Blends two (rapidity, local-angle) pairs - a plain lerp on both. Unlike
+  // an absolute angle, a localTheta is always small and bounded (at most
+  // MAX_SPAN_PER_CHILD_SHALLOW wide - see move-tree-hyperbolic-layout.ts),
+  // so it never needs shortest-path/wraparound handling the way lerping two
+  // arbitrary points on a circle would.
+  function lerpPolar(a: Polar, b: Polar, t: number): Polar {
+    return { r: a.r + (b.r - a.r) * t, localTheta: a.localTheta + (b.localTheta - a.localTheta) * t };
+  }
+
   // The canonical layout mid-tween when it just changed shape, or simply
   // the latest one once that settles. Read by both the focus animation
   // (so recentering targets wherever a node visually is right now, not
   // where it's headed) and the draw loop's own node/edge positions.
-  function effectiveCanon(now: number): Map<string, Complex> {
+  function effectiveCanon(now: number): Map<string, Polar> {
     const anim = layoutAnimRef.current;
     const target = canonRef.current;
     if (!anim) return target;
@@ -217,38 +241,27 @@ export function useMoveTreeCanvas(
       return target;
     }
     const eased = easeOutCubic(t);
-    const blended = new Map<string, Complex>();
+    const blended = new Map<string, Polar>();
     for (const [id, toPos] of target) {
       // A brand-new node has no "from" position to ease out of - it just
       // appears at its final spot rather than flying in from nowhere.
       const fromPos = anim.from.get(id) ?? toPos;
-      blended.set(id, lerpComplex(fromPos, toPos, eased));
+      blended.set(id, lerpPolar(fromPos, toPos, eased));
     }
     return blended;
   }
 
-  // Reads whatever's currently on screen (mid-transition or settled) so a
-  // fresh click can smoothly retarget from wherever the view actually is,
-  // and so the draw loop and hit-testing always agree on positions.
-  function currentFocusComplex(now: number): Complex {
-    const anim = animRef.current;
-    const canonNow = effectiveCanon(now);
-    if (!anim) return canonNow.get(focusIdRef.current) ?? ORIGIN;
-    const t = Math.min(1, (now - anim.start) / FOCUS_ANIM_MS);
-    if (t >= 1) {
-      animRef.current = null;
-      return canonNow.get(anim.toId) ?? ORIGIN;
-    }
-    return lerpComplex(anim.from, canonNow.get(anim.toId) ?? ORIGIN, easeOutCubic(t));
-  }
-
-  // Recentering is a single Mobius transform of the whole disk, not a
+  // Recentering is a single Lorentz boost of the whole hyperboloid, not a
   // relayout - the tree structure and every node's canonical position stay
   // exactly the same, only which point currently sits at the origin changes.
+  // Only records which node the transition is *from* (not a captured
+  // position) - frameGeometry derives the animated in-between state fresh
+  // each frame via computeThetaDeltas, relative to that same starting node,
+  // which is what keeps the transition itself numerically safe at any
+  // depth (see hyperboloid.ts's recenterPolar comment).
   function doSetFocus(id: string) {
     if (!treeRef.current.nodes[id] || id === focusIdRef.current) return;
-    const now = performance.now();
-    animRef.current = { from: currentFocusComplex(now), toId: id, start: now };
+    animRef.current = { fromId: focusIdRef.current, toId: id, start: performance.now() };
     setFocusId(id);
   }
 
@@ -295,12 +308,49 @@ export function useMoveTreeCanvas(
 
     // Shared by the draw loop and the pointer handlers below, so hit-testing
     // a ring always agrees with wherever it's actually drawn this frame.
+    // `deltas` gives every node's angle relative to the camera (dtheta,
+    // safe at any depth - see move-tree-angles.ts); `focusR` is the
+    // camera's own rapidity. Mid-transition, both describe the animated
+    // in-between camera rather than the settled focus node.
     function frameGeometry() {
       const rect = stage!.getBoundingClientRect();
       const cx = rect.width / 2, cy = rect.height / 2;
       const scale = (Math.min(rect.width, rect.height) / 2) * 0.92;
-      const focusA = currentFocusComplex(performance.now());
-      return { rect, cx, cy, scale, focusA };
+      const now = performance.now();
+      const canonNow = effectiveCanon(now);
+      const tree = treeRef.current;
+      const anim = animRef.current;
+
+      if (!anim) {
+        const focusR = canonNow.get(focusIdRef.current)?.r ?? 0;
+        const deltas = computeThetaDeltas(tree, canonNow, focusIdRef.current);
+        return { rect, cx, cy, scale, focusR, deltas };
+      }
+
+      const t = Math.min(1, (now - anim.start) / FOCUS_ANIM_MS);
+      if (t >= 1) {
+        animRef.current = null;
+        const focusR = canonNow.get(anim.toId)?.r ?? 0;
+        const deltas = computeThetaDeltas(tree, canonNow, anim.toId);
+        return { rect, cx, cy, scale, focusR, deltas };
+      }
+
+      // Mid-transition: every quantity stays relative to the node the
+      // transition started FROM - the camera's own rapidity is a plain
+      // scalar lerp (both ends are root-relative rapidities already, so no
+      // extra care needed), and its angle-relative-to-"from" eases from 0
+      // up to the full dtheta(to, from) - both safe, since they only ever
+      // combine values already computed relative to a single, real anchor
+      // node rather than forming an absolute angle anywhere.
+      const eased = easeOutCubic(t);
+      const deltasFromOld = computeThetaDeltas(tree, canonNow, anim.fromId);
+      const rFrom = canonNow.get(anim.fromId)?.r ?? 0;
+      const rTo = canonNow.get(anim.toId)?.r ?? 0;
+      const focusR = rFrom + (rTo - rFrom) * eased;
+      const virtualDtheta = (deltasFromOld.get(anim.toId) ?? 0) * eased;
+      const deltas = new Map<string, number>();
+      for (const [id, d] of deltasFromOld) deltas.set(id, d - virtualDtheta);
+      return { rect, cx, cy, scale, focusR, deltas };
     }
 
     // The lower of "how deep the tree actually goes" and "how deep the
@@ -311,14 +361,24 @@ export function useMoveTreeCanvas(
     }
 
     const RING_HIT_PX = 6;
-    function hitTestRing(mx: number, my: number, cx: number, cy: number, scale: number, focusA: Complex): number | null {
+    function hitTestRing(
+      mx: number,
+      my: number,
+      cx: number,
+      cy: number,
+      scale: number,
+      focusR: number,
+    ): number | null {
       let best: number | null = null;
       let bestDelta = Infinity;
       for (let ply = 1; ply <= effectiveMaxPly(); ply++) {
-        const canonR = Math.tanh(kRef.current * ply);
-        if (canonR > 0.999) continue;
-        const ring = transformedRing(canonR, focusA);
-        if (!ring || !isFinite(ring.r)) continue;
+        // True hyperbolic distance, not a disk radius - see
+        // move-tree-hyperbolic-layout.ts for why it's 2 * k * ply.
+        const rapidity = 2 * kRef.current * ply;
+        const ring = transformedRing(rapidity, focusR);
+        // A ring too small to see is also too small to click - and not
+        // worth the hit-distance math either.
+        if (!isFinite(ring.r) || ring.r * scale < MIN_VISIBLE_PX) continue;
         const delta = Math.abs(Math.hypot(mx - (cx + ring.x * scale), my - (cy + ring.y * scale)) - ring.r * scale);
         if (delta < RING_HIT_PX && delta < bestDelta) {
           bestDelta = delta;
@@ -332,7 +392,7 @@ export function useMoveTreeCanvas(
     function draw() {
       const dpr = devicePixelRatio;
       const now = performance.now();
-      const { rect, cx, cy, scale, focusA } = frameGeometry();
+      const { rect, cx, cy, scale, focusR, deltas } = frameGeometry();
       ctx!.save();
       ctx!.scale(dpr, dpr);
       ctx!.clearRect(0, 0, rect.width, rect.height);
@@ -351,10 +411,12 @@ export function useMoveTreeCanvas(
 
       if (showRingsRef.current) {
         for (let ply = 1; ply <= effectiveMaxPly(); ply++) {
-          const canonR = Math.tanh(kRef.current * ply);
-          if (canonR > 0.999) continue;
-          const ring = transformedRing(canonR, focusA);
-          if (!ring || !isFinite(ring.r) || ring.r * scale > 8000) continue;
+          const rapidity = 2 * kRef.current * ply;
+          const ring = transformedRing(rapidity, focusR);
+          // Skip anything too small to actually see - a deep or heavily
+          // compacted tree can have many rings crowded up against the
+          // boundary, and none of them are worth a draw call.
+          if (!isFinite(ring.r) || ring.r * scale < MIN_VISIBLE_PX) continue;
           // Every ply is a half-move (one side's move); a ring only lands on
           // a completed full move once both sides have moved, i.e. at an
           // even ply - so only those get labeled by default. Odd (half-move)
@@ -406,13 +468,18 @@ export function useMoveTreeCanvas(
       const currentTree = treeRef.current;
       const displayLimit = effectiveMaxPly();
       const rendered = new Map<string, Complex>();
+      const pruneT = pruneThresholdT(scale);
       for (const [id, pos] of effectiveCanon(now)) {
         // A node past the display-ply cap is skipped entirely here, so it's
         // simultaneously invisible, un-hit-testable, and (since an edge only
         // draws once both its ends are in `rendered`) never leaves a
         // dangling edge toward whatever's been cut off.
         if ((currentTree.nodes[id]?.ply ?? 0) > displayLimit) continue;
-        rendered.set(id, mobiusTranslate(pos, focusA));
+        const camRelative = recenterPolar(pos.r, focusR, deltas.get(id) ?? 0);
+        // Same treatment for anything so far from the camera it'd compact
+        // into sub-pixel space anyway - see pruneThresholdT's own comment.
+        if (camRelative.t > pruneT) continue;
+        rendered.set(id, projectToDisk(camRelative));
       }
 
       // Every node from the game's start down to wherever play actually is
@@ -582,16 +649,22 @@ export function useMoveTreeCanvas(
         if (hit) setCardClosed(false);
       }
 
-      // A node under the cursor always takes priority over a ring behind it.
+      // A node under the cursor always takes priority over a ring behind it
+      // - but it gets the same Move/ply tooltip a ring hover would, keyed by
+      // its own ply (any node sharing that ply has the same move number).
       if (hit) {
-        if (hoveredRingPlyRef.current !== null) {
-          hoveredRingPlyRef.current = null;
-          setHoveredRingPly(null);
+        const hoveredPly = treeRef.current.nodes[hit]?.ply ?? null;
+        if (hoveredPly !== hoveredRingPlyRef.current) {
+          hoveredRingPlyRef.current = hoveredPly;
+          setHoveredRingPly(hoveredPly);
+        }
+        if (hoveredPly !== null) {
+          setRingTooltipPos({ left: Math.min(mx + 14, rect.width - 120), top: Math.max(my - 28, 8) });
         }
         return;
       }
-      const { cx, cy, scale, focusA } = frameGeometry();
-      const ringHit = hitTestRing(mx, my, cx, cy, scale, focusA);
+      const { cx, cy, scale, focusR } = frameGeometry();
+      const ringHit = hitTestRing(mx, my, cx, cy, scale, focusR);
       if (ringHit !== hoveredRingPlyRef.current) {
         hoveredRingPlyRef.current = ringHit;
         setHoveredRingPly(ringHit);
@@ -624,8 +697,8 @@ export function useMoveTreeCanvas(
         setCardClosed(false);
         return;
       }
-      const { cx, cy, scale, focusA } = frameGeometry();
-      const ringHit = hitTestRing(mx, my, cx, cy, scale, focusA);
+      const { cx, cy, scale, focusR } = frameGeometry();
+      const ringHit = hitTestRing(mx, my, cx, cy, scale, focusR);
       if (ringHit !== null) {
         const next = selectedRingPlyRef.current === ringHit ? null : ringHit;
         selectedRingPlyRef.current = next;

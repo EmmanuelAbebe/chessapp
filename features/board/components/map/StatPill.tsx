@@ -1,4 +1,4 @@
-import { HUB_COLOR } from "../lib/move-tree-map-helpers";
+import { HUB_COLOR } from "../../lib/map/move-tree-map-helpers";
 
 export function StatPill({
   label,

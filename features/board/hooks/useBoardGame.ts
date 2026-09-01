@@ -153,8 +153,14 @@ export function useBoardGame() {
     clearSelection();
   }
 
-  function resetBoard() {
-    moveTree.resetTree();
+  // A custom `startFen` re-roots the whole tree there instead of the
+  // standard starting position - lets a study session begin from any
+  // position: a variation picked up deep into an opening (the map's "Set
+  // as start position" passes the previewed node's own fen), or an
+  // endgame-tactic FEN typed in that isn't reachable by playing from move
+  // 1 at all.
+  function resetBoard(startFen?: string) {
+    moveTree.resetTree(startFen);
     clearSelection();
   }
 

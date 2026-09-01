@@ -6,6 +6,7 @@ import { EvalBar } from "./EvalBar";
 import { EvalScoreLabel } from "./EvalScoreLabel";
 import { BoardView } from "./BoardView";
 import { BoardControls } from "./BoardControls";
+import { BoardPositionEditor } from "./BoardPositionEditor";
 import { BoardSettingsModal } from "./BoardSettingsModal";
 import { GameModeModal } from "./GameModeModal";
 import { MoveList } from "./MoveList";
@@ -51,6 +52,7 @@ export function BoardScreen() {
     useBoardSettings();
 
   const [isGameModeOpen, setIsGameModeOpen] = useState(false);
+  const [isEditingPosition, setIsEditingPosition] = useState(false);
 
   const { settings } = useSettings();
   const {
@@ -72,6 +74,12 @@ export function BoardScreen() {
   // `fixed` now (see SiteHeader), not `sticky`, so it never reserves a row
   // for `main` to sit below in the first place.
   const boardSizeValue = "min(90vw, calc(100dvh - 204px), 1100px)";
+
+  // Setting up a position swaps the chat panel out for two extra spare-piece
+  // rows plus a toolbar row below the board - smaller and narrower than the
+  // normal board size so that whole stack still fits one screen on desktop
+  // instead of pushing the toolbar below the fold.
+  const editorBoardSizeValue = "min(56vw, calc((100dvh - 180px) / 1.3), 560px)";
 
   // Suggestions/eval reveal what the engine would play - hide them entirely
   // while it's the opponent in an actual game, not just the arrows.
@@ -119,84 +127,130 @@ export function BoardScreen() {
     changeOrientation(resolvedSide);
   }
 
+  function handleSetupPosition(fen: string) {
+    resetBoard(fen);
+    startAnalysis();
+  }
+
+  function handleEditorStart(fen: string) {
+    resetBoard(fen);
+    startAnalysis();
+    setIsEditingPosition(false);
+  }
+
   return (
     <>
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-3 overflow-x-auto p-3 sm:p-4">
         <div
           className="flex w-(--board-size) flex-col gap-3"
-          style={{ "--board-size": boardSizeValue } as React.CSSProperties}
+          style={
+            {
+              "--board-size": isEditingPosition
+                ? editorBoardSizeValue
+                : boardSizeValue,
+            } as React.CSSProperties
+          }
         >
-          <AiChatPanel
-            moveNumber={currentLine[currentLine.length - 1]?.moveNumber ?? 0}
-          />
-
-          <div className="flex h-(--board-size) w-full gap-2">
-            <EvalBar
-              visible={showEvalBar && !isPlayingStockfish}
-              whitePercent={evalScore.whitePercent}
-              depth={evalScore.depth}
-              bestMove={evalScore.bestMove}
+          {!isEditingPosition && (
+            <AiChatPanel
+              moveNumber={currentLine[currentLine.length - 1]?.moveNumber ?? 0}
             />
+          )}
 
-            <BoardView
-              chessPosition={chessPosition}
-              orientation={orientation}
-              optionSquares={{
-                ...lastMoveSquares,
-                ...checkSquares,
-                ...optionSquares,
-                ...illegalSquares,
-              }}
-              onSquareClick={onSquareClick}
-              showCoordinates={showCoordinates}
-              coordinatesPlacement={coordinatesPlacement}
-              aiArrows={aiArrows}
-            />
+          {isEditingPosition ? (
+            <div className="flex w-full items-center justify-center gap-2">
+              <BoardPositionEditor
+                initialFen={chessPosition}
+                onStart={handleEditorStart}
+                onCancel={() => setIsEditingPosition(false)}
+              />
 
-            {/* Desktop only - no side column to put a tall icon stack in on
-                mobile, so it moves below the move list there instead (see
-                the row-layout copy further down). `contents` keeps this
-                wrapper out of the flex layout entirely, so BoardControls
-                sits exactly as if it were BoardView's direct sibling. */}
-            <div className="hidden sm:contents">
-              <BoardControls
-                openBoardSettings={openBoardSettings}
-                openGameMode={() => setIsGameModeOpen(true)}
-                onAnalysis={startAnalysis}
-                toggleOrientation={toggleOrientation}
+              {/* Desktop only - see the mobile copy below for why this one is
+                  hidden there instead. */}
+              <div className="hidden sm:contents">
+                <BoardControls
+                  openBoardSettings={openBoardSettings}
+                  openGameMode={() => setIsGameModeOpen(true)}
+                  onAnalysis={startAnalysis}
+                  toggleOrientation={toggleOrientation}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-(--board-size) w-full gap-2">
+              <EvalBar
+                visible={showEvalBar && !isPlayingStockfish}
+                whitePercent={evalScore.whitePercent}
+                depth={evalScore.depth}
+                bestMove={evalScore.bestMove}
+              />
+
+              <BoardView
+                chessPosition={chessPosition}
+                orientation={orientation}
+                optionSquares={{
+                  ...lastMoveSquares,
+                  ...checkSquares,
+                  ...optionSquares,
+                  ...illegalSquares,
+                }}
+                onSquareClick={onSquareClick}
+                showCoordinates={showCoordinates}
+                coordinatesPlacement={coordinatesPlacement}
+                aiArrows={aiArrows}
+              />
+
+              {/* Desktop only - no side column to put a tall icon stack in on
+                  mobile, so it moves below the move list there instead (see
+                  the row-layout copy further down). `contents` keeps this
+                  wrapper out of the flex layout entirely, so BoardControls
+                  sits exactly as if it were BoardView's direct sibling. */}
+              <div className="hidden sm:contents">
+                <BoardControls
+                  openBoardSettings={openBoardSettings}
+                  openGameMode={() => setIsGameModeOpen(true)}
+                  onAnalysis={startAnalysis}
+                  toggleOrientation={toggleOrientation}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Not rendered at all while editing (rather than just faded out
+              like the showMoveList toggle below) - there's no move list to
+              show mid-edit, and reserving its row's height would throw off
+              centering the editor on the page. */}
+          {!isEditingPosition && (
+            <div
+              className={`flex h-9 w-full items-center gap-2 transition-opacity duration-200 ease-out ${
+                showMoveList ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            >
+              <EvalScoreLabel
+                visible={showEvalScore && !isPlayingStockfish}
+                displayScore={evalScore.displayScore}
+                displayMate={evalScore.displayMate}
+              />
+
+              <div className="min-w-0 flex-1">
+                <MoveList
+                  currentLine={currentLine}
+                  currentNodeId={currentNodeId}
+                  onSelectNode={goToNode}
+                  onSelectStart={goToStart}
+                />
+              </div>
+
+              <MoveNavigation
+                canGoPrevious={canGoPrevious}
+                canGoNext={canGoNext}
+                onStart={goToStart}
+                onPrevious={goToPrevious}
+                onNext={goToNext}
+                onEnd={goToEnd}
               />
             </div>
-          </div>
-
-          <div
-            className={`flex h-9 w-full items-center gap-2 transition-opacity duration-200 ease-out ${
-              showMoveList ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          >
-            <EvalScoreLabel
-              visible={showEvalScore && !isPlayingStockfish}
-              displayScore={evalScore.displayScore}
-              displayMate={evalScore.displayMate}
-            />
-
-            <div className="min-w-0 flex-1">
-              <MoveList
-                currentLine={currentLine}
-                currentNodeId={currentNodeId}
-                onSelectNode={goToNode}
-                onSelectStart={goToStart}
-              />
-            </div>
-
-            <MoveNavigation
-              canGoPrevious={canGoPrevious}
-              canGoNext={canGoNext}
-              onStart={goToStart}
-              onPrevious={goToPrevious}
-              onNext={goToNext}
-              onEnd={goToEnd}
-            />
-          </div>
+          )}
 
           {/* Mobile only - the desktop side column above is hidden here. */}
           <div className="sm:hidden">
@@ -220,6 +274,8 @@ export function BoardScreen() {
         isOpen={isGameModeOpen}
         onClose={() => setIsGameModeOpen(false)}
         onStartVsStockfish={handleStartVsStockfish}
+        onSetupPosition={handleSetupPosition}
+        onOpenBoardEditor={() => setIsEditingPosition(true)}
         gameStatus={gameStatus}
       />
     </>

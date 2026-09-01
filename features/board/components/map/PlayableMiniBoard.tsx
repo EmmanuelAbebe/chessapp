@@ -4,11 +4,11 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import type { Arrow, SquareHandlerArgs } from "react-chessboard";
 import { Chess, type Square } from "chess.js";
-import { useBoardGameContext } from "../BoardGameContext";
-import { getMoveOptions } from "../lib/board-helpers";
-import { boardTheme } from "../lib/board-theme";
-import { readThemeColors } from "../lib/move-tree-map-helpers";
-import type { MoveNode, MoveTreeState, OptionSquares } from "../types";
+import { useBoardGameContext } from "../../BoardGameContext";
+import { getMoveOptions } from "../../lib/board-helpers";
+import { boardTheme } from "../../lib/board-theme";
+import { readThemeColors } from "../../lib/map/move-tree-map-helpers";
+import type { MoveNode, MoveTreeState, OptionSquares } from "../../types";
 
 // A real, playable board for the previewed node - lets a sideline be tried
 // out right from the map without first jumping the whole game there. Moves

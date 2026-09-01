@@ -8,24 +8,13 @@ import SettingsSubRow from "@/features/settings/components/SettingsSubRow";
 import SettingsToggle from "@/features/settings/components/SettingsToggle";
 import SettingsVolume from "@/features/settings/components/SettingsVolume";
 import { useSettings } from "@/features/settings/SettingsContext";
+import { pieceSets, boardThemes, moveMethods } from "@/features/settings/data";
 import type { CoordinatesPlacement, Orientation } from "../types";
 
 type BoardSettingsModalProps = {
   isOpen: boolean;
   onClose: () => void;
 };
-
-const pieceSets = [
-  "Default",
-  "Alpha",
-  "Merida",
-  "Fantasy",
-  "Classic",
-  "Neo",
-  "Modern",
-];
-const boardThemes = ["Default", "Wood", "Marble"];
-const moveMethods = ["Default", "Click", "Drag"];
 
 export function BoardSettingsModal({
   isOpen,
