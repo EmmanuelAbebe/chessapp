@@ -3,6 +3,7 @@ import BoardSection from "./sections/BoardSection";
 import CoordinatesSection from "./sections/CoordinatesSection";
 import EvaluationSection from "./sections/EvaluationSection";
 import EngineSection from "./sections/EngineSection";
+import AiCoachSection from "./sections/AiCoachSection";
 import SoundSection from "./sections/SoundSection";
 import NotificationsSection from "./sections/NotificationsSection";
 import AccountSection from "./sections/AccountSection";
@@ -22,6 +23,7 @@ export default function SettingsSection() {
         <CoordinatesSection />
         <EvaluationSection />
         <EngineSection />
+        <AiCoachSection />
         <SoundSection />
         <NotificationsSection />
         <AccountSection />

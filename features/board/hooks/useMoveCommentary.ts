@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Difficulty, GamePhase, MoveClassification } from "../lib/move-analysis";
+import { useAiProviderConfig } from "@/features/settings/useAiProviderConfig";
 
 export type CommentaryStatus = "idle" | "loading" | "streaming" | "done" | "error";
 
@@ -111,6 +112,13 @@ export function useMoveCommentary({
     status: "idle",
     annotation: null,
   });
+
+  // Which provider/key/model to use - global config, not per-move data
+  // like everything else this hook is called with, so it's read directly
+  // here instead of threaded through BoardScreen's per-move computation.
+  const { config: providerConfig } = useAiProviderConfig();
+  const providerConfigRef = useRef(providerConfig);
+  providerConfigRef.current = providerConfig;
 
   // Every node's latest known state, live-updated as its own fetch
   // progresses - doubles as the "already computed" cache once a node
@@ -238,6 +246,7 @@ export function useMoveCommentary({
       // Read fresh, not from `params` - see latestFieldsRef's own comment
       // for why the debounce alone doesn't make `params` safe to use here.
       const fields = latestFieldsRef.current;
+      const provider = providerConfigRef.current;
 
       try {
         const response = await fetch("/api/coach", {
@@ -259,6 +268,9 @@ export function useMoveCommentary({
             isCheck: fields.isCheck,
             isCastle: fields.isCastle,
             matchesBest: fields.matchesBest,
+            provider: provider.provider,
+            apiKey: provider.apiKey,
+            model: provider.model,
           }),
           signal: controller.signal,
         });

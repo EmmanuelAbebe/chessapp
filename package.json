@@ -9,7 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.116",
     "@ai-sdk/google": "^3.0.120",
+    "@ai-sdk/groq": "^3.0.64",
+    "@ai-sdk/openai": "^3.0.106",
     "ai": "^6.0.275",
     "chess.js": "^1.4.0",
     "next": "^16.1.6",

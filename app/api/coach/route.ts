@@ -1,6 +1,13 @@
-import { google } from "@ai-sdk/google";
-import { stepCountIs, streamText, tool } from "ai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
+import { createOpenAI } from "@ai-sdk/openai";
+import { stepCountIs, streamText, tool, type LanguageModel } from "ai";
 import { z } from "zod";
+import {
+  DEFAULT_MODEL_BY_PROVIDER,
+  type AiProvider,
+} from "@/features/settings/ai-provider-types";
 
 type MoveClassification = "best" | "good" | "inaccuracy" | "mistake" | "blunder";
 type GamePhase = "opening" | "middlegame" | "endgame";
@@ -29,7 +36,44 @@ type CoachRequest = {
   isCheck: boolean;
   isCastle: boolean;
   matchesBest: boolean | null;
+  // Bring-your-own provider/key (features/settings/useAiProviderConfig.ts) -
+  // an empty/missing apiKey falls back to this server's own env var, but
+  // only for "google", the only provider with one.
+  provider: AiProvider;
+  apiKey: string;
+  model: string;
 };
+
+/** Builds the actual model client for whichever provider the request
+ * asked for, using the caller's own key - `null` if there's no usable
+ * key at all (no user key, and, for anything but "google", no env var
+ * to fall back to either). Never logs the key; it only ever passes
+ * through this function on its way to the provider's own SDK client. */
+function resolveModel(
+  provider: AiProvider,
+  apiKey: string,
+  model: string,
+): LanguageModel | null {
+  const modelId = model || DEFAULT_MODEL_BY_PROVIDER[provider];
+  const key = apiKey || undefined;
+
+  switch (provider) {
+    case "google": {
+      // The only provider with a server-side fallback - createGoogleGenerativeAI
+      // reads GOOGLE_GENERATIVE_AI_API_KEY itself when apiKey is undefined.
+      if (!key && !process.env.GOOGLE_GENERATIVE_AI_API_KEY) return null;
+      return createGoogleGenerativeAI({ apiKey: key })(modelId);
+    }
+    case "openai":
+      return key ? createOpenAI({ apiKey: key })(modelId) : null;
+    case "anthropic":
+      return key ? createAnthropic({ apiKey: key })(modelId) : null;
+    case "groq":
+      return key ? createGroq({ apiKey: key })(modelId) : null;
+    default:
+      return null;
+  }
+}
 
 // A square/arrow color name, not a hex value - the client maps each to
 // the same design-system token its own sentiment coloring already uses
@@ -149,19 +193,28 @@ export async function POST(request: Request) {
     isCheck,
     isCastle,
     matchesBest,
+    provider,
+    apiKey,
+    model: modelId,
   } = body;
   if (!fen || !san) {
     return new Response("Missing 'fen' or 'san'", { status: 400 });
   }
 
-  // Checked explicitly rather than left for the provider to discover: a
-  // missing key otherwise only surfaces once the stream is already being
-  // consumed (after this handler has already returned a 200 with an open
-  // body), which the client can't distinguish from a real empty response.
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    return new Response("GOOGLE_GENERATIVE_AI_API_KEY is not configured", {
-      status: 500,
-    });
+  // Resolved explicitly rather than left for the provider's own SDK to
+  // discover a missing key: that only surfaces once the stream is
+  // already being consumed (after this handler has already returned a
+  // 200 with an open body), which the client can't distinguish from a
+  // real empty response.
+  const resolvedProvider = provider ?? "google";
+  const model = resolveModel(resolvedProvider, apiKey ?? "", modelId ?? "");
+  if (!model) {
+    return new Response(
+      resolvedProvider === "google"
+        ? "No Google API key configured - add your own in Settings, or set GOOGLE_GENERATIVE_AI_API_KEY on the server."
+        : `No API key configured for ${resolvedProvider} - add one in Settings.`,
+      { status: 400 },
+    );
   }
 
   const evalLine =
@@ -195,7 +248,7 @@ ${factsLine}
 Give your coaching comment on this move.`;
 
   const result = streamText({
-    model: google("gemini-3.5-flash-lite"),
+    model,
     system: SYSTEM_PROMPT,
     prompt,
     tools: { annotateBoard },
