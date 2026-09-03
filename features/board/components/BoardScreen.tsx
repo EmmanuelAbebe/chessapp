@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Arrow } from "react-chessboard";
 import { EvalBar } from "./EvalBar";
 import { EvalScoreLabel } from "./EvalScoreLabel";
@@ -8,17 +8,42 @@ import { BoardView } from "./BoardView";
 import { BoardControls } from "./BoardControls";
 import { BoardPositionEditor } from "./BoardPositionEditor";
 import { BoardSettingsModal } from "./BoardSettingsModal";
-import { GameModeModal } from "./GameModeModal";
+import { GameModeModal, type GameModeStep } from "./GameModeModal";
 import { MoveList } from "./MoveList";
 import { MoveNavigation } from "./MoveNavigation";
-import { AiChatPanel } from "./AiChatPanel";
+import { AiChatPanel, type CommentarySentiment } from "./AiChatPanel";
 import { useBoardGameContext } from "../BoardGameContext";
 import { useBoardSettings } from "../hooks/useBoardSettings";
 import { useEvalScore, type CandidateMove } from "../hooks/useEvalScore";
-import { selectCloseCandidates } from "../lib/eval-format";
+import { useMoveCommentary, type AnnotationColor } from "../hooks/useMoveCommentary";
+import { detectHangingPieces } from "../lib/board-tactics";
+import { formatEvalFromWhiteScore, selectCloseCandidates } from "../lib/eval-format";
+import {
+  assessDifficulty,
+  classifyMove,
+  detectGamePhase,
+  evalMatchesPosition,
+} from "../lib/move-analysis";
 import { useSettings } from "@/features/settings/SettingsContext";
+import type { OptionSquares } from "../types";
 
 const AI_ARROW_OPACITIES = [0.9, 0.65, 0.45, 0.3];
+
+// The same three tokens the panel's own sentiment border/badge use
+// (accent/good/bad from globals.css) - "focus" for a plain point-of-
+// interest, "good"/"bad" for something favorable or dangerous. Squares
+// get a soft fill; arrows need more opacity to actually read as a
+// stroke, hence the two separate maps off the same base colors.
+const ANNOTATION_FILL: Record<AnnotationColor, string> = {
+  focus: "rgba(91, 157, 250, 0.35)",
+  good: "rgba(95, 191, 143, 0.35)",
+  bad: "rgba(242, 104, 90, 0.35)",
+};
+const ANNOTATION_STROKE: Record<AnnotationColor, string> = {
+  focus: "rgba(91, 157, 250, 0.85)",
+  good: "rgba(95, 191, 143, 0.85)",
+  bad: "rgba(242, 104, 90, 0.85)",
+};
 
 export function BoardScreen() {
   const {
@@ -41,18 +66,27 @@ export function BoardScreen() {
     goToNode,
     goToStart,
     goToPrevious,
+    undoMove,
     goToNext,
     goToEnd,
     isPlayingStockfish,
+    playerSide,
     startAnalysis,
     startVsStockfish,
+    tree,
   } = useBoardGameContext();
 
   const { isBoardSettingsOpen, openBoardSettings, closeBoardSettings } =
     useBoardSettings();
 
   const [isGameModeOpen, setIsGameModeOpen] = useState(false);
+  const [gameModeStep, setGameModeStep] = useState<GameModeStep>("list");
   const [isEditingPosition, setIsEditingPosition] = useState(false);
+
+  function openGameMode(step: GameModeStep) {
+    setGameModeStep(step);
+    setIsGameModeOpen(true);
+  }
 
   const { settings } = useSettings();
   const {
@@ -81,13 +115,154 @@ export function BoardScreen() {
   // instead of pushing the toolbar below the fold.
   const editorBoardSizeValue = "min(56vw, calc((100dvh - 180px) / 1.3), 560px)";
 
-  // Suggestions/eval reveal what the engine would play - hide them entirely
-  // while it's the opponent in an actual game, not just the arrows.
-  const analysisEnabled =
-    !isPlayingStockfish &&
-    (showEvalBar || showEvalScore || showEngineSuggestions);
+  // The engine's own suggestions/eval reveal what it would play - each of
+  // EvalBar's `visible`, EvalScoreLabel's `visible`, and aiArrows below
+  // already independently hide themselves while Stockfish is the
+  // opponent in an actual game, so evaluation itself always runs
+  // regardless: the AI Coach panel wants it unconditionally (that's not
+  // a hint about what to play next, just commentary on what already
+  // happened), and gating the computation itself would starve it too.
+  const evalFen = analysisFen || chessPosition;
+  const evalScore = useEvalScore(evalFen, 14, true);
 
-  const evalScore = useEvalScore(analysisFen || chessPosition, 14, analysisEnabled);
+  const lastMove = currentLine[currentLine.length - 1];
+  // useEvalScore's displayMate is relative to whoever moves next (positive
+  // = that side delivers mate), not White - flip it to the same
+  // White-relative convention displayScore already uses, so the coach
+  // prompt can treat "positive/negative" consistently for both. depth is
+  // 0 whenever no evaluation has run yet (analysis off, or too soon) -
+  // that's the "no eval available" signal the coach prompt falls back on.
+  const nextToMove = lastMove?.side === "w" ? "b" : "w";
+  // depth > 0 alone isn't enough: useEvalScore's reset-and-research cycle
+  // after a position change is a real Worker round-trip, not instant, so
+  // for a window right after any move it can still be returning the
+  // *previous* position's fully-converged (deep, plausible) data rather
+  // than "nothing yet" - evalMatchesPosition catches that regardless of
+  // how long the window lasts (see its own comment in move-analysis.ts).
+  const hasEval = evalScore.depth > 0 && evalMatchesPosition(evalFen, evalScore.bestMove);
+  const whiteMate =
+    hasEval && evalScore.displayMate !== null
+      ? nextToMove === "w"
+        ? evalScore.displayMate
+        : -evalScore.displayMate
+      : null;
+  const whiteCp = hasEval ? evalScore.displayScore : null;
+  const humanSide: "w" | "b" | null = isPlayingStockfish
+    ? playerSide === "white"
+      ? "w"
+      : "b"
+    : null;
+
+  // Move classification needs the eval from *before* the move (the best
+  // achievable there) to compare against what actually happened -
+  // useEvalScore only ever reflects whatever's on screen right now, so
+  // every position's own eval is snapshotted here, by FEN, the moment it
+  // becomes available. By the time a move is played, the parent's
+  // snapshot is just a lookup - already computed while it was live,
+  // however deep it got before the position moved on. Never cleared:
+  // bounded by how many distinct positions a game can reach, not a
+  // concern worth cleaning up.
+  const evalSnapshotsRef = useRef(
+    new Map<string, { whitePercent: number; candidates: typeof evalScore.candidates }>(),
+  );
+  useEffect(() => {
+    if (!hasEval) return;
+    evalSnapshotsRef.current.set(evalFen, {
+      whitePercent: evalScore.whitePercent,
+      candidates: evalScore.candidates,
+    });
+  }, [evalFen, hasEval, evalScore.whitePercent, evalScore.candidates]);
+
+  const parentFen = lastMove ? tree.nodes[lastMove.parentId ?? ""]?.fen : undefined;
+  const beforeSnapshot = parentFen ? evalSnapshotsRef.current.get(parentFen) : undefined;
+
+  // The single source of truth for "was this move good" - computed once,
+  // deterministically, from Stockfish's own eval swing (never asked of
+  // the LLM - see move-analysis.ts). `null` whenever there isn't enough
+  // data yet (no snapshot of the position before the move, e.g. it was
+  // reached before any evaluation had a chance to run).
+  const classification =
+    beforeSnapshot && hasEval && lastMove
+      ? classifyMove(beforeSnapshot.whitePercent, evalScore.whitePercent, lastMove.side ?? "w")
+      : null;
+  const difficulty = beforeSnapshot ? assessDifficulty(beforeSnapshot.candidates) : null;
+  const phase = lastMove ? detectGamePhase(lastMove.fen, lastMove.ply) : null;
+  const sanText = lastMove?.san ?? "";
+  const isCapture = sanText.includes("x");
+  const isCheck = /[+#]$/.test(sanText);
+  const isCastle = sanText.startsWith("O-O");
+  const matchesBest =
+    beforeSnapshot && lastMove?.uci ? beforeSnapshot.candidates[0]?.move === lastMove.uci : null;
+
+  const commentary = useMoveCommentary({
+    nodeId: currentNodeId,
+    fen: lastMove?.fen ?? chessPosition,
+    san: lastMove?.san ?? null,
+    moveNumber: lastMove?.moveNumber ?? 0,
+    side: lastMove?.side ?? null,
+    humanSide,
+    cp: whiteCp,
+    mate: whiteMate,
+    bestMove: evalScore.bestMove,
+    classification,
+    phase,
+    difficulty,
+    isCapture,
+    isCheck,
+    isCastle,
+    matchesBest,
+  });
+
+  // The eval chip/glyph read the same classification the coach's own
+  // text is grounded in, rather than a separate ad hoc threshold - the
+  // panel's color and the coach's words can't disagree with each other
+  // if they're both reading the one verdict.
+  const sentiment: CommentarySentiment =
+    classification === "best" || classification === "good"
+      ? "good"
+      : classification === "mistake" || classification === "blunder"
+        ? "bad"
+        : "neutral";
+  const evalLabel = hasEval
+    ? formatEvalFromWhiteScore(whiteCp ?? 0, whiteMate)
+    : `Move ${lastMove?.moveNumber ?? 0}`;
+
+  // A plain chess.js material check, not the LLM - runs instantly off
+  // whatever position is on screen (no debounce, no network), so it
+  // never misses an outright hang the way the coach's own commentary
+  // sometimes does. See board-tactics.ts for exactly what counts.
+  const hangingPieceSquares = useMemo<OptionSquares>(() => {
+    const squares: OptionSquares = {};
+    for (const { square } of detectHangingPieces(chessPosition)) {
+      squares[square] = { backgroundColor: ANNOTATION_FILL.bad };
+    }
+    return squares;
+  }, [chessPosition]);
+
+  // The coach's own board annotation (see useMoveCommentary/api/coach) -
+  // converted into the same shapes the board already renders highlights
+  // and AI arrows in, so it needs no new rendering path, just a spot in
+  // the existing merges below. Tied to whatever `commentary.annotation`
+  // currently is, which is itself tied to the current node (including
+  // cache hits when revisiting an already-commented move) - so this
+  // clears/changes on its own as soon as the node does.
+  const coachHighlightSquares = useMemo<OptionSquares>(() => {
+    const squares: OptionSquares = {};
+    for (const { square, color } of commentary.annotation?.squares ?? []) {
+      squares[square] = { backgroundColor: ANNOTATION_FILL[color] };
+    }
+    return squares;
+  }, [commentary.annotation]);
+
+  const coachArrows = useMemo<Arrow[]>(
+    () =>
+      (commentary.annotation?.arrows ?? []).map((arrow) => ({
+        startSquare: arrow.from,
+        endSquare: arrow.to,
+        color: ANNOTATION_STROKE[arrow.color ?? "focus"],
+      })),
+    [commentary.annotation],
+  );
 
   // Stockfish's top candidate moves (MultiPV) rendered as AI-drawn arrows,
   // in blue to stay distinct from user-drawn ones (library default #ffaa00).
@@ -114,7 +289,7 @@ export function BoardScreen() {
   useEffect(() => {
     if (!gameStatus.isOver) return;
 
-    const timeout = setTimeout(() => setIsGameModeOpen(true), 500);
+    const timeout = setTimeout(() => openGameMode("list"), 500);
     return () => clearTimeout(timeout);
   }, [gameStatus.isOver]);
 
@@ -153,7 +328,11 @@ export function BoardScreen() {
         >
           {!isEditingPosition && (
             <AiChatPanel
-              moveNumber={currentLine[currentLine.length - 1]?.moveNumber ?? 0}
+              moveNumber={lastMove?.moveNumber ?? 0}
+              text={commentary.text}
+              status={commentary.status}
+              sentiment={sentiment}
+              evalLabel={evalLabel}
             />
           )}
 
@@ -170,8 +349,12 @@ export function BoardScreen() {
               <div className="hidden sm:contents">
                 <BoardControls
                   openBoardSettings={openBoardSettings}
-                  openGameMode={() => setIsGameModeOpen(true)}
+                  openStockfishSetup={() => openGameMode("stockfish")}
+                  openPositionSetup={() => openGameMode("position")}
+                  openAiCoach={() => openGameMode("ai-coach")}
+                  openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
+                  onUndo={undoMove}
                   toggleOrientation={toggleOrientation}
                 />
               </div>
@@ -190,6 +373,8 @@ export function BoardScreen() {
                 orientation={orientation}
                 optionSquares={{
                   ...lastMoveSquares,
+                  ...hangingPieceSquares,
+                  ...coachHighlightSquares,
                   ...checkSquares,
                   ...optionSquares,
                   ...illegalSquares,
@@ -197,7 +382,7 @@ export function BoardScreen() {
                 onSquareClick={onSquareClick}
                 showCoordinates={showCoordinates}
                 coordinatesPlacement={coordinatesPlacement}
-                aiArrows={aiArrows}
+                aiArrows={[...aiArrows, ...coachArrows]}
               />
 
               {/* Desktop only - no side column to put a tall icon stack in on
@@ -208,8 +393,12 @@ export function BoardScreen() {
               <div className="hidden sm:contents">
                 <BoardControls
                   openBoardSettings={openBoardSettings}
-                  openGameMode={() => setIsGameModeOpen(true)}
+                  openStockfishSetup={() => openGameMode("stockfish")}
+                  openPositionSetup={() => openGameMode("position")}
+                  openAiCoach={() => openGameMode("ai-coach")}
+                  openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
+                  onUndo={undoMove}
                   toggleOrientation={toggleOrientation}
                 />
               </div>
@@ -257,8 +446,12 @@ export function BoardScreen() {
             <BoardControls
               layout="row"
               openBoardSettings={openBoardSettings}
-              openGameMode={() => setIsGameModeOpen(true)}
+              openStockfishSetup={() => openGameMode("stockfish")}
+              openPositionSetup={() => openGameMode("position")}
+              openAiCoach={() => openGameMode("ai-coach")}
+              openPuzzles={() => openGameMode("puzzles")}
               onAnalysis={startAnalysis}
+              onUndo={undoMove}
               toggleOrientation={toggleOrientation}
             />
           </div>
@@ -273,6 +466,7 @@ export function BoardScreen() {
       <GameModeModal
         isOpen={isGameModeOpen}
         onClose={() => setIsGameModeOpen(false)}
+        initialStep={gameModeStep}
         onStartVsStockfish={handleStartVsStockfish}
         onSetupPosition={handleSetupPosition}
         onOpenBoardEditor={() => setIsEditingPosition(true)}

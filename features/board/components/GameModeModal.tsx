@@ -1,7 +1,7 @@
 "use client";
 
 import type {} from "react/canary";
-import { startTransition, useState, ViewTransition, type ComponentType } from "react";
+import { startTransition, useEffect, useState, ViewTransition, type ComponentType } from "react";
 import { defaultPieces } from "react-chessboard";
 import { Chess } from "chess.js";
 import Modal from "@/components/ui/Modal";
@@ -50,24 +50,68 @@ const SIDE_OPTIONS: SideChoice[] = ["white", "black", "random"];
 
 const COMING_SOON = [
   {
-    title: "Play against AI Coach",
-    description: "A coaching AI that adapts to how you play.",
-  },
-  {
     title: "Lesson",
     description: "Guided lessons on openings, tactics, and endgames.",
   },
-  {
-    title: "Puzzle",
-    description: "Solve tactical puzzles to sharpen your calculation.",
-  },
 ];
 
-type GameModeStep = "list" | "stockfish" | "position";
+const AI_COACH_INFO = {
+  title: "Play against AI Coach",
+  description: "A coaching AI that adapts to how you play.",
+};
+
+const PUZZLES_INFO = {
+  title: "Puzzles",
+  description:
+    "Solve tactical puzzles to sharpen your calculation. Difficulty selection is coming soon.",
+};
+
+/** Full-step placeholder for a mode that has its own side-menu icon but
+ * isn't built yet - same title/description/pill treatment as a disabled
+ * list card, just reachable directly instead of buried in the list. */
+function ComingSoonStep({
+  title,
+  description,
+  onBack,
+}: {
+  title: string;
+  description: string;
+  onBack: () => void;
+}) {
+  return (
+    <div className="mt-6 flex flex-col gap-4">
+      <button
+        type="button"
+        onClick={onBack}
+        className="self-start text-xs font-medium text-text-dim hover:text-text"
+      >
+        ← Back
+      </button>
+
+      <div className="flex flex-col gap-1 rounded-lg border border-border-soft p-3 text-left opacity-50">
+        <span className="flex items-center gap-2 font-semibold text-text">
+          {title}
+          <span className="rounded-full bg-surface-raised px-2 py-0.5 text-[10px] font-medium text-text-dim">
+            Coming soon
+          </span>
+        </span>
+        <span className="text-xs text-text-faint">{description}</span>
+      </div>
+    </div>
+  );
+}
+
+export type GameModeStep =
+  | "list"
+  | "stockfish"
+  | "position"
+  | "ai-coach"
+  | "puzzles";
 
 type GameModeModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  initialStep: GameModeStep;
   onStartVsStockfish: (side: SideChoice, skillLevel: number) => void;
   onSetupPosition: (fen: string) => void;
   onOpenBoardEditor: () => void;
@@ -77,6 +121,7 @@ type GameModeModalProps = {
 export function GameModeModal({
   isOpen,
   onClose,
+  initialStep,
   onStartVsStockfish,
   onSetupPosition,
   onOpenBoardEditor,
@@ -84,14 +129,20 @@ export function GameModeModal({
 }: GameModeModalProps) {
   const statusMessage = gameStatus ? formatGameStatus(gameStatus) : null;
   const WinnerKing = gameStatus?.winner ? WINNER_KING[gameStatus.winner] : null;
-  const [step, setStep] = useState<GameModeStep>("list");
+  const [step, setStep] = useState<GameModeStep>(initialStep);
   const [difficulty, setDifficulty] = useState("Medium");
   const [side, setSide] = useState<SideChoice>("white");
   const [customFen, setCustomFen] = useState("");
   const [fenError, setFenError] = useState<string | null>(null);
 
+  // The modal is controlled from outside (which icon on the board's side
+  // menu opened it) rather than always starting on the list - reset to
+  // whatever step it was asked to open on each time it opens.
+  useEffect(() => {
+    if (isOpen) setStep(initialStep);
+  }, [isOpen, initialStep]);
+
   function handleClose() {
-    setStep("list");
     setFenError(null);
     onClose();
   }
@@ -248,6 +299,18 @@ export function GameModeModal({
                 Start Game
               </button>
             </div>
+          ) : step === "ai-coach" ? (
+            <ComingSoonStep
+              title={AI_COACH_INFO.title}
+              description={AI_COACH_INFO.description}
+              onBack={() => openStep("list")}
+            />
+          ) : step === "puzzles" ? (
+            <ComingSoonStep
+              title={PUZZLES_INFO.title}
+              description={PUZZLES_INFO.description}
+              onBack={() => openStep("list")}
+            />
           ) : (
             <div className="mt-6 flex flex-col gap-4">
               <button

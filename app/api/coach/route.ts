@@ -1,0 +1,248 @@
+import { google } from "@ai-sdk/google";
+import { stepCountIs, streamText, tool } from "ai";
+import { z } from "zod";
+
+type MoveClassification = "best" | "good" | "inaccuracy" | "mistake" | "blunder";
+type GamePhase = "opening" | "middlegame" | "endgame";
+type Difficulty = "critical" | "normal" | "flexible";
+
+type CoachRequest = {
+  fen: string;
+  san: string;
+  moveNumber: number;
+  side: "w" | "b";
+  cp: number | null;
+  mate: number | null;
+  bestMove: string | null;
+  // Which color the human is playing when this is a game against
+  // Stockfish - null in analysis/freeform mode, where both sides are the
+  // person exploring the board and "you" is unambiguous either way.
+  humanSide: "w" | "b" | null;
+  // Everything below is computed deterministically on the client
+  // (move-analysis.ts, from Stockfish eval swings and chess.js facts,
+  // never from the LLM) - the model's only job is to phrase these, never
+  // to decide them. `null` wherever there wasn't enough data yet.
+  classification: MoveClassification | null;
+  phase: GamePhase | null;
+  difficulty: Difficulty | null;
+  isCapture: boolean;
+  isCheck: boolean;
+  isCastle: boolean;
+  matchesBest: boolean | null;
+};
+
+// A square/arrow color name, not a hex value - the client maps each to
+// the same design-system token its own sentiment coloring already uses
+// (accent/good/bad), so a coach-drawn "bad" square reads the same as the
+// panel's own "bad" left edge.
+const AnnotationColor = z.enum(["focus", "good", "bad"]);
+
+const annotateBoardInput = z.object({
+  squares: z
+    .array(
+      z.object({
+        square: z.string().describe("e.g. 'e5'"),
+        color: AnnotationColor,
+      }),
+    )
+    .max(4)
+    .optional(),
+  arrows: z
+    .array(
+      z.object({
+        from: z.string(),
+        to: z.string(),
+        color: AnnotationColor.optional(),
+      }),
+    )
+    .max(3)
+    .optional(),
+});
+type AnnotateBoardInput = z.infer<typeof annotateBoardInput>;
+
+const annotateBoard = tool({
+  description:
+    "Highlight squares and/or draw arrows on the board to point out a plan, outpost, or key square/piece relationship your comment mentions. Hanging pieces are already highlighted automatically elsewhere - don't use this tool just to flag one. Use only when the comment names something specific enough to point at; skip it otherwise.",
+  inputSchema: annotateBoardInput,
+  // A trivial ack, not real work - its only purpose is to give the model
+  // a tool *result* to react to. This model calls tools and writes prose
+  // as mutually exclusive within a single step (observed directly:
+  // forcing a bare tool call produces zero accompanying text), so
+  // without a result to continue from, calling this tool would silently
+  // swallow the entire comment. `stopWhen: stepCountIs(2)` below lets the
+  // model take a second step after seeing this result, where it's free
+  // to write the actual commentary.
+  execute: async () => ({ shown: true }),
+});
+
+const SYSTEM_PROMPT = `You are a friendly, concise chess coach watching a
+live game. After each move, give a single short coaching comment - at
+most two short sentences, no more than about 30 words total.
+
+Every move comes with a pre-computed classification - best, good,
+inaccuracy, mistake, or blunder - already decided by a chess engine
+comparing the position before and after the move. This is ground truth.
+Do not re-judge the move yourself, do not soften or contradict it, and
+never use language from a different tier than the one given:
+- "best": the engine's own top choice (or equally good) - affirm it
+  confidently, no hedging.
+- "good": solid and sensible - mildly positive, matter-of-fact.
+- "inaccuracy": a small slip - point out what would have been slightly
+  better without being harsh about it.
+- "mistake": a real error that gives up a meaningful advantage - say so
+  plainly and name what it costs.
+- "blunder": a serious error - state clearly what was lost and why;
+  don't soften it or call it "aggressive" or "interesting" instead.
+If classification is missing, comment qualitatively on the move instead
+of inventing a numeric or tier judgment.
+
+The move's game phase changes what's worth talking about:
+- "opening": focus on development, center control, king safety, and
+  tempo - not deep tactics.
+- "middlegame": focus on piece activity, weak squares/outposts, and
+  tactical motifs (pins, forks, hanging pieces, attacks).
+- "endgame": focus on king activity, pawn structure, and technique.
+
+If difficulty is "critical", this was the only move keeping the
+position together - it's fine to say so ("the only move that worked
+here"). If "flexible", several moves were about equally fine - you may
+mention that, but don't force it. Say nothing about difficulty if it's
+"normal" or missing.
+
+Each prompt tells you who made the move just played - either "you" or
+the opponent by name. When it's the opponent's move, don't praise or
+blame "you" for it - describe what the opponent's move threatens or
+allows, and what it means for the human's own next move. Only address
+"you" directly for a move the human actually made. Don't repeat the move
+notation back verbatim as if reading it aloud - describe what it does.
+
+If your comment calls out a specific square, piece, or attacking
+relationship, also call annotateBoard to point at it - "focus" for a
+square worth noticing, "good" for something favorable, "bad" for a
+weakness or danger. Keep it to 1-3 squares/arrows and only when it adds
+real clarity; most routine moves don't need it at all. Always still
+write your actual coaching comment as text too, whether or not you also
+call annotateBoard - the annotation points, it doesn't replace the
+explanation.`;
+
+export async function POST(request: Request) {
+  let body: Partial<CoachRequest>;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+
+  const {
+    fen,
+    san,
+    moveNumber,
+    side,
+    cp,
+    mate,
+    bestMove,
+    humanSide,
+    classification,
+    phase,
+    difficulty,
+    isCapture,
+    isCheck,
+    isCastle,
+    matchesBest,
+  } = body;
+  if (!fen || !san) {
+    return new Response("Missing 'fen' or 'san'", { status: 400 });
+  }
+
+  // Checked explicitly rather than left for the provider to discover: a
+  // missing key otherwise only surfaces once the stream is already being
+  // consumed (after this handler has already returned a 200 with an open
+  // body), which the client can't distinguish from a real empty response.
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    return new Response("GOOGLE_GENERATIVE_AI_API_KEY is not configured", {
+      status: 500,
+    });
+  }
+
+  const evalLine =
+    cp == null && mate == null
+      ? "Engine evaluation: not available."
+      : `Engine evaluation after this move (positive favors White, negative favors Black): ${
+          mate != null
+            ? `mate in ${Math.abs(mate)} for ${mate > 0 ? "White" : "Black"}`
+            : `${(cp! / 100).toFixed(2)} pawns`
+        }${bestMove ? `. Engine's suggested next move: ${bestMove}.` : ""}`;
+
+  const isOpponentMove = humanSide != null && side != null && humanSide !== side;
+  const mover = isOpponentMove ? "The opponent (Stockfish)" : "You";
+
+  const moveType =
+    [isCastle && "castling", isCapture && "a capture", isCheck && "check"]
+      .filter(Boolean)
+      .join(", ") || "a quiet move";
+
+  const factsLine = `Classification: ${classification ?? "unknown"}
+Game phase: ${phase ?? "unknown"}
+Difficulty of finding a good move here: ${difficulty ?? "unknown"}
+Move type: ${moveType}
+Matches the engine's own top choice: ${matchesBest == null ? "unknown" : matchesBest ? "yes" : "no"}`;
+
+  const prompt = `${mover} just played move ${moveNumber ?? "?"}${side === "b" ? "..." : "."} ${san}.
+Resulting position (FEN): ${fen}
+${evalLine}
+${factsLine}
+
+Give your coaching comment on this move.`;
+
+  const result = streamText({
+    model: google("gemini-3.5-flash-lite"),
+    system: SYSTEM_PROMPT,
+    prompt,
+    tools: { annotateBoard },
+    // Allows (never forces) a second step: one where the model calls
+    // annotateBoard, followed by one where it writes the actual comment
+    // having "seen" that result - see the tool's own comment for why.
+    // Responses with no tool call stop after the first step regardless,
+    // same as before.
+    stopWhen: stepCountIs(2),
+    // Errors during generation - logged here since, once the NDJSON
+    // stream below has started, there's no HTTP status left to report
+    // them with (see the client's own "empty stream = error" handling).
+    onError: ({ error }) => {
+      console.error("[api/coach] stream error:", error);
+    },
+  });
+
+  // A small custom newline-delimited-JSON protocol - not the full
+  // ai/react UI-message stream, since this isn't a multi-turn chat: just
+  // enough structure to carry the streamed prose plus an optional board
+  // annotation in one response, decodable with a plain fetch + reader on
+  // the client (see useMoveCommentary.ts).
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const part of result.fullStream) {
+          if (part.type === "text-delta") {
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ type: "text", text: part.text }) + "\n"),
+            );
+          } else if (part.type === "tool-call" && part.toolName === "annotateBoard") {
+            const args = part.input as AnnotateBoardInput;
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ type: "annotate", ...args }) + "\n"),
+            );
+          }
+        }
+      } catch (error) {
+        console.error("[api/coach] stream iteration error:", error);
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: { "Content-Type": "application/x-ndjson; charset=utf-8" },
+  });
+}

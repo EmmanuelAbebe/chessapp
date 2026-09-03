@@ -1,6 +1,11 @@
 "use client";
 
-import { IoVolumeHigh, IoVolumeLow, IoVolumeMedium, IoVolumeMute } from "react-icons/io5";
+import {
+  IoVolumeHigh,
+  IoVolumeLow,
+  IoVolumeMedium,
+  IoVolumeMute,
+} from "react-icons/io5";
 
 /** Volume as a percentage, 0-100. */
 export type VolumeLevel = number;
@@ -35,7 +40,7 @@ export default function SettingsVolume({ setting }: SettingsVolumeProps) {
 
   return (
     <div className="flex items-center gap-3">
-      <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-text-faint" />
+      {/* <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-text-faint" /> */}
 
       <input
         type="range"
@@ -49,7 +54,7 @@ export default function SettingsVolume({ setting }: SettingsVolumeProps) {
         className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-surface-raised accent-accent"
       />
 
-      <span className="w-12 shrink-0 text-xs text-text-faint">
+      <span className="shrink-0 text-xs text-text-faint">
         {levelLabel(value)}
       </span>
     </div>

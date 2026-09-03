@@ -120,6 +120,25 @@ export function useMoveTree() {
     }));
   }
 
+  // "Undo" takes back a full move - both plies of a turn, yours and (if
+  // already played) the reply - not just the single ply its own icon
+  // might suggest; a player asking to undo their move usually means
+  // "let me try something else here," which a single ply back doesn't
+  // give them while the opponent's reply is still sitting there. Falls
+  // back to one ply at the very start of a line, where a second ply back
+  // doesn't exist yet.
+  function undoMove() {
+    const parentId = currentNode.parentId;
+    if (!parentId) return;
+
+    const grandparentId = tree.nodes[parentId]?.parentId ?? parentId;
+
+    setTree((prev) => ({
+      ...prev,
+      currentNodeId: grandparentId,
+    }));
+  }
+
   function goToNext() {
     const nextChildId = getFirstChildId(tree, tree.currentNodeId);
     if (!nextChildId) return;
@@ -207,6 +226,7 @@ export function useMoveTree() {
     goToNode,
     goToStart,
     goToPrevious,
+    undoMove,
     goToNext,
     goToEnd,
     goToPreviousVariation,

@@ -237,6 +237,7 @@ export function useBoardGame() {
     goToNode: moveTree.goToNode,
     goToStart: moveTree.goToStart,
     goToPrevious: moveTree.goToPrevious,
+    undoMove: moveTree.undoMove,
     goToNext: moveTree.goToNext,
     goToEnd: moveTree.goToEnd,
     goToPreviousVariation: moveTree.goToPreviousVariation,

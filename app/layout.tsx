@@ -1,7 +1,20 @@
 import type { Metadata } from "next";
+import { Source_Serif_4 } from "next/font/google";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SettingsProvider } from "@/features/settings/SettingsContext";
 import "./globals.css";
+
+// The AI Coach's commentary is set in this rather than the app's system
+// sans - chess annotation has long set analysis prose in a book serif
+// while notation/UI stays sans or mono, and it reads as a voice rather
+// than another status line. Self-hosted via next/font (no runtime request
+// to Google, no layout shift) - exposed as --font-source-serif and mapped
+// to the `font-serif` utility in globals.css's @theme block.
+const sourceSerif4 = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-source-serif",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "CoachMeChess",
@@ -14,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={sourceSerif4.variable}>
       <body className="antialiased">
         <SettingsProvider>
           <div className="flex min-h-screen flex-col font-sans">

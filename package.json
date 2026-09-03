@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.120",
+    "ai": "^6.0.275",
     "chess.js": "^1.4.0",
     "next": "^16.1.6",
     "react": "19.2.3",
@@ -16,7 +18,8 @@
     "react-chessboard": "^5.10.0",
     "react-dom": "19.2.3",
     "react-icons": "^5.5.0",
-    "stockfish": "^18.0.5"
+    "stockfish": "^18.0.5",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
