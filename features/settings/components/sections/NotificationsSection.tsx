@@ -4,6 +4,10 @@ import SettingsCard from "../SettingsCard";
 import SettingsItem from "../SettingsItem";
 import SettingsToggle from "../SettingsToggle";
 import { useSettings } from "../../SettingsContext";
+import { TbReportAnalytics } from "react-icons/tb";
+import { MdBubbleChart } from "react-icons/md";
+import { FiBell, FiVolume2 } from "react-icons/fi";
+import { IoMdSwap } from "react-icons/io";
 
 export default function NotificationsSection() {
   const { settings, updateNotifications } = useSettings();
@@ -12,6 +16,7 @@ export default function NotificationsSection() {
     <SettingsCard title="Notifications">
       <SettingsItem
         item={{
+          icon: <FiBell />,
           title: "Notifications",
           content: (
             <SettingsToggle
@@ -27,6 +32,7 @@ export default function NotificationsSection() {
 
       <SettingsItem
         item={{
+          icon: <IoMdSwap />,
           title: "Your Turn",
           content: (
             <SettingsToggle
@@ -42,6 +48,7 @@ export default function NotificationsSection() {
 
       <SettingsItem
         item={{
+          icon: <TbReportAnalytics />,
           title: "Game Result",
           content: (
             <SettingsToggle
@@ -57,6 +64,7 @@ export default function NotificationsSection() {
 
       <SettingsItem
         item={{
+          icon: <MdBubbleChart />,
           title: "Coaching Insights",
           content: (
             <SettingsToggle
@@ -73,6 +81,7 @@ export default function NotificationsSection() {
 
       <SettingsItem
         item={{
+          icon: <FiVolume2 />,
           title: "Notification Sound",
           content: (
             <SettingsToggle

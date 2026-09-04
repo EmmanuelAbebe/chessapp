@@ -7,6 +7,17 @@ import SettingsToggle from "../SettingsToggle";
 import { pieceSets, boardThemes, moveMethods } from "../../data";
 import { useSettings } from "../../SettingsContext";
 import type { Orientation } from "@/features/board/types";
+import { HiSwitchVertical } from "react-icons/hi";
+import { BiTargetLock } from "react-icons/bi";
+import {
+  FaChessQueen,
+  FaChessBoard,
+  FaChessKing,
+  FaChessKnight,
+  FaHighlighter,
+} from "react-icons/fa6";
+import { IoEllipsisHorizontal } from "react-icons/io5";
+import { LuMousePointerClick } from "react-icons/lu";
 
 export default function BoardSection() {
   const { settings, updateSettings } = useSettings();
@@ -15,6 +26,7 @@ export default function BoardSection() {
     <SettingsCard title="Board">
       <SettingsItem
         item={{
+          icon: <HiSwitchVertical />,
           title: "Board Orientation",
           content: (
             <SettingsSelect
@@ -34,6 +46,8 @@ export default function BoardSection() {
 
       <SettingsItem
         item={{
+          icon: <FaChessQueen />,
+
           title: "Pieces",
           content: (
             <SettingsSelect
@@ -50,6 +64,8 @@ export default function BoardSection() {
 
       <SettingsItem
         item={{
+          icon: <FaChessBoard />,
+
           title: "Board",
           content: (
             <SettingsSelect
@@ -66,6 +82,8 @@ export default function BoardSection() {
 
       <SettingsItem
         item={{
+          icon: <LuMousePointerClick />,
+
           title: "Move Method",
           content: (
             <SettingsSelect
@@ -82,13 +100,15 @@ export default function BoardSection() {
 
       <SettingsItem
         item={{
+          icon: <BiTargetLock />,
           title: "Show Legal Moves",
           content: (
             <SettingsToggle
               setting={{
                 label: "Show Legal Moves",
                 isSelected: settings.showLegalMoves,
-                onChange: (showLegalMoves) => updateSettings({ showLegalMoves }),
+                onChange: (showLegalMoves) =>
+                  updateSettings({ showLegalMoves }),
               }}
             />
           ),
@@ -97,6 +117,7 @@ export default function BoardSection() {
 
       <SettingsItem
         item={{
+          icon: <FaHighlighter />,
           title: "Highlight Last Move",
           content: (
             <SettingsToggle
@@ -113,13 +134,15 @@ export default function BoardSection() {
 
       <SettingsItem
         item={{
+          icon: <FaChessKing />,
           title: "Highlight Check",
           content: (
             <SettingsToggle
               setting={{
                 label: "Highlight Check",
                 isSelected: settings.highlightCheck,
-                onChange: (highlightCheck) => updateSettings({ highlightCheck }),
+                onChange: (highlightCheck) =>
+                  updateSettings({ highlightCheck }),
               }}
             />
           ),
@@ -128,6 +151,8 @@ export default function BoardSection() {
 
       <SettingsItem
         item={{
+          icon: <FaChessKnight />,
+
           title: "Figurine Notation",
           content: (
             <SettingsToggle
@@ -144,6 +169,8 @@ export default function BoardSection() {
 
       <SettingsItem
         item={{
+          icon: <IoEllipsisHorizontal />,
+
           title: "Move List",
           content: (
             <SettingsToggle

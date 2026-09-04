@@ -4,6 +4,7 @@ import SettingsCard from "../SettingsCard";
 import SettingsItem from "../SettingsItem";
 import SettingsToggle from "../SettingsToggle";
 import { useSettings } from "../../SettingsContext";
+import { RiGuideFill } from "react-icons/ri";
 
 export default function EngineSection() {
   const { settings, updateSettings } = useSettings();
@@ -12,6 +13,7 @@ export default function EngineSection() {
     <SettingsCard title="Engine">
       <SettingsItem
         item={{
+          icon: <RiGuideFill />,
           title: "Move Suggestions",
           content: (
             <SettingsToggle

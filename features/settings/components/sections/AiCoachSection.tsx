@@ -9,6 +9,7 @@ import {
   useAiProviderConfig,
   type AiProvider,
 } from "../../useAiProviderConfig";
+import { FaRobot } from "react-icons/fa6";
 
 const PROVIDER_LABELS: Record<AiProvider, string> = {
   google: "Google (Gemini)",
@@ -18,7 +19,10 @@ const PROVIDER_LABELS: Record<AiProvider, string> = {
 };
 
 const LABEL_TO_PROVIDER = Object.fromEntries(
-  Object.entries(PROVIDER_LABELS).map(([provider, label]) => [label, provider as AiProvider]),
+  Object.entries(PROVIDER_LABELS).map(([provider, label]) => [
+    label,
+    provider as AiProvider,
+  ]),
 );
 
 const INPUT_CLASS =
@@ -35,13 +39,18 @@ export default function AiCoachSection() {
     // send a nonsense model id to the new one - reset to that provider's
     // own default; the field's still free text, so it's a starting point
     // to edit from, not a restriction.
-    setConfig({ ...config, provider, model: DEFAULT_MODEL_BY_PROVIDER[provider] });
+    setConfig({
+      ...config,
+      provider,
+      model: DEFAULT_MODEL_BY_PROVIDER[provider],
+    });
   }
 
   return (
     <SettingsCard title="AI Coach">
       <SettingsItem
         item={{
+          icon: <FaRobot />,
           title: "Provider",
           content: (
             <SettingsSelect
@@ -58,7 +67,10 @@ export default function AiCoachSection() {
 
       <div className="flex flex-col gap-1.5 py-3">
         <div className="flex items-center justify-between">
-          <label htmlFor="ai-api-key" className="text-sm font-semibold text-text">
+          <label
+            htmlFor="ai-api-key"
+            className="text-sm font-semibold text-text"
+          >
             API key
           </label>
           <button
@@ -79,8 +91,8 @@ export default function AiCoachSection() {
           className={INPUT_CLASS}
         />
         <p className="text-xs text-text-faint">
-          Stored only in your browser - sent only to the provider you pick above, never
-          anywhere else.
+          Stored only in your browser - sent only to the provider you pick
+          above, never anywhere else.
         </p>
       </div>
 
@@ -98,8 +110,8 @@ export default function AiCoachSection() {
           className={INPUT_CLASS}
         />
         <p className="text-xs text-text-faint">
-          Free text, not a fixed list - check your provider's own docs for current model
-          names.
+          Free text, not a fixed list - check your provider's own docs for
+          current model names.
         </p>
       </div>
     </SettingsCard>

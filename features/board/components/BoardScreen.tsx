@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import type { Arrow } from "react-chessboard";
 import { EvalBar } from "./EvalBar";
 import { EvalScoreLabel } from "./EvalScoreLabel";
 import { BoardView } from "./BoardView";
 import { BoardControls } from "./BoardControls";
-import { BoardPositionEditor } from "./BoardPositionEditor";
-import { BoardSettingsModal } from "./BoardSettingsModal";
-import { GameModeModal, type GameModeStep } from "./GameModeModal";
+import type { GameModeStep } from "./GameModeModal";
 import { MoveList } from "./MoveList";
 import { MoveNavigation } from "./MoveNavigation";
 import { AiChatPanel, type CommentarySentiment } from "./AiChatPanel";
@@ -28,6 +27,30 @@ import { useSettings } from "@/features/settings/SettingsContext";
 import type { OptionSquares } from "../types";
 
 const AI_ARROW_OPACITIES = [0.9, 0.65, 0.45, 0.3];
+
+// Code-split into their own chunks rather than bundled into the main
+// /board chunk - lets the browser fetch them in parallel with (instead
+// of as part of) the board's own critical code. GameModeModal/
+// BoardSettingsModal are still rendered unconditionally, same as before
+// (they always were - Modal.tsx plays a close animation by staying
+// mounted for a moment after `isOpen` flips false, which needs the
+// component to already be in the tree the *first* time it opens too;
+// gating that first render behind "has this ever been opened" briefly
+// looked like a further win, but it races the chunk load itself - close
+// it before the chunk finishes fetching and there's no listener mounted
+// yet to catch that, so it opens "stuck" once the chunk does arrive).
+// BoardPositionEditor has no such lifecycle (a plain ternary swap, not
+// Modal-wrapped) - safe to also defer *when* it renders, which it
+// already does via `isEditingPosition` below.
+const GameModeModal = dynamic(() =>
+  import("./GameModeModal").then((mod) => mod.GameModeModal),
+);
+const BoardSettingsModal = dynamic(() =>
+  import("./BoardSettingsModal").then((mod) => mod.BoardSettingsModal),
+);
+const BoardPositionEditor = dynamic(() =>
+  import("./BoardPositionEditor").then((mod) => mod.BoardPositionEditor),
+);
 
 // The same three tokens the panel's own sentiment border/badge use
 // (accent/good/bad from globals.css) - "focus" for a plain point-of-
@@ -115,6 +138,28 @@ export function BoardScreen() {
   // instead of pushing the toolbar below the fold.
   const editorBoardSizeValue = "min(56vw, calc((100dvh - 180px) / 1.3), 560px)";
 
+  // The Stockfish worker is a ~7MB WASM download - starting it the
+  // instant this component mounts means it competes with the board's own
+  // first paint for bandwidth/main-thread time. Deferring to the
+  // browser's idle time (with a short timeout fallback for engines that
+  // never go idle, and a plain setTimeout on browsers without
+  // requestIdleCallback, e.g. Safari) lets the board render first; the
+  // eval bar/AI coach still end up ready well before anyone's made a
+  // move either way.
+  const [engineEnabled, setEngineEnabled] = useState(false);
+  useEffect(() => {
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => setEngineEnabled(true), { timeout: 1000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(() => setEngineEnabled(true), 200);
+    return () => window.clearTimeout(id);
+  }, []);
+
   // The engine's own suggestions/eval reveal what it would play - each of
   // EvalBar's `visible`, EvalScoreLabel's `visible`, and aiArrows below
   // already independently hide themselves while Stockfish is the
@@ -123,7 +168,7 @@ export function BoardScreen() {
   // a hint about what to play next, just commentary on what already
   // happened), and gating the computation itself would starve it too.
   const evalFen = analysisFen || chessPosition;
-  const evalScore = useEvalScore(evalFen, 14, true);
+  const evalScore = useEvalScore(evalFen, 14, engineEnabled);
 
   const lastMove = currentLine[currentLine.length - 1];
   // useEvalScore's displayMate is relative to whoever moves next (positive

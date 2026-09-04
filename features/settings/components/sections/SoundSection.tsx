@@ -4,6 +4,13 @@ import SettingsCard from "../SettingsCard";
 import SettingsItem from "../SettingsItem";
 import SettingsVolume from "../SettingsVolume";
 import { useSettings } from "../../SettingsContext";
+import { FaVolumeUp } from "react-icons/fa";
+import {
+  FaChessPawn,
+  FaChessRook,
+  FaChessKing,
+  FaBrain,
+} from "react-icons/fa6";
 
 export default function SoundSection() {
   const { settings, updateSound } = useSettings();
@@ -12,6 +19,7 @@ export default function SoundSection() {
     <SettingsCard title="Sound">
       <SettingsItem
         item={{
+          icon: <FaVolumeUp />,
           title: "Master Volume",
           content: (
             <SettingsVolume
@@ -27,6 +35,7 @@ export default function SoundSection() {
 
       <SettingsItem
         item={{
+          icon: <FaChessPawn />,
           title: "Piece Movement",
           content: (
             <SettingsVolume
@@ -42,6 +51,7 @@ export default function SoundSection() {
 
       <SettingsItem
         item={{
+          icon: <FaChessRook />,
           title: "Capture",
           content: (
             <SettingsVolume
@@ -57,6 +67,7 @@ export default function SoundSection() {
 
       <SettingsItem
         item={{
+          icon: <FaChessKing />,
           title: "Check",
           content: (
             <SettingsVolume
@@ -72,6 +83,7 @@ export default function SoundSection() {
 
       <SettingsItem
         item={{
+          icon: <FaBrain />,
           title: "AI Voice",
           content: (
             <SettingsVolume
