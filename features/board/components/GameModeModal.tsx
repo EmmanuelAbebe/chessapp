@@ -73,7 +73,7 @@ function ComingSoonStep({
   );
 }
 
-export type GameModeStep = "list" | "stockfish" | "ai-coach" | "puzzles";
+export type GameModeStep = "list" | "stockfish" | "import" | "ai-coach" | "puzzles";
 
 type GameModeModalProps = {
   isOpen: boolean;
@@ -81,6 +81,11 @@ type GameModeModalProps = {
   initialStep: GameModeStep;
   onStartVsStockfish: (skillLevel: number) => void;
   onOpenBoardEditor: () => void;
+  // Returns an error message to show inline, or null on success (in which
+  // case the modal closes) - importing can fail on malformed PGN, which
+  // needs to stay on-screen with the pasted text still there to fix,
+  // unlike every other action here that always succeeds.
+  onImportGame: (pgn: string) => string | null;
   gameStatus?: GameStatus;
 };
 
@@ -90,12 +95,15 @@ export function GameModeModal({
   initialStep,
   onStartVsStockfish,
   onOpenBoardEditor,
+  onImportGame,
   gameStatus,
 }: GameModeModalProps) {
   const statusMessage = gameStatus ? formatGameStatus(gameStatus) : null;
   const WinnerKing = gameStatus?.winner ? WINNER_KING[gameStatus.winner] : null;
   const [step, setStep] = useState<GameModeStep>(initialStep);
   const [difficulty, setDifficulty] = useState("Medium");
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
 
   // The modal is controlled from outside (which icon on the board's side
   // menu opened it) rather than always starting on the list - reset to
@@ -105,6 +113,8 @@ export function GameModeModal({
   }, [isOpen, initialStep]);
 
   function handleClose() {
+    setImportText("");
+    setImportError(null);
     onClose();
   }
 
@@ -120,6 +130,15 @@ export function GameModeModal({
 
   function handleOpenBoardEditor() {
     onOpenBoardEditor();
+    handleClose();
+  }
+
+  function handleImportGame() {
+    const error = onImportGame(importText);
+    if (error) {
+      setImportError(error);
+      return;
+    }
     handleClose();
   }
 
@@ -176,6 +195,18 @@ export function GameModeModal({
                 </span>
               </button>
 
+              <button
+                type="button"
+                onClick={() => openStep("import")}
+                className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left transition hover:border-accent hover:bg-white/5"
+              >
+                <span className="font-semibold text-text">Import game</span>
+                <span className="text-xs text-text-faint">
+                  Paste a PGN - a lichess.org export works as-is, clock
+                  times and all - to step through the whole game.
+                </span>
+              </button>
+
               {COMING_SOON.map((item) => (
                 <div
                   key={item.title}
@@ -224,6 +255,48 @@ export function GameModeModal({
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text transition hover:brightness-110"
               >
                 Start Game
+              </button>
+            </div>
+          ) : step === "import" ? (
+            <div className="mt-6 flex flex-col gap-4">
+              <button
+                type="button"
+                onClick={() => openStep("list")}
+                className="self-start text-xs font-medium text-text-dim hover:text-text"
+              >
+                ← Back
+              </button>
+
+              <div>
+                <label
+                  htmlFor="import-pgn"
+                  className="mb-2 block text-sm font-medium text-text"
+                >
+                  PGN
+                </label>
+                <textarea
+                  id="import-pgn"
+                  value={importText}
+                  onChange={(e) => {
+                    setImportText(e.target.value);
+                    setImportError(null);
+                  }}
+                  placeholder={'[Event "..."]\n[White "..."]\n[Black "..."]\n\n1. e4 e5 2. Nf3 ...'}
+                  rows={8}
+                  className="w-full resize-none rounded-lg border border-border bg-surface-raised px-3 py-2 font-mono text-xs text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+                />
+                {importError && (
+                  <p className="mt-1.5 text-xs text-red-400">{importError}</p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleImportGame}
+                disabled={!importText.trim()}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-50"
+              >
+                Import
               </button>
             </div>
           ) : step === "ai-coach" ? (

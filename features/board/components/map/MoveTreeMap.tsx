@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FaFileImport } from "react-icons/fa6";
 import { GrConfigure } from "react-icons/gr";
 import { useBoardGameContext } from "../../BoardGameContext";
 import { useMoveTreeCanvas } from "../../hooks/map/useMoveTreeCanvas";
 import type { MoveNode } from "../../types";
+import { MapImportGamesModal } from "./MapImportGamesModal";
 import { MapPreviewCard } from "./MapPreviewCard";
 import { MapRingListPanel } from "./MapRingListPanel";
 import { MapSettingsModal } from "./MapSettingsModal";
@@ -22,6 +24,7 @@ export function MoveTreeMap() {
     skillLevel,
     changeOrientation,
     resetBoard,
+    loadTree,
     isEngineThinking,
     isPlayingStockfish: isEngineOn,
   } = useBoardGameContext();
@@ -86,6 +89,7 @@ export function MoveTreeMap() {
   // save space, individually toggleable from the settings modal, and shown
   // as a floating panel (top-left) instead of permanent page rows when on.
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [showStatsPanel, setShowStatsPanel] = useState(false);
   const [showCompactionPanel, setShowCompactionPanel] = useState(false);
   const [showRingsTogglePanel, setShowRingsTogglePanel] = useState(false);
@@ -213,6 +217,20 @@ export function MoveTreeMap() {
           <GrConfigure />
         </button>
 
+        {/* Bottom-right, just left of the settings trigger - bottom-left
+            is already the map's own hint text, so this pairs with the
+            other floating icon instead. Bulk game import lives here,
+            not the board page's own icon menu, since it merges into the
+            shared tree rather than starting or reviewing any one game. */}
+        <button
+          type="button"
+          onClick={() => setImportOpen(true)}
+          aria-label="Import games"
+          className="absolute right-16 bottom-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface text-text-dim shadow-lg transition hover:text-text"
+        >
+          <FaFileImport />
+        </button>
+
         {hoveredRingPly !== null &&
           selectedRingPly === null &&
           ringTooltipPos &&
@@ -238,6 +256,13 @@ export function MoveTreeMap() {
         setHoveredId={setHoveredId}
         hoverStartRef={hoverStartRef}
         pinnedId={pinnedId}
+      />
+
+      <MapImportGamesModal
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        tree={tree}
+        onMerge={loadTree}
       />
 
       <MapSettingsModal

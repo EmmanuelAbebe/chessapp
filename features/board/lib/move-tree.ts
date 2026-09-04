@@ -74,6 +74,7 @@ export function appendChildNode(
     uci: string;
     fen: string;
     side: "w" | "b";
+    comment?: string;
   },
 ): MoveTreeState {
   const parent = tree.nodes[parentId];
@@ -89,6 +90,7 @@ export function appendChildNode(
     ply: nextPly,
     moveNumber: Math.floor((nextPly + 1) / 2),
     side: data.side,
+    comment: data.comment,
   };
 
   return {

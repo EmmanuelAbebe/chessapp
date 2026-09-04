@@ -164,6 +164,14 @@ export function useBoardGame() {
     clearSelection();
   }
 
+  // A whole imported game already has its full tree built up front
+  // (pgn-import.ts) instead of being played out move by move - still
+  // needs the same selection reset a fresh board gets.
+  function loadTree(nextTree: Parameters<typeof moveTree.loadTree>[0]) {
+    moveTree.loadTree(nextTree);
+    clearSelection();
+  }
+
   function playUciMove(uci: string) {
     if (currentChess.isGameOver()) return;
 
@@ -209,6 +217,7 @@ export function useBoardGame() {
     gameStatus,
 
     tree: moveTree.tree,
+    currentNode: moveTree.currentNode,
     currentLine: moveTree.currentLine,
     currentChildren: moveTree.currentChildren,
     currentNodeId: moveTree.currentNodeId,
@@ -231,6 +240,7 @@ export function useBoardGame() {
     changeOrientation,
     onSquareClick,
     resetBoard,
+    loadTree,
     playUciMove,
     playMoveAt: moveTree.playMoveAt,
 

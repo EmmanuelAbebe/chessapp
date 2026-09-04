@@ -19,6 +19,7 @@ import { usePositionCommentary } from "../hooks/usePositionCommentary";
 import { Chess } from "chess.js";
 import { detectHangingPieces } from "../lib/board-tactics";
 import { formatEvalFromWhiteScore, selectCloseCandidates } from "../lib/eval-format";
+import { importPgn, type ImportedGameInfo } from "../lib/pgn-import";
 import {
   assessDifficulty,
   classifyMove,
@@ -80,6 +81,7 @@ export function BoardScreen() {
     orientation,
     analysisFen,
     gameStatus,
+    currentNode,
     currentLine,
     currentNodeId,
     canGoPrevious,
@@ -88,6 +90,7 @@ export function BoardScreen() {
     changeOrientation,
     onSquareClick,
     resetBoard,
+    loadTree,
     goToNode,
     goToStart,
     goToPrevious,
@@ -107,6 +110,10 @@ export function BoardScreen() {
   const [isGameModeOpen, setIsGameModeOpen] = useState(false);
   const [gameModeStep, setGameModeStep] = useState<GameModeStep>("list");
   const [isEditingPosition, setIsEditingPosition] = useState(false);
+  // Set once a PGN import succeeds, shown as a small banner above the
+  // board until some other game-start action (a fresh Stockfish game, a
+  // new setup position, another import) replaces it.
+  const [importedGameInfo, setImportedGameInfo] = useState<ImportedGameInfo | null>(null);
 
   function openGameMode(step: GameModeStep) {
     setGameModeStep(step);
@@ -131,8 +138,10 @@ export function BoardScreen() {
   // resizing/shifting the board) - so the page never grows taller than the
   // viewport and needs to scroll. Nothing is spent on the header: it's
   // `fixed` now (see SiteHeader), not `sticky`, so it never reserves a row
-  // for `main` to sit below in the first place.
-  const boardSizeValue = "min(90vw, calc(100dvh - 204px), 1100px)";
+  // for `main` to sit below in the first place. The imported-game banner
+  // is the one piece of chrome that isn't always there, so its ~40px
+  // (row + gap) only comes off the budget while it's actually shown.
+  const boardSizeValue = `min(90vw, calc(100dvh - ${importedGameInfo ? 244 : 204}px), 1100px)`;
 
   // Setting up a position swaps the chat panel out for two extra spare-piece
   // rows plus a toolbar row below the board - smaller and narrower than the
@@ -172,7 +181,13 @@ export function BoardScreen() {
   const evalFen = analysisFen || chessPosition;
   const evalScore = useEvalScore(evalFen, 14, engineEnabled);
 
-  const lastMove = currentLine[currentLine.length - 1];
+  // The move that led to the position actually on screen - the current
+  // node itself, never the end of whatever line it's part of. currentLine
+  // walks forward to the branch's leaf (so the move list can still show
+  // moves ahead of the cursor), which made this wrongly point at the
+  // final move of an imported game (or any line with moves played beyond
+  // the current one) instead of wherever navigation actually left off.
+  const lastMove = currentNode.parentId ? currentNode : undefined;
   // useEvalScore's displayMate is relative to whoever moves next (positive
   // = that side delivers mate), not White - flip it to the same
   // White-relative convention displayScore already uses, so the coach
@@ -375,6 +390,7 @@ export function BoardScreen() {
   }
 
   function handleStartVsStockfish(skillLevel: number) {
+    setImportedGameInfo(null);
     resetBoard();
     startVsStockfish("white", skillLevel);
     changeOrientation("white");
@@ -382,6 +398,7 @@ export function BoardScreen() {
   }
 
   function handleEditorAnalyze(fen: string) {
+    setImportedGameInfo(null);
     resetBoard(fen);
     startAnalysis();
     setIsEditingPosition(false);
@@ -389,12 +406,29 @@ export function BoardScreen() {
   }
 
   function handleEditorPlayVsStockfish(fen: string) {
+    setImportedGameInfo(null);
     const side: "white" | "black" = new Chess(fen).turn() === "b" ? "black" : "white";
     resetBoard(fen);
     startVsStockfish(side, 10);
     changeOrientation(side);
     setIsEditingPosition(false);
     positionCommentary.describePosition(fen, side === "white" ? "w" : "b");
+  }
+
+  // Returns an error message on malformed PGN (kept on-screen in the
+  // modal so the pasted text can be fixed), or null on success.
+  function handleImportGame(pgn: string): string | null {
+    let result: ReturnType<typeof importPgn>;
+    try {
+      result = importPgn(pgn);
+    } catch {
+      return "That doesn't look like a valid PGN.";
+    }
+    loadTree(result.tree);
+    startAnalysis();
+    changeOrientation("white");
+    setImportedGameInfo(result.info);
+    return null;
   }
 
   return (
@@ -410,6 +444,22 @@ export function BoardScreen() {
             } as React.CSSProperties
           }
         >
+          {!isEditingPosition && importedGameInfo && (
+            <div className="flex w-full items-center justify-between gap-2 rounded border border-border-soft bg-surface px-3 py-1.5 text-xs text-text-dim">
+              <span className="truncate">
+                <span className="font-medium text-text">{importedGameInfo.white}</span>
+                {importedGameInfo.whiteElo && ` (${importedGameInfo.whiteElo})`}
+                {" vs "}
+                <span className="font-medium text-text">{importedGameInfo.black}</span>
+                {importedGameInfo.blackElo && ` (${importedGameInfo.blackElo})`}
+              </span>
+              <span className="shrink-0 font-mono">
+                {importedGameInfo.result}
+                {importedGameInfo.timeControl && ` · ${importedGameInfo.timeControl}`}
+              </span>
+            </div>
+          )}
+
           {!isEditingPosition && (
             <AiChatPanel
               moveNumber={lastMove?.moveNumber ?? 0}
@@ -436,6 +486,7 @@ export function BoardScreen() {
                   openBoardSettings={openBoardSettings}
                   openStockfishSetup={() => openGameMode("stockfish")}
                   openPositionSetup={() => setIsEditingPosition(true)}
+                  openImportGame={() => openGameMode("import")}
                   openAiCoach={() => openGameMode("ai-coach")}
                   openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
@@ -480,6 +531,7 @@ export function BoardScreen() {
                   openBoardSettings={openBoardSettings}
                   openStockfishSetup={() => openGameMode("stockfish")}
                   openPositionSetup={() => setIsEditingPosition(true)}
+                  openImportGame={() => openGameMode("import")}
                   openAiCoach={() => openGameMode("ai-coach")}
                   openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
@@ -533,6 +585,7 @@ export function BoardScreen() {
               openBoardSettings={openBoardSettings}
               openStockfishSetup={() => openGameMode("stockfish")}
               openPositionSetup={() => setIsEditingPosition(true)}
+              openImportGame={() => openGameMode("import")}
               openAiCoach={() => openGameMode("ai-coach")}
               openPuzzles={() => openGameMode("puzzles")}
               onAnalysis={startAnalysis}
@@ -554,6 +607,7 @@ export function BoardScreen() {
         initialStep={gameModeStep}
         onStartVsStockfish={handleStartVsStockfish}
         onOpenBoardEditor={() => setIsEditingPosition(true)}
+        onImportGame={handleImportGame}
         gameStatus={gameStatus}
       />
     </>

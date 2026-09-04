@@ -95,6 +95,14 @@ export function useMoveTree() {
     setTree(createMoveTree(startFen));
   }
 
+  // Swaps in a whole prebuilt tree wholesale - the imported-game path
+  // (pgn-import.ts) builds its own tree by replaying every move up
+  // front, since a game import already has its full move list at once,
+  // unlike playing it out one move at a time.
+  function loadTree(nextTree: MoveTreeState) {
+    setTree(nextTree);
+  }
+
   function goToNode(nodeId: string) {
     if (!tree.nodes[nodeId]) return;
     setTree((prev) => ({
@@ -221,6 +229,7 @@ export function useMoveTree() {
       currentNode.parentId !== null && variationIndex < siblingIds.length - 1,
 
     resetTree,
+    loadTree,
     playMove,
     playMoveAt,
     goToNode,

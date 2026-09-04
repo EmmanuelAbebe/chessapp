@@ -143,6 +143,7 @@ export function MoveList({
               <button
                 type="button"
                 ref={currentNodeId === pair.white?.id ? currentMoveRef : undefined}
+                title={pair.white?.comment ? `Clock: ${pair.white.comment}` : undefined}
                 className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-surface-raised ${
                   currentNodeId === pair.white?.id
                     ? "font-medium text-accent"
@@ -158,6 +159,7 @@ export function MoveList({
               <button
                 type="button"
                 ref={currentNodeId === pair.black?.id ? currentMoveRef : undefined}
+                title={pair.black?.comment ? `Clock: ${pair.black.comment}` : undefined}
                 className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-surface-raised ${
                   currentNodeId === pair.black?.id
                     ? "font-medium text-accent"

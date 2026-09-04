@@ -6,6 +6,7 @@ import {
   FaBookOpen,
   FaChalkboardUser,
   FaChessBoard,
+  FaFileImport,
   FaFish,
   FaRobot,
 } from "react-icons/fa6";
@@ -18,6 +19,7 @@ type BoardControlsProps = {
   openBoardSettings: () => void;
   openStockfishSetup: () => void;
   openPositionSetup: () => void;
+  openImportGame: () => void;
   openAiCoach: () => void;
   openPuzzles: () => void;
   onAnalysis: () => void;
@@ -75,6 +77,7 @@ export function BoardControls({
   openBoardSettings,
   openStockfishSetup,
   openPositionSetup,
+  openImportGame,
   openAiCoach,
   openPuzzles,
   onAnalysis,
@@ -101,6 +104,12 @@ export function BoardControls({
         icon={FaChessBoard}
         label="Set up position"
         onClick={openPositionSetup}
+        layout={layout}
+      />
+      <IconButton
+        icon={FaFileImport}
+        label="Import game"
+        onClick={openImportGame}
         layout={layout}
       />
       <IconButton
