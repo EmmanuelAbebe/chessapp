@@ -1,7 +1,7 @@
 import type { CoordinatesPlacement, Orientation } from "../board/types";
 import type { VolumeLevel } from "@/features/settings/components/SettingsVolume";
 
-export type ThemeShade = "midnight" | "charcoal" | "slate";
+export type ThemeShade = "midnight" | "charcoal" | "slate" | "paper";
 
 export type SoundSettings = {
   master: VolumeLevel;

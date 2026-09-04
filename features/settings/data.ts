@@ -18,4 +18,5 @@ export const themeShades: { value: ThemeShade; label: string }[] = [
   { value: "midnight", label: "Midnight" },
   { value: "charcoal", label: "Charcoal" },
   { value: "slate", label: "Slate" },
+  { value: "paper", label: "Paper" },
 ];

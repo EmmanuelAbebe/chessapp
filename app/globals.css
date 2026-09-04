@@ -46,6 +46,27 @@
   --border-soft: #262b35;
 }
 
+:root[data-theme-shade="paper"] {
+  --background: #f6f4f0;
+  --foreground: #232220;
+  --surface: #ffffff;
+  --surface-raised: #eeece5;
+  --border: #ddd8ce;
+  --border-soft: #e8e4dc;
+
+  --text: #232220;
+  --text-dim: #6f6a62;
+  --text-faint: #9a958a;
+
+  --accent: #2f6fe0;
+  --accent-soft: rgba(47, 111, 224, 0.1);
+
+  --bad: #c43d2c;
+  --bad-soft: rgba(196, 61, 44, 0.1);
+  --good: #2e8f5b;
+  --good-soft: rgba(46, 143, 91, 0.1);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
