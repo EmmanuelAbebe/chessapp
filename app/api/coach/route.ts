@@ -14,6 +14,10 @@ type GamePhase = "opening" | "middlegame" | "endgame";
 type Difficulty = "critical" | "normal" | "flexible";
 
 type CoachRequest = {
+  // "move" (default) - comment on the move just played, as before.
+  // "position" - describe a freshly set-up position instead: no move has
+  // been played yet, so none of the per-move fields below apply.
+  mode?: "move" | "position";
   fen: string;
   san: string;
   moveNumber: number;
@@ -169,6 +173,25 @@ write your actual coaching comment as text too, whether or not you also
 call annotateBoard - the annotation points, it doesn't replace the
 explanation.`;
 
+const SYSTEM_PROMPT_POSITION = `You are a friendly, concise chess coach. A
+position has just been set up on the board (no move has been played in
+it yet). In at most three short sentences (about 45 words total),
+describe the position: the material balance if it's uneven, the key
+features worth noticing (king safety, weak squares, passed pawns, piece
+activity, an available tactic), and what's actually critical to work out
+here. Sound like you're orienting a student who just sat down at this
+position, not reciting a computer readout - never mention centipawns or
+engine lines.
+
+If you're told the human will be playing a specific color against
+Stockfish, end with a short, separate sentence naming their color and
+that Stockfish plays the other side - do not fold it into the analysis
+sentence.
+
+If a specific square, piece, or relationship is worth pointing at, call
+annotateBoard the same way you would for a move comment. Always still
+write the actual description as text too.`;
+
 export async function POST(request: Request) {
   let body: Partial<CoachRequest>;
   try {
@@ -178,6 +201,7 @@ export async function POST(request: Request) {
   }
 
   const {
+    mode,
     fen,
     san,
     moveNumber,
@@ -197,7 +221,8 @@ export async function POST(request: Request) {
     apiKey,
     model: modelId,
   } = body;
-  if (!fen || !san) {
+  const isPositionMode = mode === "position";
+  if (!fen || (!isPositionMode && !san)) {
     return new Response("Missing 'fen' or 'san'", { status: 400 });
   }
 
@@ -217,39 +242,54 @@ export async function POST(request: Request) {
     );
   }
 
-  const evalLine =
-    cp == null && mate == null
-      ? "Engine evaluation: not available."
-      : `Engine evaluation after this move (positive favors White, negative favors Black): ${
-          mate != null
-            ? `mate in ${Math.abs(mate)} for ${mate > 0 ? "White" : "Black"}`
-            : `${(cp! / 100).toFixed(2)} pawns`
-        }${bestMove ? `. Engine's suggested next move: ${bestMove}.` : ""}`;
+let prompt: string;
+  let systemPrompt: string;
 
-  const isOpponentMove = humanSide != null && side != null && humanSide !== side;
-  const mover = isOpponentMove ? "The opponent (Stockfish)" : "You";
+  if (isPositionMode) {
+    const sideLine =
+      humanSide != null
+        ? `\nThe human will play ${humanSide === "w" ? "White" : "Black"} against Stockfish, which plays the other side.`
+        : "";
+    systemPrompt = SYSTEM_PROMPT_POSITION;
+    prompt = `Position just set up (FEN): ${fen}${sideLine}
 
-  const moveType =
-    [isCastle && "castling", isCapture && "a capture", isCheck && "check"]
-      .filter(Boolean)
-      .join(", ") || "a quiet move";
+Describe this position and what's key to it.`;
+  } else {
+    const evalLine =
+      cp == null && mate == null
+        ? "Engine evaluation: not available."
+        : `Engine evaluation after this move (positive favors White, negative favors Black): ${
+            mate != null
+              ? `mate in ${Math.abs(mate)} for ${mate > 0 ? "White" : "Black"}`
+              : `${(cp! / 100).toFixed(2)} pawns`
+          }${bestMove ? `. Engine's suggested next move: ${bestMove}.` : ""}`;
 
-  const factsLine = `Classification: ${classification ?? "unknown"}
+    const isOpponentMove = humanSide != null && side != null && humanSide !== side;
+    const mover = isOpponentMove ? "The opponent (Stockfish)" : "You";
+
+    const moveType =
+      [isCastle && "castling", isCapture && "a capture", isCheck && "check"]
+        .filter(Boolean)
+        .join(", ") || "a quiet move";
+
+    const factsLine = `Classification: ${classification ?? "unknown"}
 Game phase: ${phase ?? "unknown"}
 Difficulty of finding a good move here: ${difficulty ?? "unknown"}
 Move type: ${moveType}
 Matches the engine's own top choice: ${matchesBest == null ? "unknown" : matchesBest ? "yes" : "no"}`;
 
-  const prompt = `${mover} just played move ${moveNumber ?? "?"}${side === "b" ? "..." : "."} ${san}.
+    systemPrompt = SYSTEM_PROMPT;
+    prompt = `${mover} just played move ${moveNumber ?? "?"}${side === "b" ? "..." : "."} ${san}.
 Resulting position (FEN): ${fen}
 ${evalLine}
 ${factsLine}
 
 Give your coaching comment on this move.`;
+  }
 
   const result = streamText({
     model,
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     prompt,
     tools: { annotateBoard },
     // Allows (never forces) a second step: one where the model calls

@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { Orientation } from "../types";
 
 export type GameMode = "analysis" | "vsStockfish";
-export type SideChoice = Orientation | "random";
 
 export function useGameMode() {
   const [mode, setMode] = useState<GameMode>("analysis");
@@ -15,15 +14,16 @@ export function useGameMode() {
     setMode("analysis");
   }
 
-  function startVsStockfish(side: SideChoice, nextSkillLevel: number) {
-    const resolvedSide: Orientation =
-      side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
-
-    setPlayerSide(resolvedSide);
+  // The human's side is always whoever's actually to move in the position
+  // the game starts from - a standard start means White, a custom setup
+  // position can mean either - never a separate picker to keep in sync
+  // with the FEN itself.
+  function startVsStockfish(side: Orientation, nextSkillLevel: number) {
+    setPlayerSide(side);
     setSkillLevel(nextSkillLevel);
     setMode("vsStockfish");
 
-    return resolvedSide;
+    return side;
   }
 
   return {

@@ -15,6 +15,8 @@ import { useBoardGameContext } from "../BoardGameContext";
 import { useBoardSettings } from "../hooks/useBoardSettings";
 import { useEvalScore, type CandidateMove } from "../hooks/useEvalScore";
 import { useMoveCommentary, type AnnotationColor } from "../hooks/useMoveCommentary";
+import { usePositionCommentary } from "../hooks/usePositionCommentary";
+import { Chess } from "chess.js";
 import { detectHangingPieces } from "../lib/board-tactics";
 import { formatEvalFromWhiteScore, selectCloseCandidates } from "../lib/eval-format";
 import {
@@ -272,6 +274,24 @@ export function BoardScreen() {
     ? formatEvalFromWhiteScore(whiteCp ?? 0, whiteMate)
     : `Move ${lastMove?.moveNumber ?? 0}`;
 
+  // A one-shot message shown instead of the per-move commentary above,
+  // for the two moments there's no move yet to comment on: a static
+  // "make your move" notice right after a fresh vsStockfish game starts,
+  // or a real coach description right after a custom position is set up
+  // (see usePositionCommentary). Only ever relevant at the tree's root -
+  // once any move is played, currentNodeId moves off it and the panel
+  // falls back to the normal per-move commentary on its own.
+  const positionCommentary = usePositionCommentary();
+  const atRoot = currentNodeId === "root";
+  useEffect(() => {
+    if (!atRoot) positionCommentary.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [atRoot]);
+  const showPositionOverride = atRoot && positionCommentary.status !== "idle";
+  const panelText = showPositionOverride ? positionCommentary.text : commentary.text;
+  const panelStatus = showPositionOverride ? positionCommentary.status : commentary.status;
+  const panelSentiment: CommentarySentiment = showPositionOverride ? "neutral" : sentiment;
+
   // A plain chess.js material check, not the LLM - runs instantly off
   // whatever position is on screen (no debounce, no network), so it
   // never misses an outright hang the way the coach's own commentary
@@ -287,26 +307,30 @@ export function BoardScreen() {
   // The coach's own board annotation (see useMoveCommentary/api/coach) -
   // converted into the same shapes the board already renders highlights
   // and AI arrows in, so it needs no new rendering path, just a spot in
-  // the existing merges below. Tied to whatever `commentary.annotation`
-  // currently is, which is itself tied to the current node (including
-  // cache hits when revisiting an already-commented move) - so this
-  // clears/changes on its own as soon as the node does.
+  // the existing merges below. Reads whichever of the two commentary
+  // sources is actually showing (see showPositionOverride above), so a
+  // position description's own annotation.points work exactly like a
+  // move comment's do.
+  const activeAnnotation = showPositionOverride
+    ? positionCommentary.annotation
+    : commentary.annotation;
+
   const coachHighlightSquares = useMemo<OptionSquares>(() => {
     const squares: OptionSquares = {};
-    for (const { square, color } of commentary.annotation?.squares ?? []) {
+    for (const { square, color } of activeAnnotation?.squares ?? []) {
       squares[square] = { backgroundColor: ANNOTATION_FILL[color] };
     }
     return squares;
-  }, [commentary.annotation]);
+  }, [activeAnnotation]);
 
   const coachArrows = useMemo<Arrow[]>(
     () =>
-      (commentary.annotation?.arrows ?? []).map((arrow) => ({
+      (activeAnnotation?.arrows ?? []).map((arrow) => ({
         startSquare: arrow.from,
         endSquare: arrow.to,
         color: ANNOTATION_STROKE[arrow.color ?? "focus"],
       })),
-    [commentary.annotation],
+    [activeAnnotation],
   );
 
   // Stockfish's top candidate moves (MultiPV) rendered as AI-drawn arrows,
@@ -338,24 +362,39 @@ export function BoardScreen() {
     return () => clearTimeout(timeout);
   }, [gameStatus.isOver]);
 
-  function handleStartVsStockfish(
-    side: Parameters<typeof startVsStockfish>[0],
-    skillLevel: number,
-  ) {
-    const resolvedSide = startVsStockfish(side, skillLevel);
+  // The human always plays whoever's actually to move in the position the
+  // game starts from - a fresh game means the standard start, so always
+  // White; a custom setup position can mean either. No side picker to
+  // keep in sync with that - just a chat notice once the game begins.
+  function announceVsStockfish(side: "white" | "black") {
+    positionCommentary.showStatic(
+      `You're playing ${side === "white" ? "White" : "Black"}. Make your move - Stockfish will play ${
+        side === "white" ? "Black" : "White"
+      } for the rest of the game.`,
+    );
+  }
+
+  function handleStartVsStockfish(skillLevel: number) {
     resetBoard();
-    changeOrientation(resolvedSide);
+    startVsStockfish("white", skillLevel);
+    changeOrientation("white");
+    announceVsStockfish("white");
   }
 
-  function handleSetupPosition(fen: string) {
-    resetBoard(fen);
-    startAnalysis();
-  }
-
-  function handleEditorStart(fen: string) {
+  function handleEditorAnalyze(fen: string) {
     resetBoard(fen);
     startAnalysis();
     setIsEditingPosition(false);
+    positionCommentary.describePosition(fen, null);
+  }
+
+  function handleEditorPlayVsStockfish(fen: string) {
+    const side: "white" | "black" = new Chess(fen).turn() === "b" ? "black" : "white";
+    resetBoard(fen);
+    startVsStockfish(side, 10);
+    changeOrientation(side);
+    setIsEditingPosition(false);
+    positionCommentary.describePosition(fen, side === "white" ? "w" : "b");
   }
 
   return (
@@ -374,9 +413,9 @@ export function BoardScreen() {
           {!isEditingPosition && (
             <AiChatPanel
               moveNumber={lastMove?.moveNumber ?? 0}
-              text={commentary.text}
-              status={commentary.status}
-              sentiment={sentiment}
+              text={panelText}
+              status={panelStatus}
+              sentiment={panelSentiment}
               evalLabel={evalLabel}
             />
           )}
@@ -385,7 +424,8 @@ export function BoardScreen() {
             <div className="flex w-full items-center justify-center gap-2">
               <BoardPositionEditor
                 initialFen={chessPosition}
-                onStart={handleEditorStart}
+                onAnalyze={handleEditorAnalyze}
+                onPlayVsStockfish={handleEditorPlayVsStockfish}
                 onCancel={() => setIsEditingPosition(false)}
               />
 
@@ -395,7 +435,7 @@ export function BoardScreen() {
                 <BoardControls
                   openBoardSettings={openBoardSettings}
                   openStockfishSetup={() => openGameMode("stockfish")}
-                  openPositionSetup={() => openGameMode("position")}
+                  openPositionSetup={() => setIsEditingPosition(true)}
                   openAiCoach={() => openGameMode("ai-coach")}
                   openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
@@ -439,7 +479,7 @@ export function BoardScreen() {
                 <BoardControls
                   openBoardSettings={openBoardSettings}
                   openStockfishSetup={() => openGameMode("stockfish")}
-                  openPositionSetup={() => openGameMode("position")}
+                  openPositionSetup={() => setIsEditingPosition(true)}
                   openAiCoach={() => openGameMode("ai-coach")}
                   openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
@@ -492,7 +532,7 @@ export function BoardScreen() {
               layout="row"
               openBoardSettings={openBoardSettings}
               openStockfishSetup={() => openGameMode("stockfish")}
-              openPositionSetup={() => openGameMode("position")}
+              openPositionSetup={() => setIsEditingPosition(true)}
               openAiCoach={() => openGameMode("ai-coach")}
               openPuzzles={() => openGameMode("puzzles")}
               onAnalysis={startAnalysis}
@@ -513,7 +553,6 @@ export function BoardScreen() {
         onClose={() => setIsGameModeOpen(false)}
         initialStep={gameModeStep}
         onStartVsStockfish={handleStartVsStockfish}
-        onSetupPosition={handleSetupPosition}
         onOpenBoardEditor={() => setIsEditingPosition(true)}
         gameStatus={gameStatus}
       />
