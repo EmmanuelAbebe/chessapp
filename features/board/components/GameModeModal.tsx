@@ -81,11 +81,16 @@ type GameModeModalProps = {
   initialStep: GameModeStep;
   onStartVsStockfish: (skillLevel: number) => void;
   onOpenBoardEditor: () => void;
-  // Returns an error message to show inline, or null on success (in which
-  // case the modal closes) - importing can fail on malformed PGN, which
-  // needs to stay on-screen with the pasted text still there to fix,
-  // unlike every other action here that always succeeds.
-  onImportGame: (pgn: string) => string | null;
+  // Returns `{ error }` to show inline (malformed PGN - the pasted text
+  // stays put to fix), `{ needsSide: true }` when the PGN loaded fine
+  // but no saved username matched either player (see onAttributeSide),
+  // or `{}` on a fully-done import.
+  onImportGame: (pgn: string) => { error?: string; needsSide?: boolean };
+  // Only called after a `needsSide` import - attributes it to the given
+  // color for the Statistics page, or (onSkipAttribution) leaves it out
+  // of history entirely. The game itself is already loaded either way.
+  onAttributeSide: (side: "w" | "b") => void;
+  onSkipAttribution: () => void;
   gameStatus?: GameStatus;
 };
 
@@ -96,6 +101,8 @@ export function GameModeModal({
   onStartVsStockfish,
   onOpenBoardEditor,
   onImportGame,
+  onAttributeSide,
+  onSkipAttribution,
   gameStatus,
 }: GameModeModalProps) {
   const statusMessage = gameStatus ? formatGameStatus(gameStatus) : null;
@@ -104,6 +111,7 @@ export function GameModeModal({
   const [difficulty, setDifficulty] = useState("Medium");
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
+  const [needsSide, setNeedsSide] = useState(false);
 
   // The modal is controlled from outside (which icon on the board's side
   // menu opened it) rather than always starting on the list - reset to
@@ -115,6 +123,7 @@ export function GameModeModal({
   function handleClose() {
     setImportText("");
     setImportError(null);
+    setNeedsSide(false);
     onClose();
   }
 
@@ -134,11 +143,25 @@ export function GameModeModal({
   }
 
   function handleImportGame() {
-    const error = onImportGame(importText);
-    if (error) {
-      setImportError(error);
+    const outcome = onImportGame(importText);
+    if (outcome.error) {
+      setImportError(outcome.error);
       return;
     }
+    if (outcome.needsSide) {
+      setNeedsSide(true);
+      return;
+    }
+    handleClose();
+  }
+
+  function handleAttributeSide(side: "w" | "b") {
+    onAttributeSide(side);
+    handleClose();
+  }
+
+  function handleSkipAttribution() {
+    onSkipAttribution();
     handleClose();
   }
 
@@ -267,37 +290,71 @@ export function GameModeModal({
                 ← Back
               </button>
 
-              <div>
-                <label
-                  htmlFor="import-pgn"
-                  className="mb-2 block text-sm font-medium text-text"
-                >
-                  PGN
-                </label>
-                <textarea
-                  id="import-pgn"
-                  value={importText}
-                  onChange={(e) => {
-                    setImportText(e.target.value);
-                    setImportError(null);
-                  }}
-                  placeholder={'[Event "..."]\n[White "..."]\n[Black "..."]\n\n1. e4 e5 2. Nf3 ...'}
-                  rows={8}
-                  className="w-full resize-none rounded-lg border border-border bg-surface-raised px-3 py-2 font-mono text-xs text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
-                />
-                {importError && (
-                  <p className="mt-1.5 text-xs text-red-400">{importError}</p>
-                )}
-              </div>
+              {needsSide ? (
+                <>
+                  <p className="text-sm text-text">
+                    Loaded - but no saved username matched either player.
+                    Which side did you play?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleAttributeSide("w")}
+                      className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-medium text-text transition hover:border-accent"
+                    >
+                      White
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAttributeSide("b")}
+                      className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-medium text-text transition hover:border-accent"
+                    >
+                      Black
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSkipAttribution}
+                    className="self-start text-xs font-medium text-text-dim hover:text-text"
+                  >
+                    Skip - don't add this to my stats
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label
+                      htmlFor="import-pgn"
+                      className="mb-2 block text-sm font-medium text-text"
+                    >
+                      PGN
+                    </label>
+                    <textarea
+                      id="import-pgn"
+                      value={importText}
+                      onChange={(e) => {
+                        setImportText(e.target.value);
+                        setImportError(null);
+                      }}
+                      placeholder={'[Event "..."]\n[White "..."]\n[Black "..."]\n\n1. e4 e5 2. Nf3 ...'}
+                      rows={8}
+                      className="w-full resize-none rounded-lg border border-border bg-surface-raised px-3 py-2 font-mono text-xs text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+                    />
+                    {importError && (
+                      <p className="mt-1.5 text-xs text-red-400">{importError}</p>
+                    )}
+                  </div>
 
-              <button
-                type="button"
-                onClick={handleImportGame}
-                disabled={!importText.trim()}
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-50"
-              >
-                Import
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleImportGame}
+                    disabled={!importText.trim()}
+                    className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    Import
+                  </button>
+                </>
+              )}
             </div>
           ) : step === "ai-coach" ? (
             <ComingSoonStep

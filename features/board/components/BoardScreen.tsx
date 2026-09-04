@@ -19,7 +19,7 @@ import { usePositionCommentary } from "../hooks/usePositionCommentary";
 import { Chess } from "chess.js";
 import { detectHangingPieces } from "../lib/board-tactics";
 import { formatEvalFromWhiteScore, selectCloseCandidates } from "../lib/eval-format";
-import { importPgn, type ImportedGameInfo } from "../lib/pgn-import";
+import { importPgn, matchPlayerSide, type ImportedGameInfo, type ParsedMove } from "../lib/pgn-import";
 import {
   assessDifficulty,
   classifyMove,
@@ -27,6 +27,9 @@ import {
   evalMatchesPosition,
 } from "../lib/move-analysis";
 import { useSettings } from "@/features/settings/SettingsContext";
+import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
+import { useGameHistory } from "@/features/history/useGameHistory";
+import { createHistoryId, resultForSide } from "@/features/history/types";
 import type { OptionSquares } from "../types";
 
 const AI_ARROW_OPACITIES = [0.9, 0.65, 0.45, 0.3];
@@ -119,6 +122,23 @@ export function BoardScreen() {
     setGameModeStep(step);
     setIsGameModeOpen(true);
   }
+
+  // Game-history recording (features/history) - feeds the Statistics
+  // page's personality traits. Imports need to know which color the
+  // player was to attribute a game to them rather than the opponent;
+  // usernameList drives the auto-match, pendingAttributionRef holds a
+  // just-imported game's data while GameModeModal asks for the side
+  // manually on the rare occasion nothing auto-matched.
+  const { addGame } = useGameHistory();
+  const { usernameList } = usePlayerIdentity();
+  const pendingAttributionRef = useRef<{
+    moves: ParsedMove[];
+    info: ImportedGameInfo;
+  } | null>(null);
+  // Guards a live vs-Stockfish game from being recorded twice off the
+  // same `gameStatus.isOver` transition - reset whenever a new such game
+  // actually starts (handleStartVsStockfish/handleEditorPlayVsStockfish).
+  const liveGameRecordedRef = useRef(false);
 
   const { settings } = useSettings();
   const {
@@ -369,12 +389,37 @@ export function BoardScreen() {
   }, [evalScore.candidates, showEngineSuggestions, isPlayingStockfish]);
 
   // Give the final move/highlight a moment to settle on the board before
-  // covering it with the result.
+  // covering it with the result. Also where a finished vs-Stockfish game
+  // gets recorded to history (features/history) for the Statistics
+  // page - guarded to actual played games (never analysis/import-review
+  // sessions) and to fire only once per game via liveGameRecordedRef.
   useEffect(() => {
     if (!gameStatus.isOver) return;
 
+    if (isPlayingStockfish && !liveGameRecordedRef.current) {
+      liveGameRecordedRef.current = true;
+      const side: "w" | "b" = playerSide === "white" ? "w" : "b";
+      const winnerSide: "w" | "b" | null = gameStatus.winner === "white" ? "w" : gameStatus.winner === "black" ? "b" : null;
+      addGame({
+        id: createHistoryId(),
+        source: "live",
+        playedAt: Date.now(),
+        playerSide: side,
+        result: winnerSide === null ? "draw" : winnerSide === side ? "win" : "loss",
+        opponentName: "Stockfish",
+        moves: currentLine.map((node) => ({
+          san: node.san ?? "",
+          uci: node.uci ?? "",
+          fen: node.fen,
+          side: node.side ?? "w",
+          comment: node.comment,
+        })),
+      });
+    }
+
     const timeout = setTimeout(() => openGameMode("list"), 500);
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameStatus.isOver]);
 
   // The human always plays whoever's actually to move in the position the
@@ -391,6 +436,7 @@ export function BoardScreen() {
 
   function handleStartVsStockfish(skillLevel: number) {
     setImportedGameInfo(null);
+    liveGameRecordedRef.current = false;
     resetBoard();
     startVsStockfish("white", skillLevel);
     changeOrientation("white");
@@ -407,6 +453,7 @@ export function BoardScreen() {
 
   function handleEditorPlayVsStockfish(fen: string) {
     setImportedGameInfo(null);
+    liveGameRecordedRef.current = false;
     const side: "white" | "black" = new Chess(fen).turn() === "b" ? "black" : "white";
     resetBoard(fen);
     startVsStockfish(side, 10);
@@ -416,19 +463,62 @@ export function BoardScreen() {
   }
 
   // Returns an error message on malformed PGN (kept on-screen in the
-  // modal so the pasted text can be fixed), or null on success.
-  function handleImportGame(pgn: string): string | null {
+  // modal so the pasted text can be fixed); `needsSide: true` when the
+  // PGN loaded fine but no saved username matched either player, so the
+  // modal should ask which side to attribute for stats; otherwise the
+  // import (and any auto-matched attribution) is already done.
+  function handleImportGame(pgn: string): { error?: string; needsSide?: boolean } {
     let result: ReturnType<typeof importPgn>;
     try {
       result = importPgn(pgn);
     } catch {
-      return "That doesn't look like a valid PGN.";
+      return { error: "That doesn't look like a valid PGN." };
     }
     loadTree(result.tree);
     startAnalysis();
     changeOrientation("white");
     setImportedGameInfo(result.info);
-    return null;
+
+    const side = matchPlayerSide(
+      { White: result.info.white, Black: result.info.black },
+      usernameList,
+    );
+    if (side) {
+      addGame({
+        id: createHistoryId(),
+        source: "import",
+        playedAt: Date.now(),
+        playerSide: side,
+        result: resultForSide(result.info.result, side),
+        opponentName: side === "w" ? result.info.black : result.info.white,
+        timeControl: result.info.timeControl,
+        moves: result.moves,
+      });
+      return {};
+    }
+
+    pendingAttributionRef.current = { moves: result.moves, info: result.info };
+    return { needsSide: true };
+  }
+
+  function handleAttributeSide(side: "w" | "b") {
+    const pending = pendingAttributionRef.current;
+    if (!pending) return;
+    addGame({
+      id: createHistoryId(),
+      source: "import",
+      playedAt: Date.now(),
+      playerSide: side,
+      result: resultForSide(pending.info.result, side),
+      opponentName: side === "w" ? pending.info.black : pending.info.white,
+      timeControl: pending.info.timeControl,
+      moves: pending.moves,
+    });
+    pendingAttributionRef.current = null;
+  }
+
+  function handleSkipAttribution() {
+    pendingAttributionRef.current = null;
   }
 
   return (
@@ -608,6 +698,8 @@ export function BoardScreen() {
         onStartVsStockfish={handleStartVsStockfish}
         onOpenBoardEditor={() => setIsEditingPosition(true)}
         onImportGame={handleImportGame}
+        onAttributeSide={handleAttributeSide}
+        onSkipAttribution={handleSkipAttribution}
         gameStatus={gameStatus}
       />
     </>

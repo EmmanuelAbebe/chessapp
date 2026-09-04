@@ -4,6 +4,7 @@ import CoordinatesSection from "./sections/CoordinatesSection";
 import EvaluationSection from "./sections/EvaluationSection";
 import EngineSection from "./sections/EngineSection";
 import AiCoachSection from "./sections/AiCoachSection";
+import PlayerIdentitySection from "./sections/PlayerIdentitySection";
 import SoundSection from "./sections/SoundSection";
 import NotificationsSection from "./sections/NotificationsSection";
 import AccountSection from "./sections/AccountSection";
@@ -24,6 +25,7 @@ export default function SettingsSection() {
         <EvaluationSection />
         <EngineSection />
         <AiCoachSection />
+        <PlayerIdentitySection />
         <SoundSection />
         <NotificationsSection />
         <AccountSection />

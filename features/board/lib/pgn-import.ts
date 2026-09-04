@@ -16,9 +16,10 @@ export type ImportedGameInfo = {
 export type ImportPgnResult = {
   tree: MoveTreeState;
   info: ImportedGameInfo;
+  moves: ParsedMove[];
 };
 
-type ParsedMove = {
+export type ParsedMove = {
   san: string;
   uci: string;
   fen: string;
@@ -26,7 +27,7 @@ type ParsedMove = {
   comment?: string;
 };
 
-type ParsedGame = {
+export type ParsedGame = {
   headers: Record<string, string>;
   moves: ParsedMove[];
 };
@@ -40,9 +41,29 @@ function parseClock(comment: string | undefined): string | undefined {
   return comment?.match(/%clk\s+(\d+:\d+:\d+)/)?.[1];
 }
 
+/** Matches a game's White/Black headers against a saved list of the
+ * player's own usernames (case-insensitive) - the "which side was I"
+ * question every history entry needs answered before it can be
+ * attributed to the player rather than the opponent. `null` when none
+ * of the saved names match either header. */
+export function matchPlayerSide(
+  headers: Record<string, string>,
+  usernames: string[],
+): "w" | "b" | null {
+  const normalized = usernames.map((name) => name.trim().toLowerCase()).filter(Boolean);
+  if (normalized.length === 0) return null;
+
+  const white = headers.White?.trim().toLowerCase();
+  const black = headers.Black?.trim().toLowerCase();
+
+  if (white && normalized.includes(white)) return "w";
+  if (black && normalized.includes(black)) return "b";
+  return null;
+}
+
 /** Parses one game's headers + move list via chess.js. Throws (chess.js's
  * own error) for anything structurally invalid. */
-function parseGame(pgn: string): ParsedGame {
+export function parseGame(pgn: string): ParsedGame {
   const chess = new Chess();
   chess.loadPgn(pgn.trim());
 
@@ -94,6 +115,7 @@ export function importPgn(pgn: string): ImportPgnResult {
 
   return {
     tree,
+    moves,
     info: {
       white: headers.White || "White",
       black: headers.Black || "Black",
@@ -111,6 +133,10 @@ export type MergeGamesResult = {
   tree: MoveTreeState;
   gamesImported: number;
   gamesFailed: number;
+  // Every successfully parsed game, headers included - lets a caller
+  // (the map's bulk-import modal) attribute individual games to game
+  // history without re-parsing the same pasted text a second time.
+  parsedGames: ParsedGame[];
 };
 
 /** Merges many games (one pasted block, lichess bulk-export style) into an
@@ -125,18 +151,19 @@ export function mergeGamesIntoTree(baseTree: MoveTreeState, pgnText: string): Me
   let tree = baseTree;
   let gamesImported = 0;
   let gamesFailed = 0;
+  const parsedGames: ParsedGame[] = [];
 
   for (const gamePgn of splitPgnGames(pgnText)) {
-    let moves: ParsedMove[];
+    let game: ParsedGame;
     try {
-      moves = parseGame(gamePgn).moves;
+      game = parseGame(gamePgn);
     } catch {
       gamesFailed++;
       continue;
     }
 
     let parentId = tree.rootId;
-    for (const move of moves) {
+    for (const move of game.moves) {
       const existingChildId = findChildByUci(tree, parentId, move.uci);
       if (existingChildId) {
         parentId = existingChildId;
@@ -145,6 +172,7 @@ export function mergeGamesIntoTree(baseTree: MoveTreeState, pgnText: string): Me
       tree = appendChildNode(tree, parentId, move);
       parentId = tree.currentNodeId;
     }
+    parsedGames.push(game);
     gamesImported++;
   }
 
@@ -153,5 +181,5 @@ export function mergeGamesIntoTree(baseTree: MoveTreeState, pgnText: string): Me
   // growing the shared tree, not "going" anywhere in particular.
   tree = { ...tree, currentNodeId: baseTree.currentNodeId };
 
-  return { tree, gamesImported, gamesFailed };
+  return { tree, gamesImported, gamesFailed, parsedGames };
 }

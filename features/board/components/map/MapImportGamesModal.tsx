@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
-import { mergeGamesIntoTree } from "../../lib/pgn-import";
+import { matchPlayerSide, mergeGamesIntoTree } from "../../lib/pgn-import";
 import type { MoveTreeState } from "../../types";
+import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
+import { useGameHistory } from "@/features/history/useGameHistory";
+import { createHistoryId, resultForSide, type GameHistoryEntry } from "@/features/history/types";
 
 type MapImportGamesModalProps = {
   isOpen: boolean;
@@ -19,7 +22,12 @@ export function MapImportGamesModal({
   onMerge,
 }: MapImportGamesModalProps) {
   const [pgnText, setPgnText] = useState("");
-  const [result, setResult] = useState<{ imported: number; failed: number } | null>(null);
+  const [result, setResult] = useState<{ imported: number; failed: number; matched: number } | null>(null);
+  // The same persisted store Settings' Player Identity section reads/
+  // writes - editing it here updates it there too, so there's only ever
+  // one place this actually lives.
+  const { usernames, setUsernames, usernameList } = usePlayerIdentity();
+  const { addGames } = useGameHistory();
 
   function handleClose() {
     setPgnText("");
@@ -30,7 +38,29 @@ export function MapImportGamesModal({
   function handleImport() {
     const merged = mergeGamesIntoTree(tree, pgnText);
     onMerge(merged.tree);
-    setResult({ imported: merged.gamesImported, failed: merged.gamesFailed });
+
+    // Attribute whichever games match a saved username - asking per-game
+    // which side you played isn't practical for a batch of many pasted
+    // games, so anything that doesn't match is still merged into the map
+    // tree above, just silently left out of the Statistics history.
+    const matched: GameHistoryEntry[] = [];
+    for (const game of merged.parsedGames) {
+      const side = matchPlayerSide(game.headers, usernameList);
+      if (!side) continue;
+      matched.push({
+        id: createHistoryId(),
+        source: "import",
+        playedAt: Date.now(),
+        playerSide: side,
+        result: resultForSide(game.headers.Result ?? "*", side),
+        opponentName: side === "w" ? game.headers.Black : game.headers.White,
+        timeControl: game.headers.TimeControl,
+        moves: game.moves,
+      });
+    }
+    addGames(matched);
+
+    setResult({ imported: merged.gamesImported, failed: merged.gamesFailed, matched: matched.length });
     // Games are additive (nothing to undo/retype), so the pasted text can
     // go - only the result summary needs to stay on screen.
     setPgnText("");
@@ -47,7 +77,37 @@ export function MapImportGamesModal({
         </p>
 
         <div className="mt-4">
+          <label
+            htmlFor="map-import-usernames"
+            className="mb-1.5 block text-sm font-medium text-text"
+          >
+            Your usernames
+          </label>
+          <input
+            id="map-import-usernames"
+            type="text"
+            value={usernames}
+            onChange={(e) => setUsernames(e.target.value)}
+            placeholder="e.g. jonkimura33, MyChessComHandle"
+            autoComplete="off"
+            className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 font-mono text-xs text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+          />
+          <p className="mt-1 text-xs text-text-faint">
+            Comma-separated - matched against each game's White/Black names
+            so it counts as yours on the Statistics page. Same as the
+            Settings page; stored only in your browser.
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <label
+            htmlFor="map-import-pgn"
+            className="mb-1.5 block text-sm font-medium text-text"
+          >
+            PGN
+          </label>
           <textarea
+            id="map-import-pgn"
             value={pgnText}
             onChange={(e) => {
               setPgnText(e.target.value);
@@ -64,7 +124,9 @@ export function MapImportGamesModal({
             Merged {result.imported} game{result.imported === 1 ? "" : "s"}
             {result.failed > 0
               ? ` - ${result.failed} couldn't be parsed and ${result.failed === 1 ? "was" : "were"} skipped.`
-              : "."}
+              : "."}{" "}
+            {result.matched} of {result.imported} matched your username and{" "}
+            {result.matched === 1 ? "was" : "were"} added to your stats.
           </p>
         )}
 
