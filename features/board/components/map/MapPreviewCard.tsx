@@ -10,6 +10,7 @@ import { FaUndo } from "react-icons/fa";
 import { FaFish, FaFlag } from "react-icons/fa6";
 import { EvalBar } from "../EvalBar";
 import { useEvalScore } from "../../hooks/useEvalScore";
+import type { NodeOutcomeStats } from "../../lib/map/node-stats";
 import { MapNodeDetails } from "./MapNodeDetails";
 import { PlayableMiniBoard } from "./PlayableMiniBoard";
 import type { MoveNode, MoveTreeState } from "../../types";
@@ -28,6 +29,7 @@ const HOVER_SETTLE_MS = 200;
 export function MapPreviewCard({
   node,
   tree,
+  stats,
   pinnedId,
   setPinnedId,
   goToNode,
@@ -38,6 +40,7 @@ export function MapPreviewCard({
 }: {
   node: MoveNode;
   tree: MoveTreeState;
+  stats: NodeOutcomeStats | undefined;
   pinnedId: string | null;
   setPinnedId: (id: string | null) => void;
   goToNode: (nodeId: string) => void;
@@ -213,7 +216,7 @@ export function MapPreviewCard({
         </div>
       </div>
 
-      <MapNodeDetails bestMoveSan={bestMoveSan} isSettled={isSettled} />
+      <MapNodeDetails bestMoveSan={bestMoveSan} isSettled={isSettled} stats={stats} />
     </div>
   );
 }

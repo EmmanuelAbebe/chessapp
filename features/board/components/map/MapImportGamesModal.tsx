@@ -11,7 +11,6 @@ import {
 } from "../../lib/pgn-import-stream";
 import type { MoveTreeState } from "../../types";
 import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
-import { useGameHistory } from "@/features/history/useGameHistory";
 import {
   computeFingerprint,
   createHistoryId,
@@ -24,6 +23,12 @@ type MapImportGamesModalProps = {
   onClose: () => void;
   tree: MoveTreeState;
   onMerge: (tree: MoveTreeState) => void;
+  // Lifted up to MoveTreeMap rather than called here via its own
+  // useGameHistory() - that hook isn't a shared singleton, so a second,
+  // independent instance in this modal would update its own copy of
+  // history/localStorage without the map's own node-stats computation
+  // (which reads the SAME data) ever finding out.
+  addGames: (entries: GameHistoryEntry[]) => number;
 };
 
 type Progress = { processed: number; failed: number; matched: number; added: number };
@@ -35,6 +40,7 @@ export function MapImportGamesModal({
   onClose,
   tree,
   onMerge,
+  addGames,
 }: MapImportGamesModalProps) {
   const [pgnText, setPgnText] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
@@ -46,7 +52,6 @@ export function MapImportGamesModal({
   // writes - editing it here updates it there too, so there's only ever
   // one place this actually lives.
   const { usernames, setUsernames, usernameList } = usePlayerIdentity();
-  const { addGames } = useGameHistory();
 
   const cancelledRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);

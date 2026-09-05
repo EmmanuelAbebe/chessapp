@@ -5,7 +5,9 @@ import { FaFileImport } from "react-icons/fa6";
 import { GrConfigure } from "react-icons/gr";
 import { useBoardGameContext } from "../../BoardGameContext";
 import { useMoveTreeCanvas } from "../../hooks/map/useMoveTreeCanvas";
+import { computeNodeOutcomeStats } from "../../lib/map/node-stats";
 import type { MoveNode } from "../../types";
+import { useGameHistory } from "@/features/history/useGameHistory";
 import { MapImportGamesModal } from "./MapImportGamesModal";
 import { MapPreviewCard } from "./MapPreviewCard";
 import { MapRingListPanel } from "./MapRingListPanel";
@@ -95,6 +97,12 @@ export function MoveTreeMap() {
   const [showRingsTogglePanel, setShowRingsTogglePanel] = useState(false);
   const [showMoveListPanel, setShowMoveListPanel] = useState(false);
 
+  // How many of the player's own recorded games (Statistics history)
+  // reached each position, and what happened in them - drives both the
+  // previewed node's stats line and the ring list's per-move win rates.
+  const { games, addGames } = useGameHistory();
+  const nodeStats = useMemo(() => computeNodeOutcomeStats(tree, games), [tree, games]);
+
   const nodesOnSelectedRing = useMemo(() => {
     if (selectedRingPly === null) return [];
     return Object.values(tree.nodes).filter((n) => n.ply === selectedRingPly);
@@ -165,6 +173,7 @@ export function MoveTreeMap() {
             <MapPreviewCard
               node={previewNode}
               tree={tree}
+              stats={nodeStats[previewNode.id]}
               pinnedId={pinnedId}
               setPinnedId={setPinnedId}
               goToNode={goToNode}
@@ -181,6 +190,7 @@ export function MoveTreeMap() {
             variant="floating"
             selectedRingPly={selectedRingPly}
             nodesOnSelectedRing={nodesOnSelectedRing}
+            nodeStats={nodeStats}
             onClose={() => setSelectedRingPly(null)}
             goToNode={goToNode}
             setHoveredId={setHoveredId}
@@ -251,6 +261,7 @@ export function MoveTreeMap() {
         variant="inline"
         selectedRingPly={selectedRingPly}
         nodesOnSelectedRing={nodesOnSelectedRing}
+        nodeStats={nodeStats}
         onClose={() => setSelectedRingPly(null)}
         goToNode={goToNode}
         setHoveredId={setHoveredId}
@@ -263,6 +274,7 @@ export function MoveTreeMap() {
         onClose={() => setImportOpen(false)}
         tree={tree}
         onMerge={loadTree}
+        addGames={addGames}
       />
 
       <MapSettingsModal
