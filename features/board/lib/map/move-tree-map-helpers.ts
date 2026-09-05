@@ -133,6 +133,25 @@ export function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
+// Wraps a rotation amount into (-π, π] - the shortest equivalent turn.
+// computeThetaDeltas reconstructs a real angle by summing local offsets
+// along the actual tree path between two nodes, which is the correct
+// *total* rotation if you always turn the same way, but two nodes that
+// are visually right next to each other can still end up on a long
+// tree-path (e.g. cousins under different parents), producing a raw
+// delta close to a full half-turn or more. Since rotating by θ or by
+// θ ± 2π·n lands on exactly the same final orientation (sin/cos are
+// periodic), swapping in the wrapped equivalent before animating a
+// transition changes nothing about where it ends up - only that it
+// visibly sweeps the short way there instead of the long way around.
+export function shortestRotation(theta: number): number {
+  const twoPi = Math.PI * 2;
+  let wrapped = theta % twoPi;
+  if (wrapped > Math.PI) wrapped -= twoPi;
+  if (wrapped < -Math.PI) wrapped += twoPi;
+  return wrapped;
+}
+
 export const RING_HIGHLIGHT_STEP = 0.18; // per-frame ease rate, ~5-6 frames to settle at 60fps
 
 // Eases every tracked ply's intensity toward 1 if it's the current target,

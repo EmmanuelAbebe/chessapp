@@ -16,6 +16,7 @@ import {
   isHub,
   nodeLabel,
   readThemeColors,
+  shortestRotation,
   stepIntensityMap,
   type MapColorKey,
   type MapColorOverrides,
@@ -339,15 +340,20 @@ export function useMoveTreeCanvas(
       // transition started FROM - the camera's own rapidity is a plain
       // scalar lerp (both ends are root-relative rapidities already, so no
       // extra care needed), and its angle-relative-to-"from" eases from 0
-      // up to the full dtheta(to, from) - both safe, since they only ever
-      // combine values already computed relative to a single, real anchor
-      // node rather than forming an absolute angle anywhere.
+      // up to dtheta(to, from) - safe since it only ever combines values
+      // already computed relative to a single, real anchor node rather
+      // than forming an absolute angle anywhere. Wrapped to the shortest
+      // equivalent turn first: the raw tree-path sum can come out close to
+      // a half-turn or more for two nodes that are visually right next to
+      // each other (e.g. cousins under different parents), and rotating by
+      // that or by its shorter equivalent ends up at the exact same final
+      // orientation either way (see shortestRotation's own comment).
       const eased = easeOutCubic(t);
       const deltasFromOld = computeThetaDeltas(tree, canonNow, anim.fromId);
       const rFrom = canonNow.get(anim.fromId)?.r ?? 0;
       const rTo = canonNow.get(anim.toId)?.r ?? 0;
       const focusR = rFrom + (rTo - rFrom) * eased;
-      const virtualDtheta = (deltasFromOld.get(anim.toId) ?? 0) * eased;
+      const virtualDtheta = shortestRotation(deltasFromOld.get(anim.toId) ?? 0) * eased;
       const deltas = new Map<string, number>();
       for (const [id, d] of deltasFromOld) deltas.set(id, d - virtualDtheta);
       return { rect, cx, cy, scale, focusR, deltas };
