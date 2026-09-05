@@ -85,7 +85,7 @@ export function parseGame(pgn: string): ParsedGame {
 /** A bulk PGN export (lichess's "download all games" included) is just
  * every game's PGN back to back, with or without a blank line between
  * them. Splitting right before each "[Event " tag handles both. */
-function splitPgnGames(text: string): string[] {
+export function splitPgnGames(text: string): string[] {
   const trimmed = text.trim();
   if (!trimmed) return [];
   const parts = trimmed

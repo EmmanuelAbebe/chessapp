@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GameHistoryEntry } from "./types";
 
 // Same separate-key-per-concern convention as
@@ -42,23 +42,31 @@ function writeStoredGames(games: GameHistoryEntry[]) {
  * same pattern as useAiProviderConfig. */
 export function useGameHistory() {
   const [games, setGames] = useState<GameHistoryEntry[]>([]);
+  // The actual source of truth `addEntries` reads/writes, updated
+  // synchronously and immediately on every call - a plain state variable
+  // read via closure isn't safe here, since a long-running incremental
+  // import (features/board/lib/pgn-import-stream.ts) calls the very same
+  // `addGames` reference many times across many React re-renders, and a
+  // stale `games` snapshot from whichever render created that closure
+  // would make each call overwrite the last instead of accumulating.
+  // Mutating a ref has none of that timing dependency.
+  const gamesRef = useRef<GameHistoryEntry[]>([]);
 
   useEffect(() => {
-    setGames(readStoredGames());
+    const stored = readStoredGames();
+    gamesRef.current = stored;
+    setGames(stored);
   }, []);
 
-  // Reads `games` directly (not the setState-updater form) rather than
-  // returning a count mutated inside an updater callback, which isn't
-  // guaranteed to have run yet by the time this returns - fine here
-  // since nothing calls this concurrently with itself. Skips anything
-  // whose fingerprint already exists, in `games` or earlier in this same
-  // batch, so neither a duplicate within one paste nor a re-import of an
-  // already-recorded game can double-count in the stats. Returns how
-  // many were actually added, for the caller's own result messaging.
+  // Skips anything whose fingerprint already exists, in prior history or
+  // earlier in this same batch, so neither a duplicate within one paste
+  // nor a re-import of an already-recorded game can double-count in the
+  // stats. Returns how many were actually added, for the caller's own
+  // result messaging.
   function addEntries(entries: GameHistoryEntry[]): number {
     if (entries.length === 0) return 0;
 
-    const seen = new Set(games.map((g) => g.fingerprint));
+    const seen = new Set(gamesRef.current.map((g) => g.fingerprint));
     const deduped: GameHistoryEntry[] = [];
     for (const entry of entries) {
       if (seen.has(entry.fingerprint)) continue;
@@ -67,7 +75,8 @@ export function useGameHistory() {
     }
     if (deduped.length === 0) return 0;
 
-    const next = [...games, ...deduped].slice(-MAX_GAMES);
+    const next = [...gamesRef.current, ...deduped].slice(-MAX_GAMES);
+    gamesRef.current = next;
     setGames(next);
     writeStoredGames(next);
     return deduped.length;
@@ -78,6 +87,7 @@ export function useGameHistory() {
   }
 
   function clearHistory() {
+    gamesRef.current = [];
     setGames([]);
     writeStoredGames([]);
   }
