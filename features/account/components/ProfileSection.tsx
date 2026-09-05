@@ -8,11 +8,14 @@ import type { Profile } from "../types";
 import EditProfileModal from "./EditProfileModal";
 import ChangePasswordModal from "./ChangePasswordModal";
 
-export default function ProfileSection() {
-  const [profile, setProfile] = useState<Profile>({
-    username: "JohnDoe123",
-    email: "johndoe@example.com",
-  });
+export default function ProfileSection({
+  initialProfile,
+  memberSince,
+}: {
+  initialProfile: Profile;
+  memberSince: string;
+}) {
+  const [profile, setProfile] = useState<Profile>(initialProfile);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
@@ -33,10 +36,10 @@ export default function ProfileSection() {
           <dd className="font-medium">{profile.email}</dd>
 
           <dt className="text-text-faint">Chess rating</dt>
-          <dd className="font-medium">1500</dd>
+          <dd className="font-medium text-text-faint">Coming soon</dd>
 
           <dt className="text-text-faint">Member since</dt>
-          <dd className="font-medium">January 2023</dd>
+          <dd className="font-medium">{memberSince}</dd>
         </dl>
       </div>
 

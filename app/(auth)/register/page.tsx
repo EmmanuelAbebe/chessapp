@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import PasswordInput from "@/components/ui/PasswordInput";
 import TextInput from "@/components/ui/TextInput";
 import { useValidatedField } from "@/lib/hooks/useValidatedField";
@@ -10,19 +10,19 @@ import { validateEmail, validateMatch, validatePassword } from "@/lib/validation
 import SocialAuthButtons from "@/features/auth/components/SocialAuthButtons";
 
 const RegisterPage = () => {
-  const router = useRouter();
   const email = useValidatedField("", (value) =>
-    validateEmail(value, { required: false }),
+    validateEmail(value, { required: true }),
   );
   const password = useValidatedField("", (value) =>
-    validatePassword(value, { required: false }),
+    validatePassword(value, { required: true }),
   );
   const confirmPassword = useValidatedField("", (value) =>
     validateMatch(value, password.value, "Passwords"),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const isEmailValid = email.validateNow();
     const isPasswordValid = password.validateNow();
@@ -30,7 +30,30 @@ const RegisterPage = () => {
     if (!isEmailValid || !isPasswordValid || !isConfirmValid) return;
 
     setIsSubmitting(true);
-    setTimeout(() => router.push("/dashboard"), 600);
+    setFormError(null);
+
+    const res = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.value, password: password.value }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setFormError(body.error ?? "Something went wrong.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    await signIn("credentials", {
+      email: email.value,
+      password: password.value,
+      redirect: false,
+    });
+    // Hard navigation, not router.push - see the comment in login/page.tsx
+    // for why: the global nav's prefetched /dashboard/* links can leave a
+    // stale unauthenticated RSC response cached right up until sign-in.
+    window.location.href = "/dashboard";
   }
 
   return (
@@ -57,7 +80,7 @@ const RegisterPage = () => {
                 htmlFor="email"
                 className="block mb-2 text-sm font-medium text-text-dim"
               >
-                Email <span className="text-text-faint">(optional)</span>
+                Email
               </label>
               <TextInput
                 type="email"
@@ -76,7 +99,7 @@ const RegisterPage = () => {
                 htmlFor="password"
                 className="block mb-2 text-sm font-medium text-text-dim"
               >
-                Password <span className="text-text-faint">(optional)</span>
+                Password
               </label>
               <PasswordInput
                 name="password"
@@ -94,8 +117,7 @@ const RegisterPage = () => {
                 htmlFor="confirm-password"
                 className="block mb-2 text-sm font-medium text-text-dim"
               >
-                Confirm password{" "}
-                <span className="text-text-faint">(optional)</span>
+                Confirm password
               </label>
               <PasswordInput
                 name="confirm-password"
@@ -108,6 +130,7 @@ const RegisterPage = () => {
                 placeholder="••••••••"
               />
             </div>
+            {formError && <p className="text-sm text-bad">{formError}</p>}
             <button
               type="submit"
               disabled={isSubmitting}

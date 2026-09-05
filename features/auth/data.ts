@@ -12,6 +12,9 @@ export const SOCIAL_PROVIDERS = [
     name: "Google",
     Icon: FaGoogle,
     className: "bg-[#4285F4] hover:bg-[#3367D6] text-white",
+    // The only provider actually wired to next-auth's signIn() - the
+    // rest render inert (see SocialAuthButtons) until they're wired too.
+    providerId: "google",
   },
   {
     name: "Facebook",

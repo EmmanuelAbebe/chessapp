@@ -2,27 +2,49 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Checkbox from "@/components/ui/Checkbox";
 import PasswordInput from "@/components/ui/PasswordInput";
 import TextInput from "@/components/ui/TextInput";
 import { useValidatedField } from "@/lib/hooks/useValidatedField";
-import { validateEmail } from "@/lib/validation";
+import { validateEmail, validateRequired } from "@/lib/validation";
 import SocialAuthButtons from "@/features/auth/components/SocialAuthButtons";
 
 const LoginPage = () => {
-  const router = useRouter();
   const email = useValidatedField("", (value) =>
-    validateEmail(value, { required: false }),
+    validateEmail(value, { required: true }),
+  );
+  const password = useValidatedField("", (value) =>
+    validateRequired(value, "Password"),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!email.validateNow()) return;
+    const isEmailValid = email.validateNow();
+    const isPasswordValid = password.validateNow();
+    if (!isEmailValid || !isPasswordValid) return;
 
     setIsSubmitting(true);
-    setTimeout(() => router.push("/dashboard"), 600);
+    setFormError(null);
+    const result = await signIn("credentials", {
+      email: email.value,
+      password: password.value,
+      redirect: false,
+    });
+    setIsSubmitting(false);
+
+    if (result?.error) {
+      setFormError("Invalid email or password.");
+      return;
+    }
+    // A hard navigation, not router.push: the global nav's links into
+    // /dashboard/* get prefetched while logged out, and Next's client
+    // router can reuse that stale (unauthenticated) RSC response right
+    // after sign-in otherwise, bouncing back to /login despite the
+    // fresh session cookie already being set.
+    window.location.href = "/dashboard";
   }
 
   return (
@@ -49,7 +71,7 @@ const LoginPage = () => {
                 htmlFor="email"
                 className="block mb-2 text-sm font-medium text-text-dim"
               >
-                Email <span className="text-text-faint">(optional)</span>
+                Email
               </label>
               <TextInput
                 type="email"
@@ -68,9 +90,17 @@ const LoginPage = () => {
                 htmlFor="password"
                 className="block mb-2 text-sm font-medium text-text-dim"
               >
-                Password <span className="text-text-faint">(optional)</span>
+                Password
               </label>
-              <PasswordInput name="password" id="password" placeholder="••••••••" />
+              <PasswordInput
+                name="password"
+                id="password"
+                value={password.value}
+                onChange={password.onChange}
+                onBlur={password.onBlur}
+                error={password.error}
+                placeholder="••••••••"
+              />
             </div>
             <div className="flex items-center justify-between">
               <Checkbox id="remember" label="Remember me" />
@@ -81,6 +111,7 @@ const LoginPage = () => {
                 Forgot password?
               </Link>
             </div>
+            {formError && <p className="text-sm text-bad">{formError}</p>}
             <button
               type="submit"
               disabled={isSubmitting}
