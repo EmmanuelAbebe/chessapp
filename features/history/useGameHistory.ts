@@ -47,17 +47,34 @@ export function useGameHistory() {
     setGames(readStoredGames());
   }, []);
 
-  function addEntries(entries: GameHistoryEntry[]) {
-    if (entries.length === 0) return;
-    setGames((prev) => {
-      const next = [...prev, ...entries].slice(-MAX_GAMES);
-      writeStoredGames(next);
-      return next;
-    });
+  // Reads `games` directly (not the setState-updater form) rather than
+  // returning a count mutated inside an updater callback, which isn't
+  // guaranteed to have run yet by the time this returns - fine here
+  // since nothing calls this concurrently with itself. Skips anything
+  // whose fingerprint already exists, in `games` or earlier in this same
+  // batch, so neither a duplicate within one paste nor a re-import of an
+  // already-recorded game can double-count in the stats. Returns how
+  // many were actually added, for the caller's own result messaging.
+  function addEntries(entries: GameHistoryEntry[]): number {
+    if (entries.length === 0) return 0;
+
+    const seen = new Set(games.map((g) => g.fingerprint));
+    const deduped: GameHistoryEntry[] = [];
+    for (const entry of entries) {
+      if (seen.has(entry.fingerprint)) continue;
+      seen.add(entry.fingerprint);
+      deduped.push(entry);
+    }
+    if (deduped.length === 0) return 0;
+
+    const next = [...games, ...deduped].slice(-MAX_GAMES);
+    setGames(next);
+    writeStoredGames(next);
+    return deduped.length;
   }
 
-  function addGame(entry: GameHistoryEntry) {
-    addEntries([entry]);
+  function addGame(entry: GameHistoryEntry): boolean {
+    return addEntries([entry]) > 0;
   }
 
   function clearHistory() {

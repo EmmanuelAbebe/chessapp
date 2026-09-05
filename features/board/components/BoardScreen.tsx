@@ -29,7 +29,12 @@ import {
 import { useSettings } from "@/features/settings/SettingsContext";
 import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
 import { useGameHistory } from "@/features/history/useGameHistory";
-import { createHistoryId, resultForSide } from "@/features/history/types";
+import {
+  computeFingerprint,
+  createHistoryId,
+  resultForSide,
+  type GameResult,
+} from "@/features/history/types";
 import type { OptionSquares } from "../types";
 
 const AI_ARROW_OPACITIES = [0.9, 0.65, 0.45, 0.3];
@@ -400,20 +405,28 @@ export function BoardScreen() {
       liveGameRecordedRef.current = true;
       const side: "w" | "b" = playerSide === "white" ? "w" : "b";
       const winnerSide: "w" | "b" | null = gameStatus.winner === "white" ? "w" : gameStatus.winner === "black" ? "b" : null;
+      const liveResult: GameResult = winnerSide === null ? "draw" : winnerSide === side ? "win" : "loss";
+      const liveMoves = currentLine.map((node) => ({
+        san: node.san ?? "",
+        uci: node.uci ?? "",
+        fen: node.fen,
+        side: node.side ?? ("w" as const),
+        comment: node.comment,
+      }));
       addGame({
         id: createHistoryId(),
         source: "live",
         playedAt: Date.now(),
         playerSide: side,
-        result: winnerSide === null ? "draw" : winnerSide === side ? "win" : "loss",
+        result: liveResult,
         opponentName: "Stockfish",
-        moves: currentLine.map((node) => ({
-          san: node.san ?? "",
-          uci: node.uci ?? "",
-          fen: node.fen,
-          side: node.side ?? "w",
-          comment: node.comment,
-        })),
+        moves: liveMoves,
+        fingerprint: computeFingerprint({
+          playerSide: side,
+          opponentName: "Stockfish",
+          result: liveResult,
+          moves: liveMoves,
+        }),
       });
     }
 
@@ -484,15 +497,23 @@ export function BoardScreen() {
       usernameList,
     );
     if (side) {
+      const gameResult = resultForSide(result.info.result, side);
+      const opponentName = side === "w" ? result.info.black : result.info.white;
       addGame({
         id: createHistoryId(),
         source: "import",
         playedAt: Date.now(),
         playerSide: side,
-        result: resultForSide(result.info.result, side),
-        opponentName: side === "w" ? result.info.black : result.info.white,
+        result: gameResult,
+        opponentName,
         timeControl: result.info.timeControl,
         moves: result.moves,
+        fingerprint: computeFingerprint({
+          playerSide: side,
+          opponentName,
+          result: gameResult,
+          moves: result.moves,
+        }),
       });
       return {};
     }
@@ -504,15 +525,23 @@ export function BoardScreen() {
   function handleAttributeSide(side: "w" | "b") {
     const pending = pendingAttributionRef.current;
     if (!pending) return;
+    const gameResult = resultForSide(pending.info.result, side);
+    const opponentName = side === "w" ? pending.info.black : pending.info.white;
     addGame({
       id: createHistoryId(),
       source: "import",
       playedAt: Date.now(),
       playerSide: side,
-      result: resultForSide(pending.info.result, side),
-      opponentName: side === "w" ? pending.info.black : pending.info.white,
+      result: gameResult,
+      opponentName,
       timeControl: pending.info.timeControl,
       moves: pending.moves,
+      fingerprint: computeFingerprint({
+        playerSide: side,
+        opponentName,
+        result: gameResult,
+        moves: pending.moves,
+      }),
     });
     pendingAttributionRef.current = null;
   }

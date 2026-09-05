@@ -6,7 +6,12 @@ import { matchPlayerSide, mergeGamesIntoTree } from "../../lib/pgn-import";
 import type { MoveTreeState } from "../../types";
 import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
 import { useGameHistory } from "@/features/history/useGameHistory";
-import { createHistoryId, resultForSide, type GameHistoryEntry } from "@/features/history/types";
+import {
+  computeFingerprint,
+  createHistoryId,
+  resultForSide,
+  type GameHistoryEntry,
+} from "@/features/history/types";
 
 type MapImportGamesModalProps = {
   isOpen: boolean;
@@ -22,7 +27,12 @@ export function MapImportGamesModal({
   onMerge,
 }: MapImportGamesModalProps) {
   const [pgnText, setPgnText] = useState("");
-  const [result, setResult] = useState<{ imported: number; failed: number; matched: number } | null>(null);
+  const [result, setResult] = useState<{
+    imported: number;
+    failed: number;
+    matched: number;
+    added: number;
+  } | null>(null);
   // The same persisted store Settings' Player Identity section reads/
   // writes - editing it here updates it there too, so there's only ever
   // one place this actually lives.
@@ -43,24 +53,40 @@ export function MapImportGamesModal({
     // which side you played isn't practical for a batch of many pasted
     // games, so anything that doesn't match is still merged into the map
     // tree above, just silently left out of the Statistics history.
+    // addGames itself dedupes against existing history (and duplicates
+    // within this same paste) by fingerprint, so re-importing the same
+    // batch - or an accidental double-paste - can't inflate the stats.
     const matched: GameHistoryEntry[] = [];
     for (const game of merged.parsedGames) {
       const side = matchPlayerSide(game.headers, usernameList);
       if (!side) continue;
+      const gameResult = resultForSide(game.headers.Result ?? "*", side);
+      const opponentName = side === "w" ? game.headers.Black : game.headers.White;
       matched.push({
         id: createHistoryId(),
         source: "import",
         playedAt: Date.now(),
         playerSide: side,
-        result: resultForSide(game.headers.Result ?? "*", side),
-        opponentName: side === "w" ? game.headers.Black : game.headers.White,
+        result: gameResult,
+        opponentName,
         timeControl: game.headers.TimeControl,
         moves: game.moves,
+        fingerprint: computeFingerprint({
+          playerSide: side,
+          opponentName,
+          result: gameResult,
+          moves: game.moves,
+        }),
       });
     }
-    addGames(matched);
+    const added = addGames(matched);
 
-    setResult({ imported: merged.gamesImported, failed: merged.gamesFailed, matched: matched.length });
+    setResult({
+      imported: merged.gamesImported,
+      failed: merged.gamesFailed,
+      matched: matched.length,
+      added,
+    });
     // Games are additive (nothing to undo/retype), so the pasted text can
     // go - only the result summary needs to stay on screen.
     setPgnText("");
@@ -125,8 +151,12 @@ export function MapImportGamesModal({
             {result.failed > 0
               ? ` - ${result.failed} couldn't be parsed and ${result.failed === 1 ? "was" : "were"} skipped.`
               : "."}{" "}
-            {result.matched} of {result.imported} matched your username and{" "}
-            {result.matched === 1 ? "was" : "were"} added to your stats.
+            {result.matched} of {result.imported} matched your username;{" "}
+            {result.added} new game{result.added === 1 ? "" : "s"} added to
+            your stats
+            {result.matched > result.added
+              ? ` (${result.matched - result.added} already there, skipped).`
+              : "."}
           </p>
         )}
 
