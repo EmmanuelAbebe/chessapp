@@ -3,18 +3,20 @@ import { SiLichess } from "react-icons/si";
 
 export const SOCIAL_PROVIDERS = [
   {
-    name: "Lichess",
-    Icon: SiLichess,
-    className:
-      "bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-300",
-  },
-  {
     name: "Google",
     Icon: FaGoogle,
     className: "bg-[#4285F4] hover:bg-[#3367D6] text-white",
-    // The only provider actually wired to next-auth's signIn() - the
-    // rest render inert (see SocialAuthButtons) until they're wired too.
+    // Providers with a `providerId` are actually wired to next-auth's
+    // signIn(); the rest stay here (no providerId) for a future pass and
+    // aren't rendered - see SocialAuthButtons.
     providerId: "google",
+  },
+  {
+    name: "Lichess",
+    Icon: SiLichess,
+    className:
+      "bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700",
+    providerId: "lichess",
   },
   {
     name: "Facebook",

@@ -24,8 +24,26 @@ import {
 import type { MoveTreeState } from "../../types";
 
 const FOCUS_ANIM_MS = 450;
-export const K_MIN = 0.06;
-export const K_MAX = 0.42;
+// Compaction `k` sets true hyperbolic distance per ply: `r = 2*k*ply`, which
+// projects to disk radius `tanh(k*ply)` for a node measured from the root
+// (see move-tree-hyperbolic-layout.ts / hyperboloid.ts - the layout is the
+// Lorentz hyperboloid model, `tanh` only appears as the closed-form
+// projection onto the focus axis).
+//
+// The range is as wide as stays legible AND finite:
+//  - K_MAX 0.7: at the top end only the focus and ~2-3 plies around it sit
+//    inside the disk (tanh(0.7)=0.60, tanh(1.4)=0.89, tanh(2.1)=0.97);
+//    everything deeper is culled sub-pixel against the boundary. Past this
+//    even the focus's own children are jammed on the rim - not navigable.
+//    `2*k*ply` also stays under the ~710 where sinh/cosh overflow float64
+//    for any game shorter than ~500 plies; deeper nodes at max k overflow
+//    to +/-Infinity and are culled by the `isFinite` guard in the draw
+//    loop (correct: an overflowed node really is boundary-distance away).
+//  - K_MIN 0.02: the whole tree still fills a usable fraction of the disk
+//    even 40+ plies deep (tanh(0.8)=0.66). Lower and consecutive plies land
+//    within a node-radius of each other and edges/arrowheads collapse.
+export const K_MIN = 0.02;
+export const K_MAX = 0.7;
 export const K_DEFAULT = 0.2;
 const MIN_HIT_RADIUS = 16;
 // Below this on-screen radius/distance-from-boundary, a node or ring is
@@ -484,7 +502,11 @@ export function useMoveTreeCanvas(
         const camRelative = recenterPolar(pos.r, focusR, deltas.get(id) ?? 0);
         // Same treatment for anything so far from the camera it'd compact
         // into sub-pixel space anyway - see pruneThresholdT's own comment.
-        if (camRelative.t > pruneT) continue;
+        // The negated form also catches t === NaN/Infinity, which happens
+        // for nodes deep enough (very high k, ply in the hundreds) that
+        // sinh/cosh overflowed float64 inside recenterPolar - those are
+        // boundary-distance away, exactly the sub-pixel case.
+        if (!(camRelative.t <= pruneT)) continue;
         rendered.set(id, projectToDisk(camRelative));
       }
 
@@ -541,7 +563,29 @@ export function useMoveTreeCanvas(
         // far from focus it actually is, so distant rings stay inspectable
         // without needing to recenter onto them first.
         const closeness = Math.max(closenessRaw, 0.85 * ringSpotlight);
-        const radius = isFocus ? 7 : 2 + closeness * 8;
+
+        // On-screen gap to the parent node - a cheap local-density proxy.
+        // `closeness` alone measures only distance from the disk center, so
+        // at low compaction (whole tree packed near the center) every node
+        // reads as "close" and renders big and labeled, overlapping into an
+        // unreadable clump. `roomFactor` ramps 0 -> 1 as the parent edge goes
+        // from ~12px to ~36px on screen, so a dense region stays small
+        // unlabeled dots and only opens up into sized, labeled nodes where
+        // there's actually space.
+        const parentZ = node.parentId ? rendered.get(node.parentId) : null;
+        const parentGapPx = parentZ
+          ? Math.hypot(z.x - parentZ.x, z.y - parentZ.y) * scale
+          : Infinity;
+        // Ring-spotlight overrides the density damping - a spotlit ply is
+        // meant to stay comfortably sized/labeled wherever it sits.
+        const roomFactor = Math.max(
+          ringSpotlight,
+          Math.min(1, Math.max(0, (parentGapPx - 12) / 24)),
+        );
+
+        const radius = isFocus
+          ? 6
+          : Math.max(1.3, (1.5 + closeness * 3.3) * (0.45 + 0.55 * roomFactor));
 
         // Who moved into this position, at a glance: a solid light dot for a
         // White move, a hollow (rim-only) dot for a Black move - same
@@ -610,9 +654,16 @@ export function useMoveTreeCanvas(
           ctx!.stroke();
         }
 
-        const baseLabelOpacity = Math.max(0, closeness * 0.9 - 0.05) + (isFocus ? 0.9 : 0);
+        // A label shows only for a node that's both prominent (well inside
+        // the disk, so `closeness` past ~0.5) AND has elbow room around it
+        // (`roomFactor`) - so a compacted clump near the center stays
+        // unlabeled however "close" it measures. Focus and ring-spotlit
+        // nodes are always labeled; those are deliberate callouts.
+        const proximityForLabel = Math.max(0, Math.min(1, (0.85 - mag) / 0.55));
+        const baseLabelOpacity =
+          proximityForLabel * roomFactor + (isFocus ? 1 : 0);
         const labelOpacity = Math.max(baseLabelOpacity, 0.95 * ringSpotlight);
-        if (labelOpacity > 0.06) {
+        if (labelOpacity > 0.15 && (drawRadius > 2.4 || isFocus)) {
           ctx!.font = "11px ui-monospace, monospace";
           ctx!.fillStyle = hexToRgba(colors.text, Math.min(1, labelOpacity));
           ctx!.textAlign = "left";

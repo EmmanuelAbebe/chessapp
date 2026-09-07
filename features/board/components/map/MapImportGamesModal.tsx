@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { matchPlayerSide } from "../../lib/pgn-import";
 import {
   importFromLichessUrl,
   importFromPastedText,
+  importMyLichessGames,
   isSupportedGamesUrl,
   type ImportBatch,
 } from "../../lib/pgn-import-stream";
@@ -45,6 +46,9 @@ export function MapImportGamesModal({
   const [pgnText, setPgnText] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
+  // Set once we've confirmed the signed-in user has a Lichess OAuth link
+  // (via /api/lichess/account) - unlocks the one-click "import my games".
+  const [lichessUser, setLichessUser] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [progress, setProgress] = useState<Progress>(EMPTY_PROGRESS);
@@ -59,6 +63,20 @@ export function MapImportGamesModal({
   // whatever usernameList was at the moment importing started otherwise.
   const usernameListRef = useRef(usernameList);
   usernameListRef.current = usernameList;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    fetch("/api/lichess/account")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.username) setLichessUser(data.username);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   function resetOutcome() {
     setIsDone(false);
@@ -159,6 +177,42 @@ export function MapImportGamesModal({
     }
   }
 
+  async function handleImportMine() {
+    if (!lichessUser) return;
+    // Seed the identity store so imported games count as "yours" on the
+    // Statistics page, matching what the URL/paste flows expect the user
+    // to fill in by hand.
+    if (!usernames.trim()) setUsernames(lichessUser);
+
+    cancelledRef.current = false;
+    resetOutcome();
+    setIsImporting(true);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      await importMyLichessGames(
+        controller.signal,
+        {
+          initialTree: tree,
+          isCancelled: () => cancelledRef.current,
+          onBatch: handleBatch,
+        },
+        { max: 200 },
+      );
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        setUrlError(
+          (error as Error).message || "Couldn't import your Lichess games.",
+        );
+      }
+    } finally {
+      abortControllerRef.current = null;
+      setIsImporting(false);
+      setIsDone(true);
+    }
+  }
+
   function handleCancel() {
     cancelledRef.current = true;
     abortControllerRef.current?.abort();
@@ -175,6 +229,26 @@ export function MapImportGamesModal({
           export directly by URL. Shared openings merge into the same
           branch; each game only forks off where it actually diverges.
         </p>
+
+        {lichessUser && (
+          <div className="mt-4 rounded-lg border border-accent/30 bg-accent/5 p-3">
+            <p className="text-sm font-medium text-text">
+              Connected to Lichess as {lichessUser}
+            </p>
+            <p className="mt-0.5 text-xs text-text-faint">
+              Pull your recent games straight from your account - no export
+              URL needed.
+            </p>
+            <button
+              type="button"
+              onClick={handleImportMine}
+              disabled={isImporting}
+              className="mt-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-text transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-50"
+            >
+              Import my last 200 games
+            </button>
+          </div>
+        )}
 
         <div className="mt-4">
           <label

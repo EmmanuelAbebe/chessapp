@@ -43,6 +43,17 @@ export type HPoint = { x: number; y: number; t: number };
 export function recenterPolar(rp: number, rf: number, dtheta: number): HPoint {
   const halfSin = Math.sin(dtheta / 2);
   const sin2 = halfSin * halfSin;
+
+  // dtheta === 0 (the point is on the focus's own axis - every depth ring's
+  // crossing points, the root itself, any straight-line descendant) makes
+  // the boost collapse to a plain rapidity subtraction. Taking that path
+  // explicitly isn't just faster: at extreme compaction rp/rf can be large
+  // enough that sinhP/coshF overflow to Infinity, and `2 * Infinity * 0` in
+  // the general formula below is NaN rather than the 0 it should be.
+  if (sin2 === 0) {
+    return { x: Math.sinh(rp - rf), y: 0, t: Math.cosh(rp - rf) };
+  }
+
   const sinhP = Math.sinh(rp);
   const sinhF = Math.sinh(rf);
   const coshF = Math.cosh(rf);

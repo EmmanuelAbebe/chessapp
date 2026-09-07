@@ -44,6 +44,11 @@ async function* streamGamesFromUrl(url: string, signal: AbortSignal): AsyncGener
     headers: { Accept: "application/x-chess-pgn" },
     signal,
   });
+  if (response.status === 401) {
+    // Only the internal /api/lichess/games route 401s - a public export
+    // URL never does. Means the Lichess link is missing or expired.
+    throw new Error("Sign in with Lichess to import your own games.");
+  }
   if (!response.ok || !response.body) {
     throw new Error(`Lichess request failed: ${response.status}`);
   }
@@ -146,4 +151,24 @@ export function importFromLichessUrl(
   options: IncrementalImportOptions,
 ): Promise<{ tree: MoveTreeState; processed: number; failed: number }> {
   return runIncrementalImport(streamGamesFromUrl(url, signal), options);
+}
+
+/** Imports the signed-in user's own Lichess games via the internal
+ * /api/lichess/games route, which attaches their OAuth token server-side.
+ * Streams in exactly like importFromLichessUrl, just without a URL to
+ * paste. */
+export function importMyLichessGames(
+  signal: AbortSignal,
+  options: IncrementalImportOptions,
+  query: { max?: number; since?: number; rated?: boolean } = {},
+): Promise<{ tree: MoveTreeState; processed: number; failed: number }> {
+  const params = new URLSearchParams();
+  if (query.max) params.set("max", String(query.max));
+  if (query.since) params.set("since", String(query.since));
+  if (query.rated !== undefined) params.set("rated", String(query.rated));
+  const qs = params.toString();
+  return runIncrementalImport(
+    streamGamesFromUrl(`/api/lichess/games${qs ? `?${qs}` : ""}`, signal),
+    options,
+  );
 }

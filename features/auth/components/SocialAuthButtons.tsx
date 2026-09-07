@@ -3,10 +3,9 @@
 import { signIn } from "next-auth/react";
 import { SOCIAL_PROVIDERS } from "../data";
 
-// Only Google is wired to next-auth right now, and sign-in is Google-only
-// for now by product decision - the other entries in SOCIAL_PROVIDERS stay
-// in the data file (no providerId) for a future pass, but aren't rendered
-// as dead/preview buttons here.
+// Google and Lichess are wired to next-auth's signIn(). The rest of
+// SOCIAL_PROVIDERS stay in the data file (no providerId) for a future
+// pass, but aren't rendered as dead/preview buttons here.
 const ACTIVE_PROVIDERS = SOCIAL_PROVIDERS.filter((p) => p.providerId);
 
 export default function SocialAuthButtons() {

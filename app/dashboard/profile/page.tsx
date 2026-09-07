@@ -3,12 +3,17 @@ import { ViewTransition } from "react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import ProfileSection from "@/features/account/components/ProfileSection";
+import ConnectedAccounts from "@/features/account/components/ConnectedAccounts";
 
 export default async function ProfilePage() {
   const session = await auth(); // non-null: DashboardLayout already redirected otherwise
-  const dbUser = await prisma.user.findUnique({
-    where: { id: session!.user.id },
-  });
+  const [dbUser, lichessAccount] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session!.user.id } }),
+    prisma.account.findFirst({
+      where: { userId: session!.user.id, provider: "lichess" },
+      select: { providerAccountId: true },
+    }),
+  ]);
 
   const memberSince = dbUser?.createdAt
     ? dbUser.createdAt.toLocaleDateString("en-US", {
@@ -27,6 +32,9 @@ export default async function ProfilePage() {
             email: session!.user.email ?? "",
           }}
           memberSince={memberSince}
+        />
+        <ConnectedAccounts
+          lichessUsername={lichessAccount?.providerAccountId ?? null}
         />
       </div>
     </ViewTransition>
