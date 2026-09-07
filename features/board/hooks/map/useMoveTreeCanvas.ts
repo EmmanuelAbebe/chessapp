@@ -8,6 +8,13 @@ import {
   type Polar,
 } from "../../lib/map/move-tree-hyperbolic-layout";
 import { computeThetaDeltas } from "../../lib/map/move-tree-angles";
+import { buildFlatTree } from "../../lib/map/move-tree-flat";
+import {
+  collectVisibleNodes,
+  computeSubtreeSpread,
+  makeVisibleWalkScratch,
+  type VisibleWalkScratch,
+} from "../../lib/map/move-tree-visible-set";
 import {
   HUB_COLOR,
   easeOutCubic,
@@ -144,6 +151,27 @@ export function useMoveTreeCanvas(
   // map this replaces.
   const canon = useMemo(() => computeHyperbolicLayout(tree, k).canon, [tree, k]);
 
+  // Flat, index-addressed topology (rebuilt only on a tree change) and the
+  // canonical layout as parallel typed arrays indexed the same way. The
+  // steady-state draw path (no animation running) walks these instead of
+  // iterating the `canon` Map + doing string/object lookups per node.
+  const flat = useMemo(() => buildFlatTree(tree), [tree]);
+  const canonArrays = useMemo(() => {
+    const r = new Float64Array(flat.n);
+    const localTheta = new Float64Array(flat.n);
+    for (let i = 0; i < flat.n; i++) {
+      const p = canon.get(flat.ids[i]);
+      if (p) {
+        r[i] = p.r;
+        localTheta[i] = p.localTheta;
+      }
+    }
+    // Per-subtree angular reach, used by the visible-set walk to prune
+    // whole subtrees. Depends on localTheta (hence k), so it lives here.
+    const spread = computeSubtreeSpread(flat, localTheta);
+    return { r, localTheta, spread };
+  }, [flat, canon]);
+
   const { totalNodes, maxPly, widestFork } = useMemo(() => {
     let maxPlySeen = 0, widest = 0;
     const ids = Object.keys(tree.nodes);
@@ -186,6 +214,9 @@ export function useMoveTreeCanvas(
   const focusRCacheRef = useRef(0);
   const geomCacheKeyRef = useRef("");
   const geomCacheTreeRef = useRef<MoveTreeState | null>(null);
+  // Reused scratch buffers for the visible-set walk - grown (never shrunk)
+  // to fit the current node count so the walk allocates nothing per frame.
+  const walkScratchRef = useRef<VisibleWalkScratch>(makeVisibleWalkScratch(0));
   // Per-ply highlight strength (0..1), eased toward whichever ply is
   // hovered/selected each frame rather than snapping - lets a ring fade
   // out smoothly too, since more than one entry can be mid-fade at once
@@ -212,6 +243,8 @@ export function useMoveTreeCanvas(
   const hoverStartRef = useRef(0);
   const showRingsRef = useRef(showRings);
   const canonRef = useRef(canon);
+  const flatRef = useRef(flat);
+  const canonArraysRef = useRef(canonArrays);
   const treeRef = useRef(tree);
   const focusIdRef = useRef(focusId);
   const currentNodeIdRef = useRef(currentNodeId);
@@ -244,6 +277,8 @@ export function useMoveTreeCanvas(
         : null;
   }
   canonRef.current = canon;
+  flatRef.current = flat;
+  canonArraysRef.current = canonArrays;
   treeIdentityRef.current = tree;
   treeRef.current = tree;
   focusIdRef.current = focusId;
@@ -493,14 +528,25 @@ export function useMoveTreeCanvas(
       const currentTree = treeRef.current;
       const displayLimit = effectiveMaxPly();
 
+      const pruneT = pruneThresholdT(scale);
+      const flatTree = flatRef.current;
+      const focusIdx = flatTree.idToIdx.get(focusIdRef.current);
+      // The fast walk (see collectVisibleNodes) needs a settled camera at a
+      // real focus node. During a focus or layout transition the camera is
+      // a virtual in-between point and node positions are mid-tween, so
+      // fall back to the O(n) pass driven by frameGeometry - it only runs
+      // for the ~450ms an animation lasts.
+      const animating = !!animRef.current || !!layoutAnimRef.current;
+
       // Every visible node's disk position depends only on these inputs -
       // not on hover / pin / ring selection. When a redraw is triggered by
       // one of those and none of the geometry inputs changed, reuse last
-      // frame's projected map and skip the O(n) recenter/project pass.
-      const geomKey = `${kRef.current}|${focusIdRef.current}|${scale}|${displayLimit}`;
+      // frame's projected map and skip the recenter/project pass entirely.
+      // `animating` is in the key so the first settled frame after a
+      // transition recomputes instead of reusing a mid-tween snapshot.
+      const geomKey = `${kRef.current}|${focusIdRef.current}|${scale}|${displayLimit}|${animating}`;
       const canReuse =
-        !animRef.current &&
-        !layoutAnimRef.current &&
+        !animating &&
         renderedCacheRef.current !== null &&
         geomCacheTreeRef.current === currentTree &&
         geomCacheKeyRef.current === geomKey;
@@ -511,11 +557,10 @@ export function useMoveTreeCanvas(
       if (canReuse) {
         rendered = renderedCacheRef.current!;
         focusR = focusRCacheRef.current;
-      } else {
+      } else if (animating || focusIdx === undefined) {
         const g = frameGeometry(true);
         focusR = g.focusR;
         const deltas = g.deltas!;
-        const pruneT = pruneThresholdT(scale);
         // A node's hyperbolic distance from the camera is always >= the gap
         // between the two rapidities (hyperbolic law of cosines, with
         // cos(dtheta) <= 1), so anything whose radial gap alone already
@@ -532,6 +577,32 @@ export function useMoveTreeCanvas(
           if (!(camRelative.t <= pruneT)) continue;
           rendered.set(id, projectToDisk(camRelative));
         }
+        renderedCacheRef.current = rendered;
+        focusRCacheRef.current = focusR;
+        geomCacheKeyRef.current = geomKey;
+        geomCacheTreeRef.current = currentTree;
+      } else {
+        // Steady state: walk out from the focus, touching only nodes that
+        // can reach the disk. O(visible), not O(n).
+        const arrays = canonArraysRef.current;
+        focusR = arrays.r[focusIdx];
+        if (walkScratchRef.current.visited.length < flatTree.n) {
+          walkScratchRef.current = makeVisibleWalkScratch(flatTree.n);
+        }
+        const visible = collectVisibleNodes(
+          flatTree,
+          arrays.r,
+          arrays.localTheta,
+          arrays.spread,
+          focusIdx,
+          focusR,
+          kRef.current,
+          pruneT,
+          displayLimit,
+          walkScratchRef.current,
+        );
+        rendered = new Map<string, Complex>();
+        for (const [idx, pos] of visible) rendered.set(flatTree.ids[idx], pos);
         renderedCacheRef.current = rendered;
         focusRCacheRef.current = focusR;
         geomCacheKeyRef.current = geomKey;
