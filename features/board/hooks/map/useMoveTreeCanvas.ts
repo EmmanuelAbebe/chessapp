@@ -169,6 +169,23 @@ export function useMoveTreeCanvas(
   // layout-animation trigger below - see the comment there.
   const treeIdentityRef = useRef(tree);
   const renderedPosRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  // --- Draw-loop scheduling + projected-position cache ---------------------
+  // The draw loop only runs while something is actually moving (a focus or
+  // layout transition, a ring fade, a hovered-node bounce); once it settles
+  // it stops scheduling frames, so an idle map - even with a 10k-node tree -
+  // costs nothing until the next interaction re-arms it (see the effect that
+  // calls requestDrawRef, and needsAnimation in the draw effect).
+  const requestDrawRef = useRef<(() => void) | null>(null);
+  // `rendered` (every visible node's disk position) only depends on k, the
+  // focus, the tree, the canvas size and the ply cap - never on hover, pins
+  // or ring selection. When a redraw is triggered by one of those and the
+  // geometry inputs are unchanged, the O(n) recenter/project pass is skipped
+  // and this cached map is reused.
+  const renderedCacheRef = useRef<Map<string, Complex> | null>(null);
+  const focusRCacheRef = useRef(0);
+  const geomCacheKeyRef = useRef("");
+  const geomCacheTreeRef = useRef<MoveTreeState | null>(null);
   // Per-ply highlight strength (0..1), eased toward whichever ply is
   // hovered/selected each frame rather than snapping - lets a ring fade
   // out smoothly too, since more than one entry can be mid-fade at once
@@ -282,6 +299,10 @@ export function useMoveTreeCanvas(
     if (!treeRef.current.nodes[id] || id === focusIdRef.current) return;
     animRef.current = { fromId: focusIdRef.current, toId: id, start: performance.now() };
     setFocusId(id);
+    // setFocusId's re-render would re-arm the loop anyway, but the anim
+    // clock has already started - kick it now so the first eased frame
+    // isn't a render tick late.
+    requestDrawRef.current?.();
   }
 
   // Canvas render loop + interaction, set up once on mount. Every value it
@@ -296,6 +317,12 @@ export function useMoveTreeCanvas(
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // Declared up here (not next to draw()) so the observers' resize()/
+    // refreshColors() - which run during setup, before draw's own block -
+    // can call requestDraw() without tripping the `running` TDZ.
+    let raf = 0;
+    let running = false;
+
     let colors = readThemeColors();
     // An override (from the color-tuning tool) substitutes for the theme's
     // own base color, but the alpha a given element draws with is still the
@@ -308,6 +335,7 @@ export function useMoveTreeCanvas(
     }
     function refreshColors() {
       colors = readThemeColors();
+      requestDraw();
     }
     // Theme shade can change while the map is open; the effect no longer
     // re-attaches on its own to pick that up incidentally, so watch for it.
@@ -320,6 +348,9 @@ export function useMoveTreeCanvas(
       canvas!.height = rect.height * devicePixelRatio;
       canvas!.style.width = `${rect.width}px`;
       canvas!.style.height = `${rect.height}px`;
+      // The canvas size feeds the geometry cache key, so a resize forces a
+      // re-project on the next frame anyway - just make sure there is one.
+      requestDraw();
     }
     resize();
     const resizeObserver = new ResizeObserver(resize);
@@ -331,7 +362,11 @@ export function useMoveTreeCanvas(
     // safe at any depth - see move-tree-angles.ts); `focusR` is the
     // camera's own rapidity. Mid-transition, both describe the animated
     // in-between camera rather than the settled focus node.
-    function frameGeometry() {
+    //
+    // `wantDeltas` is false for the pointer handlers: ring hit-testing only
+    // needs `focusR`, so they skip the O(n) computeThetaDeltas entirely on
+    // every mousemove.
+    function frameGeometry(wantDeltas = true) {
       const rect = stage!.getBoundingClientRect();
       const cx = rect.width / 2, cy = rect.height / 2;
       const scale = (Math.min(rect.width, rect.height) / 2) * 0.92;
@@ -342,16 +377,20 @@ export function useMoveTreeCanvas(
 
       if (!anim) {
         const focusR = canonNow.get(focusIdRef.current)?.r ?? 0;
-        const deltas = computeThetaDeltas(tree, canonNow, focusIdRef.current);
-        return { rect, cx, cy, scale, focusR, deltas };
+        const deltas = wantDeltas
+          ? computeThetaDeltas(tree, canonNow, focusIdRef.current)
+          : null;
+        return { rect, cx, cy, scale, focusR, deltas, canonNow };
       }
 
       const t = Math.min(1, (now - anim.start) / FOCUS_ANIM_MS);
       if (t >= 1) {
         animRef.current = null;
         const focusR = canonNow.get(anim.toId)?.r ?? 0;
-        const deltas = computeThetaDeltas(tree, canonNow, anim.toId);
-        return { rect, cx, cy, scale, focusR, deltas };
+        const deltas = wantDeltas
+          ? computeThetaDeltas(tree, canonNow, anim.toId)
+          : null;
+        return { rect, cx, cy, scale, focusR, deltas, canonNow };
       }
 
       // Mid-transition: every quantity stays relative to the node the
@@ -367,14 +406,17 @@ export function useMoveTreeCanvas(
       // that or by its shorter equivalent ends up at the exact same final
       // orientation either way (see shortestRotation's own comment).
       const eased = easeOutCubic(t);
-      const deltasFromOld = computeThetaDeltas(tree, canonNow, anim.fromId);
       const rFrom = canonNow.get(anim.fromId)?.r ?? 0;
       const rTo = canonNow.get(anim.toId)?.r ?? 0;
       const focusR = rFrom + (rTo - rFrom) * eased;
+      if (!wantDeltas) {
+        return { rect, cx, cy, scale, focusR, deltas: null, canonNow };
+      }
+      const deltasFromOld = computeThetaDeltas(tree, canonNow, anim.fromId);
       const virtualDtheta = shortestRotation(deltasFromOld.get(anim.toId) ?? 0) * eased;
       const deltas = new Map<string, number>();
       for (const [id, d] of deltasFromOld) deltas.set(id, d - virtualDtheta);
-      return { rect, cx, cy, scale, focusR, deltas };
+      return { rect, cx, cy, scale, focusR, deltas, canonNow };
     }
 
     // The lower of "how deep the tree actually goes" and "how deep the
@@ -412,11 +454,90 @@ export function useMoveTreeCanvas(
       return best;
     }
 
-    let raf = 0;
+    // Schedules a frame if one isn't already pending. The loop stops itself
+    // once everything settles (see needsAnimation), so this is what brings
+    // it back - called from the re-arm effect, the observers, and
+    // doSetFocus.
+    function requestDraw() {
+      if (running) return;
+      running = true;
+      raf = requestAnimationFrame(draw);
+    }
+    requestDrawRef.current = requestDraw;
+
+    // Whether anything is still visibly in motion this frame. When false and
+    // no new requestDraw() comes in, the loop goes idle - a static 10k-node
+    // map then costs zero per frame.
+    function needsAnimation(now: number, ringsMoving: boolean): boolean {
+      if (animRef.current || layoutAnimRef.current || ringsMoving) return true;
+      // The hovered-node bounce only applies to the focus / current node,
+      // and only for 3s - a plain node hover draws once and then idles.
+      const hov = hoveredIdRef.current;
+      if (
+        hov &&
+        (hov === focusIdRef.current || hov === currentNodeIdRef.current) &&
+        now - hoverStartRef.current < 3000
+      ) {
+        return true;
+      }
+      return false;
+    }
+
     function draw() {
       const dpr = devicePixelRatio;
       const now = performance.now();
-      const { rect, cx, cy, scale, focusR, deltas } = frameGeometry();
+
+      const rect = stage!.getBoundingClientRect();
+      const cx = rect.width / 2, cy = rect.height / 2;
+      const scale = (Math.min(rect.width, rect.height) / 2) * 0.92;
+      const currentTree = treeRef.current;
+      const displayLimit = effectiveMaxPly();
+
+      // Every visible node's disk position depends only on these inputs -
+      // not on hover / pin / ring selection. When a redraw is triggered by
+      // one of those and none of the geometry inputs changed, reuse last
+      // frame's projected map and skip the O(n) recenter/project pass.
+      const geomKey = `${kRef.current}|${focusIdRef.current}|${scale}|${displayLimit}`;
+      const canReuse =
+        !animRef.current &&
+        !layoutAnimRef.current &&
+        renderedCacheRef.current !== null &&
+        geomCacheTreeRef.current === currentTree &&
+        geomCacheKeyRef.current === geomKey;
+
+      let rendered: Map<string, Complex>;
+      let focusR: number;
+
+      if (canReuse) {
+        rendered = renderedCacheRef.current!;
+        focusR = focusRCacheRef.current;
+      } else {
+        const g = frameGeometry(true);
+        focusR = g.focusR;
+        const deltas = g.deltas!;
+        const pruneT = pruneThresholdT(scale);
+        // A node's hyperbolic distance from the camera is always >= the gap
+        // between the two rapidities (hyperbolic law of cosines, with
+        // cos(dtheta) <= 1), so anything whose radial gap alone already
+        // exceeds the sub-pixel distance can skip recenterPolar - roughly
+        // 5 sinh/cosh calls - outright. Never culls a node pruneT wouldn't.
+        const radialCull = Math.acosh(pruneT);
+        rendered = new Map<string, Complex>();
+        for (const [id, pos] of g.canonNow) {
+          if ((currentTree.nodes[id]?.ply ?? 0) > displayLimit) continue;
+          if (Math.abs(pos.r - focusR) > radialCull) continue;
+          const camRelative = recenterPolar(pos.r, focusR, deltas.get(id) ?? 0);
+          // Also catches t === NaN/Infinity from sinh/cosh overflow at very
+          // high k + deep ply - boundary-distance away, same as sub-pixel.
+          if (!(camRelative.t <= pruneT)) continue;
+          rendered.set(id, projectToDisk(camRelative));
+        }
+        renderedCacheRef.current = rendered;
+        focusRCacheRef.current = focusR;
+        geomCacheKeyRef.current = geomKey;
+        geomCacheTreeRef.current = currentTree;
+      }
+
       ctx!.save();
       ctx!.scale(dpr, dpr);
       ctx!.clearRect(0, 0, rect.width, rect.height);
@@ -429,9 +550,17 @@ export function useMoveTreeCanvas(
 
       // Stepped every frame regardless of whether rings are shown, so a
       // fade-out already in progress doesn't freeze mid-transition and
-      // then jump when rings are toggled back on.
-      stepIntensityMap(ringHoverIntensityRef.current, showRingsRef.current ? hoveredRingPlyRef.current : null);
-      stepIntensityMap(ringSelectIntensityRef.current, showRingsRef.current ? selectedRingPlyRef.current : null);
+      // then jump when rings are toggled back on. Both calls always run
+      // (no short-circuit) - each map has to be advanced every frame.
+      const hoverMoving = stepIntensityMap(
+        ringHoverIntensityRef.current,
+        showRingsRef.current ? hoveredRingPlyRef.current : null,
+      );
+      const selectMoving = stepIntensityMap(
+        ringSelectIntensityRef.current,
+        showRingsRef.current ? selectedRingPlyRef.current : null,
+      );
+      const ringsMoving = hoverMoving || selectMoving;
 
       if (showRingsRef.current) {
         for (let ply = 1; ply <= effectiveMaxPly(); ply++) {
@@ -489,27 +618,6 @@ export function useMoveTreeCanvas(
         }
       }
 
-      const currentTree = treeRef.current;
-      const displayLimit = effectiveMaxPly();
-      const rendered = new Map<string, Complex>();
-      const pruneT = pruneThresholdT(scale);
-      for (const [id, pos] of effectiveCanon(now)) {
-        // A node past the display-ply cap is skipped entirely here, so it's
-        // simultaneously invisible, un-hit-testable, and (since an edge only
-        // draws once both its ends are in `rendered`) never leaves a
-        // dangling edge toward whatever's been cut off.
-        if ((currentTree.nodes[id]?.ply ?? 0) > displayLimit) continue;
-        const camRelative = recenterPolar(pos.r, focusR, deltas.get(id) ?? 0);
-        // Same treatment for anything so far from the camera it'd compact
-        // into sub-pixel space anyway - see pruneThresholdT's own comment.
-        // The negated form also catches t === NaN/Infinity, which happens
-        // for nodes deep enough (very high k, ply in the hundreds) that
-        // sinh/cosh overflowed float64 inside recenterPolar - those are
-        // boundary-distance away, exactly the sub-pixel case.
-        if (!(camRelative.t <= pruneT)) continue;
-        rendered.set(id, projectToDisk(camRelative));
-      }
-
       // Every node from the game's start down to wherever play actually is
       // right now - the edges along it get a distinct highlight so the
       // "main line" reads at a glance against the rest of the tree.
@@ -517,11 +625,14 @@ export function useMoveTreeCanvas(
         getBreadcrumb(currentTree, currentNodeIdRef.current).map((n) => n.id),
       );
 
-      for (const id in currentTree.nodes) {
+      // Iterate only what's actually on screen (`rendered`), not every node
+      // in the tree - at 10k nodes with the focus deep in a line, that's a
+      // few dozen instead of the lot.
+      for (const [id, q] of rendered) {
         const node = currentTree.nodes[id];
-        if (!node.parentId) continue;
-        const p = rendered.get(node.parentId), q = rendered.get(id);
-        if (!p || !q) continue;
+        if (!node?.parentId) continue;
+        const p = rendered.get(node.parentId);
+        if (!p) continue;
         const onMainLine = mainLineIds.has(id);
         const parentIsHub = isHub(currentTree.nodes[node.parentId]);
         ctx!.lineWidth = onMainLine ? 1.8 : 1.1;
@@ -546,10 +657,9 @@ export function useMoveTreeCanvas(
       }
 
       renderedPosRef.current.clear();
-      for (const id in currentTree.nodes) {
+      for (const [id, z] of rendered) {
         const node = currentTree.nodes[id];
-        const z = rendered.get(id);
-        if (!z) continue;
+        if (!node) continue;
         const mag = Math.hypot(z.x, z.y);
         const sx = cx + z.x * scale, sy = cy + z.y * scale;
         renderedPosRef.current.set(id, { x: sx, y: sy });
@@ -673,9 +783,14 @@ export function useMoveTreeCanvas(
       }
 
       ctx!.restore();
-      raf = requestAnimationFrame(draw);
+
+      if (needsAnimation(now, ringsMoving)) {
+        raf = requestAnimationFrame(draw);
+      } else {
+        running = false;
+      }
     }
-    raf = requestAnimationFrame(draw);
+    requestDraw();
 
     function hitTest(mx: number, my: number): string | null {
       let best: string | null = null;
@@ -720,7 +835,7 @@ export function useMoveTreeCanvas(
         }
         return;
       }
-      const { cx, cy, scale, focusR } = frameGeometry();
+      const { cx, cy, scale, focusR } = frameGeometry(false);
       const ringHit = hitTestRing(mx, my, cx, cy, scale, focusR);
       if (ringHit !== hoveredRingPlyRef.current) {
         hoveredRingPlyRef.current = ringHit;
@@ -754,7 +869,7 @@ export function useMoveTreeCanvas(
         setCardClosed(false);
         return;
       }
-      const { cx, cy, scale, focusR } = frameGeometry();
+      const { cx, cy, scale, focusR } = frameGeometry(false);
       const ringHit = hitTestRing(mx, my, cx, cy, scale, focusR);
       if (ringHit !== null) {
         const next = selectedRingPlyRef.current === ringHit ? null : ringHit;
@@ -781,6 +896,8 @@ export function useMoveTreeCanvas(
 
     return () => {
       cancelAnimationFrame(raf);
+      running = false;
+      requestDrawRef.current = null;
       resizeObserver.disconnect();
       themeObserver.disconnect();
       canvas.removeEventListener("wheel", onWheel);
@@ -791,6 +908,25 @@ export function useMoveTreeCanvas(
     // Mount-once by design - see the comment on the refs above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-arm the (otherwise self-stopping) draw loop whenever something that
+  // actually changes the canvas changes. Deliberately NOT depending on
+  // ringTooltipPos / pinnedId / cardClosed - those re-render but don't
+  // affect anything drawn, so they shouldn't cost a frame.
+  useEffect(() => {
+    requestDrawRef.current?.();
+  }, [
+    k,
+    focusId,
+    hoveredId,
+    hoveredRingPly,
+    selectedRingPly,
+    showRings,
+    currentNodeId,
+    maxDisplayPly,
+    tree,
+    mapColors,
+  ]);
 
   return {
     stageRef,

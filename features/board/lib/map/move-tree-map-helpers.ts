@@ -156,13 +156,27 @@ export const RING_HIGHLIGHT_STEP = 0.18; // per-frame ease rate, ~5-6 frames to 
 
 // Eases every tracked ply's intensity toward 1 if it's the current target,
 // toward 0 otherwise, and drops entries once they've fully faded out so the
-// map doesn't grow forever as the cursor wanders across rings.
-export function stepIntensityMap(map: Map<number, number>, targetPly: number | null) {
+// map doesn't grow forever as the cursor wanders across rings. Returns
+// whether any entry is still visibly moving - the draw loop uses that to
+// decide whether it needs to schedule another frame or can go idle.
+export function stepIntensityMap(
+  map: Map<number, number>,
+  targetPly: number | null,
+): boolean {
   if (targetPly !== null && !map.has(targetPly)) map.set(targetPly, 0);
+  let moving = false;
   for (const [ply, value] of map) {
     const target = ply === targetPly ? 1 : 0;
     const next = value + (target - value) * RING_HIGHLIGHT_STEP;
-    if (target === 0 && next < 0.01) map.delete(ply);
-    else map.set(ply, next);
+    if (target === 0 && next < 0.01) {
+      map.delete(ply);
+      moving = true;
+    } else if (Math.abs(next - target) < 0.005) {
+      map.set(ply, target);
+    } else {
+      map.set(ply, next);
+      moving = true;
+    }
   }
+  return moving;
 }
