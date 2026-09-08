@@ -59,6 +59,12 @@ const MIN_HIT_RADIUS = 16;
 // nodes/edges/arrowheads are invisible detail - collapse the run to one
 // geodesic between its endpoints. See the corridor pass in the draw loop.
 const CORRIDOR_COLLAPSE_PX = 2.5;
+// Hard cap on how many node marks (dot + label + inbound edge) a single
+// frame draws. A low-compaction "whole tree" view of a large import can
+// otherwise put 10k+ on screen at once. Past this, the lowest-priority
+// nodes are dropped (their subtrees stay connected via a spanning
+// geodesic) so frame cost is bounded regardless of node count or zoom.
+const MAX_DRAWN_MARKS = 2000;
 // Below this on-screen radius/distance-from-boundary, a node or ring is
 // smaller than can actually be seen - drawing, labeling, or hit-testing it
 // is pure waste, and a heavily-branched or very deep tree can have a lot of
@@ -702,22 +708,24 @@ export function useMoveTreeCanvas(
         getBreadcrumb(currentTree, currentNodeIdRef.current).map((n) => n.id),
       );
 
-      // Corridor collapse (#6): mark the interior nodes of a tight
-      // single-child run. They're a straight geodesic, so once they pack
-      // below CORRIDOR_COLLAPSE_PX apart the run can be drawn as one
-      // segment between its endpoints - the interiors are skipped in both
-      // the edge and node passes. Never collapse the focus / current /
-      // hovered / pinned node, which are deliberate call-outs.
-      const collapsed = new Set<string>();
+      // `skipDraw` collects nodes that are on screen but shouldn't get
+      // their own dot/label/edge: corridor interiors (#6) and, past the
+      // draw budget, the lowest-priority nodes (#8). The edge pass hops
+      // over anything in here so the tree stays connected with fewer,
+      // longer segments. Focus / current / hovered / pinned are never in
+      // it - they're deliberate call-outs.
+      const isCallout = (id: string) =>
+        id === focusIdRef.current ||
+        id === currentNodeIdRef.current ||
+        id === hoveredIdRef.current ||
+        id === pinnedIdRef.current;
+      const skipDraw = new Set<string>();
+
+      // Corridor collapse (#6): interior nodes of a tight single-child run
+      // are a straight geodesic - once they pack below CORRIDOR_COLLAPSE_PX
+      // apart, one segment between the run's endpoints looks identical.
       for (const [id, q] of rendered) {
-        if (
-          id === focusIdRef.current ||
-          id === currentNodeIdRef.current ||
-          id === hoveredIdRef.current ||
-          id === pinnedIdRef.current
-        ) {
-          continue;
-        }
+        if (isCallout(id)) continue;
         const idx = flatTree.idToIdx.get(id);
         if (idx === undefined || flatTree.childCount[idx] !== 1) continue;
         const pIdx = flatTree.parent[idx];
@@ -737,25 +745,77 @@ export function useMoveTreeCanvas(
           (childPos.y - q.y) * scale,
         );
         if (gapUp < CORRIDOR_COLLAPSE_PX && gapDown < CORRIDOR_COLLAPSE_PX) {
-          collapsed.add(id);
+          skipDraw.add(id);
         }
+      }
+
+      // Draw budget (#8): a low-k "whole tree" view of a big import can put
+      // 10k+ nodes on screen at once - each an arc + arrowhead + dot. Cap
+      // the drawn marks at MAX_DRAWN_MARKS by scoring the remaining nodes
+      // (prominence + on-screen breathing room + fork bonus) and dropping
+      // the lowest. Main line and call-outs are never dropped.
+      let drawCount = 0;
+      const droppable: { id: string; score: number }[] = [];
+      for (const [id, z] of rendered) {
+        if (skipDraw.has(id)) continue;
+        drawCount++;
+        if (isCallout(id) || mainLineIds.has(id)) continue;
+        const idx = flatTree.idToIdx.get(id);
+        if (idx === undefined) continue;
+        const closeness = 1 - Math.min(1, Math.hypot(z.x, z.y));
+        const pIdx = flatTree.parent[idx];
+        const parentZ = pIdx >= 0 ? rendered.get(flatTree.ids[pIdx]) : undefined;
+        const gapPx = parentZ
+          ? Math.hypot((z.x - parentZ.x) * scale, (z.y - parentZ.y) * scale)
+          : 30;
+        const isFork = flatTree.childCount[idx] >= 2;
+        droppable.push({
+          id,
+          score: closeness + Math.min(gapPx, 30) / 30 + (isFork ? 0.5 : 0),
+        });
+      }
+      const overflow = drawCount - MAX_DRAWN_MARKS;
+      if (overflow > 0 && droppable.length > 0) {
+        droppable.sort((a, b) => a.score - b.score);
+        const dropN = Math.min(overflow, droppable.length);
+        for (let i = 0; i < dropN; i++) skipDraw.add(droppable[i].id);
+      }
+
+      // Nearest drawn ancestor for every rendered node, computed once
+      // root-first (postorder is ply-descending, so iterate it backwards)
+      // - the edge pass then reads it in O(1) instead of walking a
+      // possibly-long chain of skipped ancestors per node. "" means no
+      // drawn ancestor is on screen.
+      const drawnAncestor = new Map<string, string>();
+      for (let o = flatTree.postorder.length - 1; o >= 0; o--) {
+        const idx = flatTree.postorder[o];
+        const id = flatTree.ids[idx];
+        if (!rendered.has(id)) continue;
+        const pIdx = flatTree.parent[idx];
+        const pId = pIdx >= 0 ? flatTree.ids[pIdx] : "";
+        const anchorFromParent =
+          pId && rendered.has(pId)
+            ? skipDraw.has(pId)
+              ? (drawnAncestor.get(pId) ?? "")
+              : pId
+            : "";
+        drawnAncestor.set(id, skipDraw.has(id) ? anchorFromParent : id);
       }
 
       // Iterate only what's actually on screen (`rendered`), not every node
       // in the tree - at 10k nodes with the focus deep in a line, that's a
       // few dozen instead of the lot.
       for (const [id, q] of rendered) {
-        if (collapsed.has(id)) continue;
+        if (skipDraw.has(id)) continue;
         const idx = flatTree.idToIdx.get(id);
         if (idx === undefined) continue;
-        // Hop up over any collapsed ancestors so one geodesic spans the
-        // whole run from its first drawn node to this one.
-        let pIdx = flatTree.parent[idx];
-        while (pIdx >= 0 && collapsed.has(flatTree.ids[pIdx])) {
-          pIdx = flatTree.parent[pIdx];
-        }
-        if (pIdx < 0) continue;
-        const parentId = flatTree.ids[pIdx];
+        // One geodesic from this node back to the nearest drawn ancestor,
+        // spanning any collapsed corridor or budget-dropped nodes between.
+        // drawnAncestor of a non-skipped parent is the parent itself.
+        const pIdx = flatTree.parent[idx];
+        const parentId =
+          pIdx >= 0 ? (drawnAncestor.get(flatTree.ids[pIdx]) ?? "") : "";
+        if (!parentId) continue;
         const p = rendered.get(parentId);
         if (!p) continue;
         const onMainLine = mainLineIds.has(id);
@@ -785,10 +845,12 @@ export function useMoveTreeCanvas(
       for (const [id, z] of rendered) {
         const node = currentTree.nodes[id];
         if (!node) continue;
-        // Interior of a collapsed corridor - drawn as part of the run's
-        // single geodesic above, and too tightly packed to be a useful
-        // click target, so skip the dot, the label, and hit-testing.
-        if (collapsed.has(id)) continue;
+        // Collapsed corridor interior or a node dropped past the draw
+        // budget - its connector is drawn as part of a spanning geodesic
+        // above; skip the dot, label, and hit-testing. (A budget-dropped
+        // node in a dense low-k cloud is sub-pixel and unclickable anyway;
+        // raise compaction or focus nearer to bring it back.)
+        if (skipDraw.has(id)) continue;
         const mag = Math.hypot(z.x, z.y);
         const sx = cx + z.x * scale, sy = cy + z.y * scale;
         renderedPosRef.current.set(id, { x: sx, y: sy });
