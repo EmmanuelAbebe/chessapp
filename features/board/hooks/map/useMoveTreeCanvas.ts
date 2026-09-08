@@ -841,6 +841,18 @@ export function useMoveTreeCanvas(
         );
       }
 
+      // Label candidates, filled during the node pass and placed
+      // collision-free afterwards (see the label pass below).
+      type LabelCand = {
+        text: string;
+        sx: number;
+        sy: number;
+        radius: number;
+        priority: number;
+        opacity: number;
+      };
+      const labelCands: LabelCand[] = [];
+
       renderedPosRef.current.clear();
       for (const [id, z] of rendered) {
         const node = currentTree.nodes[id];
@@ -851,6 +863,7 @@ export function useMoveTreeCanvas(
         // node in a dense low-k cloud is sub-pixel and unclickable anyway;
         // raise compaction or focus nearer to bring it back.)
         if (skipDraw.has(id)) continue;
+        const nodeIdx = flatTree.idToIdx.get(id);
         const mag = Math.hypot(z.x, z.y);
         const sx = cx + z.x * scale, sy = cy + z.y * scale;
         renderedPosRef.current.set(id, { x: sx, y: sy });
@@ -955,22 +968,97 @@ export function useMoveTreeCanvas(
           ctx!.stroke();
         }
 
-        // A label shows only for a node that's both prominent (well inside
-        // the disk, so `closeness` past ~0.5) AND has elbow room around it
-        // (`roomFactor`) - so a compacted clump near the center stays
-        // unlabeled however "close" it measures. Focus and ring-spotlit
-        // nodes are always labeled; those are deliberate callouts.
-        const proximityForLabel = Math.max(0, Math.min(1, (0.85 - mag) / 0.55));
-        const baseLabelOpacity =
-          proximityForLabel * roomFactor + (isFocus ? 1 : 0);
-        const labelOpacity = Math.max(baseLabelOpacity, 0.95 * ringSpotlight);
-        if (labelOpacity > 0.15 && (drawRadius > 2.4 || isFocus)) {
-          ctx!.font = "11px ui-monospace, monospace";
-          ctx!.fillStyle = hexToRgba(colors.text, Math.min(1, labelOpacity));
-          ctx!.textAlign = "left";
-          ctx!.textBaseline = "bottom";
-          ctx!.fillText(nodeLabel(node), sx + radius + 4, sy - 2);
+        // Collect a label candidate. Whether it's actually drawn is
+        // decided all at once afterwards by the collision-free label pass -
+        // per-node "does it have room" heuristics can't see that two nodes
+        // far from their shared parent are right on top of each OTHER.
+        const onMainLine = mainLineIds.has(id);
+        const isFork =
+          nodeIdx !== undefined && flatTree.childCount[nodeIdx] >= 2;
+        const isPinned = id === pinnedIdRef.current;
+        let priority = closeness * 100;
+        if (onMainLine) priority += 120;
+        if (isFork) priority += 40;
+        if (isPinned) priority += 400;
+        if (ringSpotlight > 0.5) priority += 300;
+        if (isHovered) priority = 5500;
+        if (isCurrent) priority = 5000;
+        if (isFocus) priority = 6000;
+        const special =
+          isFocus || isCurrent || isHovered || isPinned || ringSpotlight > 0.5;
+        // Non-special labels need the dot to be a real mark, not a speck,
+        // and to sit reasonably inside the disk - past that it's the label
+        // pass's budget + collision test that thins them, not this.
+        if (special || (drawRadius > 2.6 && mag < 0.92)) {
+          labelCands.push({
+            text: nodeLabel(node),
+            sx,
+            sy,
+            radius: drawRadius,
+            priority,
+            opacity: special ? 1 : Math.max(0.55, Math.min(1, closeness * 1.4)),
+          });
         }
+      }
+
+      // --- Collision-free label placement -----------------------------------
+      // Greedy: highest priority first, each label taking the first of a few
+      // candidate positions (right of the dot, then left, then above) whose
+      // box clears every label already placed and the canvas edges. Capped
+      // so a dense view can't wall itself in text.
+      const MAX_LABELS = 40;
+      labelCands.sort((a, b) => b.priority - a.priority);
+      // Only the top slice can realistically place before the cap fills -
+      // no point measuring text for the long tail.
+      if (labelCands.length > 160) labelCands.length = 160;
+      ctx!.font = "11px ui-monospace, monospace";
+      ctx!.textBaseline = "middle";
+      ctx!.textAlign = "left";
+      const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
+      const LH = 13;
+      let drawnLabels = 0;
+      for (const cand of labelCands) {
+        if (drawnLabels >= MAX_LABELS) break;
+        const w = ctx!.measureText(cand.text).width;
+        const g = cand.radius + 4;
+        const tries = [
+          { x: cand.sx + g, y: cand.sy }, // right
+          { x: cand.sx - g - w, y: cand.sy }, // left
+          { x: cand.sx - w / 2, y: cand.sy - g - LH / 2 }, // above
+          { x: cand.sx - w / 2, y: cand.sy + g + LH / 2 }, // below
+        ];
+        let spot: { x: number; y: number } | null = null;
+        for (const t of tries) {
+          const box = {
+            x0: t.x - 2,
+            y0: t.y - LH / 2 - 1,
+            x1: t.x + w + 2,
+            y1: t.y + LH / 2 + 1,
+          };
+          if (box.x0 < 2 || box.x1 > rect.width - 2) continue;
+          if (box.y0 < 2 || box.y1 > rect.height - 2) continue;
+          let clash = false;
+          for (const pl of placed) {
+            if (
+              box.x0 < pl.x1 &&
+              box.x1 > pl.x0 &&
+              box.y0 < pl.y1 &&
+              box.y1 > pl.y0
+            ) {
+              clash = true;
+              break;
+            }
+          }
+          if (!clash) {
+            spot = t;
+            placed.push(box);
+            break;
+          }
+        }
+        if (!spot) continue;
+        ctx!.fillStyle = hexToRgba(colors.text, cand.opacity);
+        ctx!.fillText(cand.text, spot.x, spot.y);
+        drawnLabels++;
       }
 
       ctx!.restore();
