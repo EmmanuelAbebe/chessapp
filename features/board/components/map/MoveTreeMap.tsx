@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FaFileImport } from "react-icons/fa6";
 import { GrConfigure } from "react-icons/gr";
 import { useBoardGameContext } from "../../BoardGameContext";
@@ -96,6 +96,16 @@ export function MoveTreeMap() {
   const [showCompactionPanel, setShowCompactionPanel] = useState(false);
   const [showRingsTogglePanel, setShowRingsTogglePanel] = useState(false);
   const [showMoveListPanel, setShowMoveListPanel] = useState(false);
+
+  // On a desktop-width screen there's room for the compaction panel, and
+  // it's the one secondary control worth surfacing up front - open it once
+  // on mount. Init false so SSR/mobile match; a later manual toggle stands
+  // (this doesn't re-run on resize).
+  useEffect(() => {
+    if (window.matchMedia("(min-width: 1024px)").matches) {
+      setShowCompactionPanel(true);
+    }
+  }, []);
 
   // How many of the player's own recorded games (Statistics history)
   // reached each position, and what happened in them - drives both the
