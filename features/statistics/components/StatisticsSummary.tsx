@@ -2,44 +2,32 @@
 
 import { useMemo, useState } from "react";
 import { useGameHistory } from "@/features/history/useGameHistory";
+import {
+  SidePlayedFilter,
+  filterGamesBySide,
+  sideGameCounts,
+  type SideFilter,
+} from "@/features/history/SidePlayedFilter";
 import { computePersonalityProfile } from "../lib/traits";
 import { TraitRadarChart } from "./TraitRadarChart";
 import { PhaseMixBars } from "./PhaseMixBars";
 import { ArchetypeHeadline } from "./ArchetypeHeadline";
 
-type SideFilter = "all" | "w" | "b";
-
-const SIDE_OPTIONS: { value: SideFilter; label: string }[] = [
-  { value: "all", label: "All games" },
-  { value: "w", label: "As White" },
-  { value: "b", label: "As Black" },
-];
-
 export default function StatisticsSummary() {
   const { games } = useGameHistory();
   const [side, setSide] = useState<SideFilter>("all");
 
-  const counts = useMemo(() => {
-    let white = 0;
-    let black = 0;
-    for (const game of games) {
-      if (game.playerSide === "w") white += 1;
-      else if (game.playerSide === "b") black += 1;
-    }
-    return { white, black, total: games.length };
-  }, [games]);
-
+  const counts = useMemo(() => sideGameCounts(games), [games]);
   const filteredGames = useMemo(
-    () => (side === "all" ? games : games.filter((g) => g.playerSide === side)),
+    () => filterGamesBySide(games, side),
     [games, side],
   );
-
   const profile = useMemo(
     () => computePersonalityProfile(filteredGames),
     [filteredGames],
   );
 
-  if (counts.total === 0) {
+  if (counts.all === 0) {
     return (
       <section className="rounded-lg border border-border-soft bg-surface px-4 py-8 text-center">
         <p className="text-sm text-text-dim">
@@ -56,44 +44,10 @@ export default function StatisticsSummary() {
   return (
     <section className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-2">
-        <div
-          role="group"
-          aria-label="Filter by the side you played"
-          className="inline-flex rounded-lg border border-border bg-surface-raised p-0.5"
-        >
-          {SIDE_OPTIONS.map(({ value, label }) => {
-            const active = side === value;
-            const count =
-              value === "all"
-                ? counts.total
-                : value === "w"
-                  ? counts.white
-                  : counts.black;
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setSide(value)}
-                aria-pressed={active}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  active
-                    ? "bg-accent text-text"
-                    : "text-text-dim hover:text-text"
-                }`}
-              >
-                {label}
-                <span
-                  className={`ml-1.5 ${active ? "text-text/70" : "text-text-faint"}`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <SidePlayedFilter value={side} onChange={setSide} counts={counts} />
         <p className="text-xs text-text-faint">
-          You&apos;ve recorded {counts.white} game
-          {counts.white === 1 ? "" : "s"} as White and {counts.black} as Black.
+          You&apos;ve recorded {counts.w} game{counts.w === 1 ? "" : "s"} as
+          White and {counts.b} as Black.
         </p>
       </div>
 

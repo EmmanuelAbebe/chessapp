@@ -8,6 +8,12 @@ import { useMoveTreeCanvas } from "../../hooks/map/useMoveTreeCanvas";
 import { computeNodeOutcomeStats } from "../../lib/map/node-stats";
 import type { MoveNode } from "../../types";
 import { useGameHistory } from "@/features/history/useGameHistory";
+import {
+  SidePlayedFilter,
+  filterGamesBySide,
+  sideGameCounts,
+  type SideFilter,
+} from "@/features/history/SidePlayedFilter";
 import { MapImportGamesModal } from "./MapImportGamesModal";
 import { MapPreviewCard } from "./MapPreviewCard";
 import { MapRingListPanel } from "./MapRingListPanel";
@@ -110,8 +116,19 @@ export function MoveTreeMap() {
   // How many of the player's own recorded games (Statistics history)
   // reached each position, and what happened in them - drives both the
   // previewed node's stats line and the ring list's per-move win rates.
+  // The side filter narrows it to only the games the player had White (or
+  // Black), so you can read your White vs Black repertoire separately.
   const { games, addGames } = useGameHistory();
-  const nodeStats = useMemo(() => computeNodeOutcomeStats(tree, games), [tree, games]);
+  const [statsSide, setStatsSide] = useState<SideFilter>("all");
+  const sideCounts = useMemo(() => sideGameCounts(games), [games]);
+  const statsGames = useMemo(
+    () => filterGamesBySide(games, statsSide),
+    [games, statsSide],
+  );
+  const nodeStats = useMemo(
+    () => computeNodeOutcomeStats(tree, statsGames),
+    [tree, statsGames],
+  );
 
   const nodesOnSelectedRing = useMemo(() => {
     if (selectedRingPly === null) return [];
@@ -155,6 +172,21 @@ export function MoveTreeMap() {
           ref={canvasRef}
           className="absolute inset-0 block h-full w-full cursor-pointer touch-none"
         />
+
+        {/* Top-left: narrows the per-node win-rate stats (preview card +
+            ring list) to only the games the player had a given side.
+            Hidden with no history, since there's nothing for it to
+            filter. */}
+        {sideCounts.all > 0 && (
+          <div className="absolute top-3 left-3 z-20">
+            <SidePlayedFilter
+              value={statsSide}
+              onChange={setStatsSide}
+              counts={sideCounts}
+              size="sm"
+            />
+          </div>
+        )}
 
         {/* Top-center: off by default (see the settings modal) - when on,
             the exact same row (height, scroll behavior) the board view
