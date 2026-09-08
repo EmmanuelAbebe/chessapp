@@ -53,6 +53,12 @@ export const K_MIN = 0.02;
 export const K_MAX = 0.7;
 export const K_DEFAULT = 0.2;
 const MIN_HIT_RADIUS = 16;
+// A run of single-child nodes is a straight hyperbolic geodesic (a lone
+// child always gets localTheta exactly 0 - see move-tree-hyperbolic-layout).
+// Once such a run compacts below this on-screen node spacing, its interior
+// nodes/edges/arrowheads are invisible detail - collapse the run to one
+// geodesic between its endpoints. See the corridor pass in the draw loop.
+const CORRIDOR_COLLAPSE_PX = 2.5;
 // Below this on-screen radius/distance-from-boundary, a node or ring is
 // smaller than can actually be seen - drawing, labeling, or hit-testing it
 // is pure waste, and a heavily-branched or very deep tree can have a lot of
@@ -696,16 +702,64 @@ export function useMoveTreeCanvas(
         getBreadcrumb(currentTree, currentNodeIdRef.current).map((n) => n.id),
       );
 
+      // Corridor collapse (#6): mark the interior nodes of a tight
+      // single-child run. They're a straight geodesic, so once they pack
+      // below CORRIDOR_COLLAPSE_PX apart the run can be drawn as one
+      // segment between its endpoints - the interiors are skipped in both
+      // the edge and node passes. Never collapse the focus / current /
+      // hovered / pinned node, which are deliberate call-outs.
+      const collapsed = new Set<string>();
+      for (const [id, q] of rendered) {
+        if (
+          id === focusIdRef.current ||
+          id === currentNodeIdRef.current ||
+          id === hoveredIdRef.current ||
+          id === pinnedIdRef.current
+        ) {
+          continue;
+        }
+        const idx = flatTree.idToIdx.get(id);
+        if (idx === undefined || flatTree.childCount[idx] !== 1) continue;
+        const pIdx = flatTree.parent[idx];
+        if (pIdx < 0) continue;
+        const parentPos = rendered.get(flatTree.ids[pIdx]);
+        if (!parentPos) continue;
+        const childPos = rendered.get(
+          flatTree.ids[flatTree.childIdx[flatTree.childStart[idx]]],
+        );
+        if (!childPos) continue;
+        const gapUp = Math.hypot(
+          (q.x - parentPos.x) * scale,
+          (q.y - parentPos.y) * scale,
+        );
+        const gapDown = Math.hypot(
+          (childPos.x - q.x) * scale,
+          (childPos.y - q.y) * scale,
+        );
+        if (gapUp < CORRIDOR_COLLAPSE_PX && gapDown < CORRIDOR_COLLAPSE_PX) {
+          collapsed.add(id);
+        }
+      }
+
       // Iterate only what's actually on screen (`rendered`), not every node
       // in the tree - at 10k nodes with the focus deep in a line, that's a
       // few dozen instead of the lot.
       for (const [id, q] of rendered) {
-        const node = currentTree.nodes[id];
-        if (!node?.parentId) continue;
-        const p = rendered.get(node.parentId);
+        if (collapsed.has(id)) continue;
+        const idx = flatTree.idToIdx.get(id);
+        if (idx === undefined) continue;
+        // Hop up over any collapsed ancestors so one geodesic spans the
+        // whole run from its first drawn node to this one.
+        let pIdx = flatTree.parent[idx];
+        while (pIdx >= 0 && collapsed.has(flatTree.ids[pIdx])) {
+          pIdx = flatTree.parent[pIdx];
+        }
+        if (pIdx < 0) continue;
+        const parentId = flatTree.ids[pIdx];
+        const p = rendered.get(parentId);
         if (!p) continue;
         const onMainLine = mainLineIds.has(id);
-        const parentIsHub = isHub(currentTree.nodes[node.parentId]);
+        const parentIsHub = isHub(currentTree.nodes[parentId]);
         ctx!.lineWidth = onMainLine ? 1.8 : 1.1;
         ctx!.strokeStyle = onMainLine
           ? hexToRgba(baseColor("edgeMainLine", colors.accent), 0.6)
@@ -731,6 +785,10 @@ export function useMoveTreeCanvas(
       for (const [id, z] of rendered) {
         const node = currentTree.nodes[id];
         if (!node) continue;
+        // Interior of a collapsed corridor - drawn as part of the run's
+        // single geodesic above, and too tightly packed to be a useful
+        // click target, so skip the dot, the label, and hit-testing.
+        if (collapsed.has(id)) continue;
         const mag = Math.hypot(z.x, z.y);
         const sx = cx + z.x * scale, sy = cy + z.y * scale;
         renderedPosRef.current.set(id, { x: sx, y: sy });
