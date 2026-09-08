@@ -65,6 +65,9 @@ const CORRIDOR_COLLAPSE_PX = 2.5;
 // nodes are dropped (their subtrees stay connected via a spanning
 // geodesic) so frame cost is bounded regardless of node count or zoom.
 const MAX_DRAWN_MARKS = 2000;
+// Below this compaction the map reads as a whole-tree overview and ambient
+// SAN labels just clutter it - only deliberate call-outs stay labeled.
+const LABEL_MIN_K = 0.5;
 // Below this on-screen radius/distance-from-boundary, a node or ring is
 // smaller than can actually be seen - drawing, labeling, or hit-testing it
 // is pure waste, and a heavily-branched or very deep tree can have a lot of
@@ -986,10 +989,16 @@ export function useMoveTreeCanvas(
         if (isFocus) priority = 6000;
         const special =
           isFocus || isCurrent || isHovered || isPinned || ringSpotlight > 0.5;
-        // Non-special labels need the dot to be a real mark, not a speck,
-        // and to sit reasonably inside the disk - past that it's the label
-        // pass's budget + collision test that thins them, not this.
-        if (special || (drawRadius > 2.6 && mag < 0.92)) {
+        // Below LABEL_MIN_K the map is an overview, not something you read
+        // move by move - only the deliberate call-outs (focus / current /
+        // hovered / pinned / ring-spotlit) get a label; the ambient SAN
+        // labels are suppressed entirely. Non-special labels also need the
+        // dot to be a real mark and sit reasonably inside the disk.
+        const ambientLabelsOn = kRef.current >= LABEL_MIN_K;
+        if (
+          special ||
+          (ambientLabelsOn && drawRadius > 2.6 && mag < 0.92)
+        ) {
           labelCands.push({
             text: nodeLabel(node),
             sx,
