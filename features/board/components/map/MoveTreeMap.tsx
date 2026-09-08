@@ -9,11 +9,11 @@ import { computeNodeOutcomeStats } from "../../lib/map/node-stats";
 import type { MoveNode } from "../../types";
 import { useGameHistory } from "@/features/history/useGameHistory";
 import {
-  SidePlayedFilter,
   filterGamesBySide,
   sideGameCounts,
   type SideFilter,
 } from "@/features/history/SidePlayedFilter";
+import { filterTreeBySide } from "../../lib/map/tree-side-filter";
 import { MapImportGamesModal } from "./MapImportGamesModal";
 import { MapPreviewCard } from "./MapPreviewCard";
 import { MapRingListPanel } from "./MapRingListPanel";
@@ -64,6 +64,28 @@ export function MoveTreeMap() {
     startAnalysis();
   }
 
+  // The player's own recorded games (Statistics history) and the side
+  // filter. `statsSide` narrows everything below to only the games the
+  // player had White (or Black) - `displayTree` is the move tree pruned
+  // to just those lines, so filtering genuinely reshapes the map (a White
+  // repertoire and a Black repertoire barely overlap) rather than only
+  // re-tinting it.
+  const { games, addGames } = useGameHistory();
+  const [statsSide, setStatsSide] = useState<SideFilter>("all");
+  const sideCounts = useMemo(() => sideGameCounts(games), [games]);
+  const statsGames = useMemo(
+    () => filterGamesBySide(games, statsSide),
+    [games, statsSide],
+  );
+  const displayTree = useMemo(
+    () => filterTreeBySide(tree, statsGames, statsSide, currentNodeId),
+    [tree, statsGames, statsSide, currentNodeId],
+  );
+  // Orientation for the preview mini board: bottom = the side you're
+  // reading. "all" keeps White at the bottom (the default view).
+  const boardOrientation: "white" | "black" =
+    statsSide === "b" ? "black" : "white";
+
   const {
     stageRef,
     canvasRef,
@@ -90,7 +112,7 @@ export function MoveTreeMap() {
     resetMapColors,
     maxDisplayPly,
     setMaxDisplayPly,
-  } = useMoveTreeCanvas(tree, currentNodeId, goToNode);
+  } = useMoveTreeCanvas(displayTree, currentNodeId, goToNode);
 
   // The compaction slider, depth-rings checkbox, and node/ply/fork counters
   // are secondary controls most sessions never touch - hidden by default to
@@ -113,42 +135,36 @@ export function MoveTreeMap() {
     }
   }, []);
 
-  // How many of the player's own recorded games (Statistics history)
-  // reached each position, and what happened in them - drives both the
-  // previewed node's stats line and the ring list's per-move win rates.
-  // The side filter narrows it to only the games the player had White (or
-  // Black), so you can read your White vs Black repertoire separately.
-  const { games, addGames } = useGameHistory();
-  const [statsSide, setStatsSide] = useState<SideFilter>("all");
-  const sideCounts = useMemo(() => sideGameCounts(games), [games]);
-  const statsGames = useMemo(
-    () => filterGamesBySide(games, statsSide),
-    [games, statsSide],
-  );
+  // How many of the player's own recorded games reached each position in
+  // `displayTree`, and what happened - drives the previewed node's stats
+  // line and the ring list's per-move win rates.
   const nodeStats = useMemo(
-    () => computeNodeOutcomeStats(tree, statsGames),
-    [tree, statsGames],
+    () => computeNodeOutcomeStats(displayTree, statsGames),
+    [displayTree, statsGames],
   );
 
   const nodesOnSelectedRing = useMemo(() => {
     if (selectedRingPly === null) return [];
-    return Object.values(tree.nodes).filter((n) => n.ply === selectedRingPly);
-  }, [tree, selectedRingPly]);
+    return Object.values(displayTree.nodes).filter(
+      (n) => n.ply === selectedRingPly,
+    );
+  }, [displayTree, selectedRingPly]);
 
   const hoveredRingSample = useMemo(() => {
     if (hoveredRingPly === null) return null;
     return (
-      Object.values(tree.nodes).find((n) => n.ply === hoveredRingPly) ?? null
+      Object.values(displayTree.nodes).find((n) => n.ply === hoveredRingPly) ??
+      null
     );
-  }, [tree, hoveredRingPly]);
+  }, [displayTree, hoveredRingPly]);
 
   const previewNode = cardClosed
     ? null
     : pinnedId
-      ? tree.nodes[pinnedId]
+      ? displayTree.nodes[pinnedId]
       : hoveredId
-        ? tree.nodes[hoveredId]
-        : (tree.nodes[currentNodeId] ?? null);
+        ? displayTree.nodes[hoveredId]
+        : (displayTree.nodes[currentNodeId] ?? null);
 
   return (
     // Desktop: fixed to the viewport, exactly one screen, nothing scrolls -
@@ -172,21 +188,6 @@ export function MoveTreeMap() {
           ref={canvasRef}
           className="absolute inset-0 block h-full w-full cursor-pointer touch-none"
         />
-
-        {/* Top-left: narrows the per-node win-rate stats (preview card +
-            ring list) to only the games the player had a given side.
-            Hidden with no history, since there's nothing for it to
-            filter. */}
-        {sideCounts.all > 0 && (
-          <div className="absolute top-3 left-3 z-20">
-            <SidePlayedFilter
-              value={statsSide}
-              onChange={setStatsSide}
-              counts={sideCounts}
-              size="sm"
-            />
-          </div>
-        )}
 
         {/* Top-center: off by default (see the settings modal) - when on,
             the exact same row (height, scroll behavior) the board view
@@ -214,7 +215,7 @@ export function MoveTreeMap() {
           {previewNode && (
             <MapPreviewCard
               node={previewNode}
-              tree={tree}
+              tree={displayTree}
               stats={nodeStats[previewNode.id]}
               pinnedId={pinnedId}
               setPinnedId={setPinnedId}
@@ -223,6 +224,10 @@ export function MoveTreeMap() {
               isEngineThinking={isEngineThinking}
               onPlayFromHere={playFromNode}
               onSetAsStart={setNodeAsStart}
+              boardOrientation={boardOrientation}
+              statsSide={statsSide}
+              setStatsSide={setStatsSide}
+              sideCounts={sideCounts}
             />
           )}
 
@@ -246,7 +251,7 @@ export function MoveTreeMap() {
           showCompactionPanel={showCompactionPanel}
           showRingsTogglePanel={showRingsTogglePanel}
           totalNodes={totalNodes}
-          focusPly={tree.nodes[focusId]?.ply ?? 0}
+          focusPly={displayTree.nodes[focusId]?.ply ?? 0}
           widestFork={widestFork}
           k={k}
           setK={setK}

@@ -20,11 +20,13 @@ export function PlayableMiniBoard({
   tree,
   animateEntry,
   onMove,
+  boardOrientation = "white",
 }: {
   node: MoveNode;
   tree: MoveTreeState;
   animateEntry: boolean;
   onMove: (nodeId: string) => void;
+  boardOrientation?: "white" | "black";
 }) {
   const { playMoveAt } = useBoardGameContext();
   const [moveFrom, setMoveFrom] = useState("");
@@ -137,6 +139,7 @@ export function PlayableMiniBoard({
     () => ({
       id: "move-tree-preview-board",
       position: displayFen,
+      boardOrientation,
       onSquareClick,
       squareStyles: { ...lastMoveSquares, ...optionSquares },
       allowDragging: false,
@@ -150,7 +153,7 @@ export function PlayableMiniBoard({
       boardStyle: boardTheme.boardStyle,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [displayFen, animateNow, optionSquares, lastMoveSquares, moveFrom, exploredArrows],
+    [displayFen, animateNow, optionSquares, lastMoveSquares, moveFrom, exploredArrows, boardOrientation],
   );
 
   return (

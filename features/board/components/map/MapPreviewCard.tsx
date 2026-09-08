@@ -5,12 +5,12 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Chess } from "chess.js";
 import { FaUndo } from "react-icons/fa";
 import { FaFish, FaFlag } from "react-icons/fa6";
 import { EvalBar } from "../EvalBar";
 import { useEvalScore } from "../../hooks/useEvalScore";
 import type { NodeOutcomeStats } from "../../lib/map/node-stats";
+import type { SideFilter } from "@/features/history/SidePlayedFilter";
 import { MapNodeDetails } from "./MapNodeDetails";
 import { PlayableMiniBoard } from "./PlayableMiniBoard";
 import type { MoveNode, MoveTreeState } from "../../types";
@@ -37,6 +37,10 @@ export function MapPreviewCard({
   isEngineThinking,
   onPlayFromHere,
   onSetAsStart,
+  boardOrientation,
+  statsSide,
+  setStatsSide,
+  sideCounts,
 }: {
   node: MoveNode;
   tree: MoveTreeState;
@@ -48,6 +52,10 @@ export function MapPreviewCard({
   isEngineThinking: boolean;
   onPlayFromHere: (node: MoveNode) => void;
   onSetAsStart: (node: MoveNode) => void;
+  boardOrientation: "white" | "black";
+  statsSide: SideFilter;
+  setStatsSide: (next: SideFilter) => void;
+  sideCounts: { all: number; w: number; b: number };
 }) {
   // The preview card's width (it's aspect-square, so this drives its whole
   // size) - draggable from a handle on its left edge, the one that actually
@@ -65,21 +73,6 @@ export function MapPreviewCard({
   }, [node.fen]);
   const isSettled = settledFen === node.fen;
   const evalScore = useEvalScore(settledFen, ANALYSIS_DEPTH, true);
-
-  const bestMoveSan = (() => {
-    if (!isSettled || !evalScore.bestMove) return null;
-    try {
-      const chess = new Chess(settledFen);
-      const move = chess.move({
-        from: evalScore.bestMove.slice(0, 2),
-        to: evalScore.bestMove.slice(2, 4),
-        promotion: evalScore.bestMove.slice(4) || undefined,
-      });
-      return move?.san ?? null;
-    } catch {
-      return null;
-    }
-  })();
 
   // The card is right-anchored (`items-end`), so its right edge never moves
   // - only the left edge does as it grows. Dragging left has to mean
@@ -212,11 +205,17 @@ export function MapPreviewCard({
             tree={tree}
             animateEntry={pinnedId === node.id}
             onMove={setPinnedId}
+            boardOrientation={boardOrientation}
           />
         </div>
       </div>
 
-      <MapNodeDetails bestMoveSan={bestMoveSan} isSettled={isSettled} stats={stats} />
+      <MapNodeDetails
+        stats={stats}
+        statsSide={statsSide}
+        setStatsSide={setStatsSide}
+        sideCounts={sideCounts}
+      />
     </div>
   );
 }
