@@ -22,9 +22,12 @@ export async function GET(request: Request) {
   const upstream = new URL(
     `https://lichess.org/api/games/user/${encodeURIComponent(link.username)}`,
   );
-  // Keep the PGN lean - just what the tree/stats importer reads.
+  // `clocks` on - the per-move `%clk` annotations are what the Time
+  // Pressure stat reads; without them a "import my games" history looks
+  // different from one built by pasting a lichess export. `evals` stays
+  // off (nothing here uses them, and they roughly double the payload).
   upstream.searchParams.set("max", params.get("max") ?? "100");
-  upstream.searchParams.set("clocks", "false");
+  upstream.searchParams.set("clocks", "true");
   upstream.searchParams.set("evals", "false");
   upstream.searchParams.set("opening", "true");
   const since = params.get("since");
