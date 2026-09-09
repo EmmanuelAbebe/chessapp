@@ -57,7 +57,17 @@ export function extractGameMeta(headers: Record<string, string>): GameMeta {
   };
   const site = val("Site");
   const link = val("Link");
-  const url = [site, link].find((s) => s?.startsWith("http"));
+  // Lichess puts the game URL in Site; chess.com uses Link. Fall back to
+  // a GameId header (some exports carry that instead of a URL Site), and
+  // normalise a protocol-less "lichess.org/<id>".
+  const gameId = val("GameId") ?? val("LichessId");
+  let url = [site, link].find((s) => s?.startsWith("http"));
+  if (!url && gameId && /^[a-z0-9]{8,12}$/i.test(gameId)) {
+    url = `https://lichess.org/${gameId}`;
+  }
+  if (!url && site && /^lichess\.org\/[a-z0-9]{8}/i.test(site)) {
+    url = `https://${site}`;
+  }
 
   const meta: GameMeta = {
     event: val("Event"),
