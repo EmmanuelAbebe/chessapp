@@ -9,19 +9,26 @@ import {
   SelectValue,
 } from "react-aria-components";
 
+type Option = string | { id: string; label: string };
+
 interface SelectSetting {
   label: string;
   value: string;
-  options: string[];
+  options: Option[];
   onChange: (value: string) => void;
 }
 
 interface SettingsSelectProps {
   setting: SelectSetting;
+  /** Tighter trigger for dense filter bars (default is the settings-page width). */
+  compact?: boolean;
 }
 
-export default function SettingsSelect({ setting }: SettingsSelectProps) {
+export default function SettingsSelect({ setting, compact }: SettingsSelectProps) {
   const { label, value, options, onChange } = setting;
+  const opts = options.map((o) =>
+    typeof o === "string" ? { id: o, label: o } : o,
+  );
 
   return (
     <Select
@@ -31,11 +38,10 @@ export default function SettingsSelect({ setting }: SettingsSelectProps) {
       className="relative"
     >
       <Button
-        className="
-          flex min-w-36 items-center justify-between gap-3
+        className={`
+          flex items-center justify-between gap-3
           rounded-lg border border-border
-          bg-surface px-3 py-2
-          text-sm text-text
+          bg-surface text-text
           shadow-sm
           outline-none
           transition
@@ -43,7 +49,8 @@ export default function SettingsSelect({ setting }: SettingsSelectProps) {
           hover:border-accent
           focus-visible:ring-2
           focus-visible:ring-accent
-        "
+          ${compact ? "min-w-28 px-2.5 py-1.5 text-xs" : "min-w-36 px-3 py-2 text-sm"}
+        `}
       >
         <SelectValue />
 
@@ -63,11 +70,12 @@ export default function SettingsSelect({ setting }: SettingsSelectProps) {
           shadow-lg
         "
       >
-        <ListBox className="outline-none">
-          {options.map((option) => (
+        <ListBox className="max-h-72 overflow-auto outline-none">
+          {opts.map((option) => (
             <ListBoxItem
-              key={option}
-              id={option}
+              key={option.id}
+              id={option.id}
+              textValue={option.label}
               className="
                 cursor-pointer
                 rounded-lg
@@ -83,7 +91,7 @@ export default function SettingsSelect({ setting }: SettingsSelectProps) {
                 data-selected:font-medium
               "
             >
-              {option}
+              {option.label}
             </ListBoxItem>
           ))}
         </ListBox>

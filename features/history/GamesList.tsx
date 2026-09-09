@@ -14,6 +14,7 @@ import {
   timeCategoryLabel,
   openingFamilyOf,
 } from "./gameFacets";
+import SettingsSelect from "@/features/settings/components/SettingsSelect";
 
 // The recorded games as a filterable, day-grouped list.
 
@@ -219,9 +220,6 @@ function GameDetail({ game }: { game: GameHistoryEntry }) {
   );
 }
 
-const selectClass =
-  "rounded-md border border-border bg-surface-raised px-2 py-1 text-xs text-text focus:border-accent focus:outline-none";
-
 export function GamesList({ games }: { games: GameHistoryEntry[] }) {
   const [timeCat, setTimeCat] = useState("all");
   const [opponent, setOpponent] = useState("all");
@@ -370,78 +368,81 @@ export function GamesList({ games }: { games: GameHistoryEntry[] }) {
         </span>
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-2">
-        <select
-          aria-label="Time control"
-          value={timeCat}
-          onChange={(e) => setTimeCat(e.target.value)}
-          className={selectClass}
-        >
-          <option value="all">Any speed</option>
-          {timeCatOptions.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <SettingsSelect
+          compact
+          setting={{
+            label: "Time control",
+            value: timeCat,
+            onChange: setTimeCat,
+            options: [
+              { id: "all", label: "Any speed" },
+              ...timeCatOptions.map((c) => ({ id: c.key, label: c.name })),
+            ],
+          }}
+        />
 
-        <select
-          aria-label="Opening"
-          value={opening}
-          onChange={(e) => setOpening(e.target.value)}
-          className={selectClass}
-        >
-          <option value="all">Any opening</option>
-          {openingOptions.map(({ name, count }) => (
-            <option key={name} value={name}>
-              {name} ({count})
-            </option>
-          ))}
-        </select>
+        <SettingsSelect
+          compact
+          setting={{
+            label: "Opening",
+            value: opening,
+            onChange: setOpening,
+            options: [
+              { id: "all", label: "Any opening" },
+              ...openingOptions.map(({ name, count }) => ({
+                id: name,
+                label: `${name} (${count})`,
+              })),
+            ],
+          }}
+        />
 
-        <select
-          aria-label="Opponent"
-          value={opponent}
-          onChange={(e) => setOpponent(e.target.value)}
-          className={selectClass}
-        >
-          <option value="all">Any opponent</option>
-          {opponentOptions.map(({ name, count }) => (
-            <option key={name} value={name}>
-              {name}
-              {count > 1 ? ` (${count})` : ""}
-            </option>
-          ))}
-        </select>
+        <SettingsSelect
+          compact
+          setting={{
+            label: "Opponent",
+            value: opponent,
+            onChange: setOpponent,
+            options: [
+              { id: "all", label: "Any opponent" },
+              ...opponentOptions.map(({ name, count }) => ({
+                id: name,
+                label: count > 1 ? `${name} (${count})` : name,
+              })),
+            ],
+          }}
+        />
 
-        <select
-          aria-label="Date range"
-          value={rangeDays}
-          onChange={(e) => setRangeDays(Number(e.target.value))}
-          className={selectClass}
-        >
-          {DATE_RANGES.map(({ label, days }) => (
-            <option key={days} value={days}>
-              {label}
-            </option>
-          ))}
-        </select>
+        <SettingsSelect
+          compact
+          setting={{
+            label: "Date range",
+            value: String(rangeDays),
+            onChange: (v) => setRangeDays(Number(v)),
+            options: DATE_RANGES.map(({ label, days }) => ({
+              id: String(days),
+              label,
+            })),
+          }}
+        />
 
-        <label className="flex items-center gap-1.5 rounded-md border border-border bg-surface-raised px-2 py-1 text-xs text-text-dim">
-          <select
-            aria-label="Streak"
-            value={streakType}
-            onChange={(e) =>
-              setStreakType(e.target.value as "all" | "win" | "loss")
-            }
-            className="bg-transparent text-text focus:outline-none"
-          >
-            <option value="all">Any run</option>
-            <option value="win">Win streak</option>
-            <option value="loss">Loss streak</option>
-          </select>
+        <div className="flex items-center gap-1.5">
+          <SettingsSelect
+            compact
+            setting={{
+              label: "Streak",
+              value: streakType,
+              onChange: (v) => setStreakType(v as "all" | "win" | "loss"),
+              options: [
+                { id: "all", label: "Any run" },
+                { id: "win", label: "Win streak" },
+                { id: "loss", label: "Loss streak" },
+              ],
+            }}
+          />
           {streakType !== "all" && (
-            <>
+            <label className="flex items-center gap-1 text-xs text-text-dim">
               <input
                 type="number"
                 min={2}
@@ -450,14 +451,14 @@ export function GamesList({ games }: { games: GameHistoryEntry[] }) {
                 onChange={(e) =>
                   setMinStreak(Math.max(2, Number(e.target.value) || 2))
                 }
-                className="w-9 rounded border border-border bg-surface px-1 py-0.5 text-center text-text focus:border-accent focus:outline-none"
+                className="w-10 rounded-md border border-border bg-surface px-1.5 py-1 text-center text-text focus:border-accent focus:outline-none"
               />
               +
-            </>
+            </label>
           )}
-        </label>
+        </div>
 
-        <label className="flex items-center gap-1.5 rounded-md border border-border bg-surface-raised px-2 py-1 text-xs text-text-dim">
+        <label className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-text-dim">
           Faced
           <input
             type="number"
