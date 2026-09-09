@@ -11,7 +11,9 @@ const CHART_COLORS = [
   "var(--chart-5)",
   "var(--chart-6)",
 ];
-const OTHER_COLOR = "var(--color-text-faint)";
+// The raw theme var, not the Tailwind `--color-*` alias (that one is
+// `@theme inline` - inlined into utilities, not emitted at runtime).
+const OTHER_COLOR = "var(--text-faint)";
 
 const SIZE = 168;
 const R = 62;
@@ -107,12 +109,18 @@ export function OpeningsBreakdown({
                   cy={SIZE / 2}
                   r={R}
                   fill="none"
-                  stroke={s.color}
-                  strokeWidth={on ? THICK + 4 : THICK}
                   strokeDasharray={`${dash} ${C - dash}`}
                   strokeDashoffset={-start}
-                  opacity={dim ? 0.3 : 1}
                   className="cursor-default transition-[opacity,stroke-width] duration-150"
+                  // `stroke` as a CSS property, not the SVG attribute:
+                  // var() in a presentation *attribute* isn't resolved by
+                  // older Safari / some mobile webviews, which left the
+                  // slices uncoloured on some devices.
+                  style={{
+                    stroke: s.color,
+                    strokeWidth: on ? THICK + 4 : THICK,
+                    opacity: dim ? 0.3 : 1,
+                  }}
                   onMouseEnter={() => setActive(s.key)}
                   onMouseLeave={() => setActive(null)}
                 >
@@ -129,8 +137,8 @@ export function OpeningsBreakdown({
             x={SIZE / 2}
             y={SIZE / 2 - 4}
             textAnchor="middle"
-            className="fill-text text-lg font-semibold"
-            style={{ fontVariantNumeric: "tabular-nums" }}
+            className="text-lg font-semibold"
+            style={{ fill: "var(--text)", fontVariantNumeric: "tabular-nums" }}
           >
             {total}
           </text>
@@ -138,7 +146,8 @@ export function OpeningsBreakdown({
             x={SIZE / 2}
             y={SIZE / 2 + 12}
             textAnchor="middle"
-            className="fill-text-faint text-[10px] uppercase tracking-wide"
+            className="text-[10px] uppercase tracking-wide"
+            style={{ fill: "var(--text-faint)" }}
           >
             games
           </text>
