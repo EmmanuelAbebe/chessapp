@@ -31,6 +31,8 @@ type MapImportGamesModalProps = {
   // history/localStorage without the map's own node-stats computation
   // (which reads the SAME data) ever finding out.
   addGames: (entries: GameHistoryEntry[]) => number;
+  recordedCount: number;
+  onClearHistory: () => void;
 };
 
 type Progress = {
@@ -55,10 +57,13 @@ export function MapImportGamesModal({
   tree,
   onMerge,
   addGames,
+  recordedCount,
+  onClearHistory,
 }: MapImportGamesModalProps) {
   const [pgnText, setPgnText] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   // Set once we've confirmed the signed-in user has a Lichess OAuth link
   // (via /api/lichess/account) - unlocks the one-click "import my games".
   const [lichessUser, setLichessUser] = useState<string | null>(null);
@@ -407,6 +412,44 @@ export function MapImportGamesModal({
             </>
           )}
         </div>
+
+        {!isImporting && recordedCount > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+            <span className="text-xs text-text-faint">
+              {recordedCount} game{recordedCount === 1 ? "" : "s"} in your
+              history (drives the Statistics page and these win rates)
+            </span>
+            {confirmClear ? (
+              <span className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearHistory();
+                    setConfirmClear(false);
+                  }}
+                  className="rounded-md bg-red-500/90 px-2 py-1 font-medium text-white transition hover:bg-red-500"
+                >
+                  Clear all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmClear(false)}
+                  className="rounded-md border border-border px-2 py-1 text-text-dim transition hover:text-text"
+                >
+                  Keep
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmClear(true)}
+                className="rounded-md border border-border px-2 py-1 text-xs text-text-dim transition hover:border-red-500/50 hover:text-text"
+              >
+                Clear game history
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
   );

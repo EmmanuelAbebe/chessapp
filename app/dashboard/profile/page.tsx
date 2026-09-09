@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import ProfileSection from "@/features/account/components/ProfileSection";
 import ConnectedAccounts from "@/features/account/components/ConnectedAccounts";
+import { GameDataCard } from "@/features/history/GameDataCard";
 
 export default async function ProfilePage() {
   const session = await auth(); // non-null: DashboardLayout already redirected otherwise
@@ -36,6 +37,15 @@ export default async function ProfilePage() {
         <ConnectedAccounts
           lichessUsername={lichessAccount?.providerAccountId ?? null}
         />
+
+        <details className="rounded-lg border border-border-soft bg-surface">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-text">
+            Game data &amp; usernames
+          </summary>
+          <div className="border-t border-border-soft p-4">
+            <GameDataCard />
+          </div>
+        </details>
       </div>
     </ViewTransition>
   );

@@ -70,7 +70,7 @@ export function MoveTreeMap() {
   // to just those lines, so filtering genuinely reshapes the map (a White
   // repertoire and a Black repertoire barely overlap) rather than only
   // re-tinting it.
-  const { games, addGames } = useGameHistory();
+  const { games, addGames, clearHistory } = useGameHistory();
   const [statsSide, setStatsSide] = useState<SideFilter>("all");
   const sideCounts = useMemo(() => sideGameCounts(games), [games]);
   const statsGames = useMemo(
@@ -324,6 +324,8 @@ export function MoveTreeMap() {
         tree={tree}
         onMerge={loadTree}
         addGames={addGames}
+        recordedCount={games.length}
+        onClearHistory={clearHistory}
       />
 
       <MapSettingsModal

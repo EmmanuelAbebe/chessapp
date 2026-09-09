@@ -9,11 +9,13 @@ import SettingsToggle from "@/features/settings/components/SettingsToggle";
 import SettingsVolume from "@/features/settings/components/SettingsVolume";
 import { useSettings } from "@/features/settings/SettingsContext";
 import { pieceSets, boardThemes, moveMethods } from "@/features/settings/data";
+import { GameDataCard } from "@/features/history/GameDataCard";
 import type { CoordinatesPlacement, Orientation } from "../types";
 import {
   FaChessBoard,
   FaChessKnight,
   FaChessQueen,
+  FaFileImport,
   FaGear,
 } from "react-icons/fa6";
 import { TbMathXy } from "react-icons/tb";
@@ -26,11 +28,14 @@ import { GrConfigure } from "react-icons/gr";
 type BoardSettingsModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  /** Opens the "import a game to review on the board" flow. */
+  onImportGame: () => void;
 };
 
 export function BoardSettingsModal({
   isOpen,
   onClose,
+  onImportGame,
 }: BoardSettingsModalProps) {
   const { settings, updateSettings, updateSound, updateNotifications } =
     useSettings();
@@ -235,6 +240,21 @@ export function BoardSettingsModal({
               onChange: (enabled) => updateNotifications({ enabled }),
             }}
           />
+
+          <div className="mt-2 flex flex-col gap-3 border-t border-border-soft pt-4">
+            <h4 className="text-sm font-semibold tracking-wide text-text-faint">
+              Games
+            </h4>
+            <button
+              type="button"
+              onClick={onImportGame}
+              className="flex items-center gap-2 self-start rounded-lg border border-border px-3 py-2 text-sm font-medium text-text-dim transition hover:border-accent hover:text-text"
+            >
+              <FaFileImport className="h-3.5 w-3.5" />
+              Import a game to review
+            </button>
+            <GameDataCard compact />
+          </div>
         </div>
 
         <div className="px-4 pt-6 pb-3 flex justify-end">

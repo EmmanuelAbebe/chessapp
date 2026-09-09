@@ -9,6 +9,7 @@ import {
   type SideFilter,
 } from "@/features/history/SidePlayedFilter";
 import { GamesList } from "@/features/history/GamesList";
+import { GameDataCard } from "@/features/history/GameDataCard";
 import { computePersonalityProfile } from "../lib/traits";
 import { computeRecord, computeOpenings, computeHabits } from "../lib/summary";
 import { TraitRadarChart } from "./TraitRadarChart";
@@ -40,14 +41,15 @@ export default function StatisticsSummary() {
 
   if (counts.all === 0) {
     return (
-      <section className="rounded-lg border border-border-soft bg-surface px-4 py-8 text-center">
-        <p className="text-sm text-text-dim">
-          Play or import a few games to see your profile.
+      <section className="flex flex-col gap-4">
+        <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
+          Play or import a few games to see your profile. Games against
+          Stockfish are recorded automatically; set your usernames below,
+          then paste a PGN or a lichess export URL.
         </p>
-        <p className="mt-1 text-xs text-text-faint">
-          Games played against Stockfish are recorded automatically;
-          imported games count once your usernames are set in Settings.
-        </p>
+        <div className="rounded-lg border border-border-soft bg-surface p-4">
+          <GameDataCard />
+        </div>
       </section>
     );
   }
@@ -103,6 +105,15 @@ export default function StatisticsSummary() {
       )}
 
       <GamesList games={filteredGames} />
+
+      <details className="rounded-lg border border-border-soft bg-surface">
+        <summary className="cursor-pointer px-4 py-3 text-xs font-semibold tracking-wide text-text-faint uppercase">
+          Manage games
+        </summary>
+        <div className="border-t border-border-soft p-4">
+          <GameDataCard />
+        </div>
+      </details>
     </section>
   );
 }

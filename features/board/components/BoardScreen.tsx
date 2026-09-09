@@ -618,7 +618,6 @@ export function BoardScreen() {
                   openBoardSettings={openBoardSettings}
                   openStockfishSetup={() => openGameMode("stockfish")}
                   openPositionSetup={() => setIsEditingPosition(true)}
-                  openImportGame={() => openGameMode("import")}
                   openAiCoach={() => openGameMode("ai-coach")}
                   openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
@@ -665,7 +664,6 @@ export function BoardScreen() {
                   openBoardSettings={openBoardSettings}
                   openStockfishSetup={() => openGameMode("stockfish")}
                   openPositionSetup={() => setIsEditingPosition(true)}
-                  openImportGame={() => openGameMode("import")}
                   openAiCoach={() => openGameMode("ai-coach")}
                   openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
@@ -722,7 +720,6 @@ export function BoardScreen() {
               openBoardSettings={openBoardSettings}
               openStockfishSetup={() => openGameMode("stockfish")}
               openPositionSetup={() => setIsEditingPosition(true)}
-              openImportGame={() => openGameMode("import")}
               openAiCoach={() => openGameMode("ai-coach")}
               openPuzzles={() => openGameMode("puzzles")}
               onAnalysis={startAnalysis}
@@ -738,6 +735,10 @@ export function BoardScreen() {
       <BoardSettingsModal
         isOpen={isBoardSettingsOpen}
         onClose={closeBoardSettings}
+        onImportGame={() => {
+          closeBoardSettings();
+          openGameMode("import");
+        }}
       />
 
       <GameModeModal
