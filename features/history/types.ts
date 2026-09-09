@@ -82,6 +82,39 @@ export function extractGameMeta(headers: Record<string, string>): GameMeta {
   return meta;
 }
 
+/** When the game was actually played, from the PGN's Date/UTCDate (+
+ * UTCTime/Time), as a UTC millisecond timestamp - or null if there's no
+ * usable date. Used to sort/label game history by when games happened,
+ * not when they were imported. */
+export function pgnPlayedAt(
+  headersOrMeta: Record<string, string> | GameMeta | undefined,
+): number | null {
+  if (!headersOrMeta) return null;
+  const pick = (...keys: string[]): string | undefined => {
+    for (const key of keys) {
+      const v = (headersOrMeta as Record<string, string>)[key]?.trim?.();
+      if (v && v !== "?" && v !== "????.??.??") return v;
+    }
+    return undefined;
+  };
+  // GameMeta stores the already-picked values under `date` / `time`.
+  const date = pick("date", "UTCDate", "Date");
+  const time = pick("time", "UTCTime", "Time");
+  const dm = date?.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/);
+  if (!dm) return null;
+  const [, y, mo, d] = dm;
+  const tm = time?.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  const ts = Date.UTC(
+    Number(y),
+    Number(mo) - 1,
+    Number(d),
+    tm ? Number(tm[1]) : 0,
+    tm ? Number(tm[2]) : 0,
+    tm ? Number(tm[3]) : 0,
+  );
+  return Number.isNaN(ts) ? null : ts;
+}
+
 /** A stable id for "this exact game, played by this side" - two entries
  * built from the same moves/side/opponent/result always produce the same
  * fingerprint, which is what lets a duplicate import (an accidental

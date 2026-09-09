@@ -7,6 +7,7 @@ import {
   computeFingerprint,
   createHistoryId,
   extractGameMeta,
+  pgnPlayedAt,
   resultForSide,
   type GameHistoryEntry,
 } from "./types";
@@ -36,7 +37,7 @@ function toEntry(
   return {
     id: createHistoryId(),
     source: "import",
-    playedAt: Date.now(),
+    playedAt: pgnPlayedAt(headers) ?? Date.now(),
     playerSide: side,
     result,
     opponentName,

@@ -33,6 +33,7 @@ import {
   computeFingerprint,
   createHistoryId,
   extractGameMeta,
+  pgnPlayedAt,
   resultForSide,
   type GameResult,
 } from "@/features/history/types";
@@ -523,7 +524,7 @@ export function BoardScreen() {
       addGame({
         id: createHistoryId(),
         source: "import",
-        playedAt: Date.now(),
+        playedAt: pgnPlayedAt(result.headers) ?? Date.now(),
         playerSide: side,
         result: gameResult,
         opponentName,
@@ -556,7 +557,7 @@ export function BoardScreen() {
     addGame({
       id: createHistoryId(),
       source: "import",
-      playedAt: Date.now(),
+      playedAt: pgnPlayedAt(pending.headers) ?? Date.now(),
       playerSide: side,
       result: gameResult,
       opponentName,

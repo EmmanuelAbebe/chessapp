@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaChessBoard, FaUpRightFromSquare } from "react-icons/fa6";
 import { PiGraph } from "react-icons/pi";
-import type { GameHistoryEntry } from "./types";
+import { pgnPlayedAt, type GameHistoryEntry } from "./types";
 import { stashExploreGame } from "./exploreGame";
 import { lookupOpeningName } from "@/features/statistics/lib/openings-book";
 
@@ -38,6 +38,13 @@ function formatDate(ts: number): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/** When a game was actually played - the PGN date if we have it (older
+ * entries stored their import time in `playedAt`, so fall back to that
+ * only when there's no real date), for both sorting and the date column. */
+function playedTimestamp(game: GameHistoryEntry): number {
+  return pgnPlayedAt(game.meta) ?? game.playedAt;
 }
 
 /** The label the list shows for a game's "source" column - also what the
@@ -206,7 +213,7 @@ export function GamesList({ games }: { games: GameHistoryEntry[] }) {
         if (timeControl !== "all" && sourceLabel(g) !== timeControl) return false;
         if (opponent !== "all" && g.opponentName?.trim() !== opponent)
           return false;
-        if (cutoff && g.playedAt < cutoff) return false;
+        if (cutoff && playedTimestamp(g) < cutoff) return false;
         if (minVsOpponent > 1) {
           const name = g.opponentName?.trim();
           if (!name || (opponentCounts.get(name) ?? 0) < minVsOpponent)
@@ -214,7 +221,7 @@ export function GamesList({ games }: { games: GameHistoryEntry[] }) {
         }
         return true;
       })
-      .sort((a, b) => b.playedAt - a.playedAt);
+      .sort((a, b) => playedTimestamp(b) - playedTimestamp(a));
   }, [
     games,
     timeControl,
@@ -368,7 +375,7 @@ export function GamesList({ games }: { games: GameHistoryEntry[] }) {
                     {sourceLabel(game)}
                   </span>
                   <span className="shrink-0 text-xs text-text-faint">
-                    {formatDate(game.playedAt)}
+                    {formatDate(playedTimestamp(game))}
                   </span>
                   <span
                     aria-hidden="true"

@@ -16,6 +16,7 @@ import {
   computeFingerprint,
   createHistoryId,
   extractGameMeta,
+  pgnPlayedAt,
   resultForSide,
   type GameHistoryEntry,
 } from "@/features/history/types";
@@ -139,7 +140,7 @@ export function MapImportGamesModal({
       matched.push({
         id: createHistoryId(),
         source: "import",
-        playedAt: Date.now(),
+        playedAt: pgnPlayedAt(game.headers) ?? Date.now(),
         playerSide: side,
         result: gameResult,
         opponentName,
