@@ -10,9 +10,13 @@ import {
 } from "@/features/history/SidePlayedFilter";
 import { GamesList } from "@/features/history/GamesList";
 import { computePersonalityProfile } from "../lib/traits";
+import { computeRecord, computeOpenings, computeHabits } from "../lib/summary";
 import { TraitRadarChart } from "./TraitRadarChart";
 import { PhaseMixBars } from "./PhaseMixBars";
 import { ArchetypeHeadline } from "./ArchetypeHeadline";
+import { RecordSummary } from "./RecordSummary";
+import { OpeningsBreakdown } from "./OpeningsBreakdown";
+import { HabitsRow } from "./HabitsRow";
 
 export default function StatisticsSummary() {
   const { games } = useGameHistory();
@@ -27,6 +31,12 @@ export default function StatisticsSummary() {
     () => computePersonalityProfile(filteredGames),
     [filteredGames],
   );
+  const record = useMemo(() => computeRecord(games), [games]);
+  const openings = useMemo(
+    () => computeOpenings(filteredGames),
+    [filteredGames],
+  );
+  const habits = useMemo(() => computeHabits(filteredGames), [filteredGames]);
 
   if (counts.all === 0) {
     return (
@@ -52,6 +62,8 @@ export default function StatisticsSummary() {
         </p>
       </div>
 
+      <RecordSummary record={record} />
+
       {profile.gamesCount === 0 ? (
         <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
           No games recorded {side === "w" ? "as White" : "as Black"} yet.
@@ -64,6 +76,8 @@ export default function StatisticsSummary() {
             <TraitRadarChart traits={profile.radarTraits} />
           </div>
 
+          {habits && <HabitsRow habits={habits} />}
+
           {profile.phaseMix && (
             <div className="mx-auto w-full max-w-sm">
               <h3 className="mb-2 text-xs font-semibold tracking-wide text-text-faint uppercase">
@@ -72,6 +86,8 @@ export default function StatisticsSummary() {
               <PhaseMixBars mix={profile.phaseMix} />
             </div>
           )}
+
+          <OpeningsBreakdown lines={openings} side={side} />
 
           <p className="text-center text-xs text-text-faint">
             Based on{" "}

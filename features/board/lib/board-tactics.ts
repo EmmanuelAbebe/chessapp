@@ -13,8 +13,17 @@ export type HangingPiece = { square: string };
  * since a king in check is already highlighted elsewhere (checkSquares
  * in useBoardGame.ts). Pure, synchronous, and needs no engine - just
  * chess.js's own attackers() (the same code path it uses internally for
- * legality/check detection). */
-export function detectHangingPieces(fen: string): HangingPiece[] {
+ * legality/check detection).
+ *
+ * `ignorePawns` drops hanging pawns from the result - a hanging pawn is
+ * common and rarely a real blunder, so the Vigilance stat (which runs
+ * this over every move of every game) wants "left a *piece* hanging",
+ * not "left a pawn en prise". The live board keeps the default (a
+ * hanging pawn is still worth flashing a warning for). */
+export function detectHangingPieces(
+  fen: string,
+  { ignorePawns = false }: { ignorePawns?: boolean } = {},
+): HangingPiece[] {
   let chess: Chess;
   try {
     chess = new Chess(fen);
@@ -26,6 +35,7 @@ export function detectHangingPieces(fen: string): HangingPiece[] {
 
   for (const piece of chess.board().flat()) {
     if (!piece || piece.type === "k") continue;
+    if (ignorePawns && piece.type === "p") continue;
 
     const opponent = piece.color === "w" ? "b" : "w";
     const attackers = chess.attackers(piece.square, opponent);

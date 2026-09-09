@@ -112,10 +112,11 @@ export function computeVolatility(games: GameHistoryEntry[]): TraitResult | null
   };
 }
 
-/** Inverse of how often the player's own move left one of their pieces
- * hanging (attacked and undefended, or defended only at a material
- * loss) - reuses the same deterministic chess.js check the live board
- * already highlights hangs with. */
+/** Inverse of how often the player's own move left a *piece* (minor or
+ * better - pawns excluded, they hang constantly and rarely as a real
+ * blunder) attacked and either undefended or only defended at a material
+ * loss. Reuses the same deterministic chess.js check the live board
+ * highlights hangs with. */
 export function computeVigilance(games: GameHistoryEntry[]): TraitResult | null {
   let ownMoves = 0;
   let leftHanging = 0;
@@ -129,7 +130,7 @@ export function computeVigilance(games: GameHistoryEntry[]): TraitResult | null 
       } catch {
         continue;
       }
-      const hasOwnHang = detectHangingPieces(move.fen).some(
+      const hasOwnHang = detectHangingPieces(move.fen, { ignorePawns: true }).some(
         (hanging) => chess.get(hanging.square as Square)?.color === game.playerSide,
       );
       if (hasOwnHang) leftHanging++;
@@ -138,13 +139,16 @@ export function computeVigilance(games: GameHistoryEntry[]): TraitResult | null 
   if (ownMoves === 0) return null;
 
   const hangRate = (leftHanging / ownMoves) * 100;
-  // Inverted - vigilance is HIGH when hanging pieces are rare. A rate
-  // above ~20% of moves would already be unusually careless.
+  // Inverted - vigilance is HIGH when hanging pieces are rare. This is a
+  // material-only check with no engine, so it over-counts pieces that are
+  // "attacked" but actually safe (the capture loses the opponent more);
+  // the scale is deliberately lenient - ~12.5% of moves leaving a real
+  // piece loose is where it bottoms out.
   return {
     key: "vigilance",
     label: "Vigilance",
-    score: clamp(100 - (hangRate / 20) * 100),
-    method: `${leftHanging} of ${ownMoves} of your moves left a piece hanging (${hangRate.toFixed(0)}%).`,
+    score: clamp(100 - hangRate * 8),
+    method: `${leftHanging} of ${ownMoves} of your moves left a piece (not a pawn) attacked and under-defended (${hangRate.toFixed(1)}%).`,
   };
 }
 
