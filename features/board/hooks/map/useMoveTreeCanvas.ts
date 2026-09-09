@@ -103,7 +103,11 @@ export function useMoveTreeCanvas(
 ) {
   const [focusId, setFocusId] = useState(currentNodeId);
   const [k, setK] = useState(K_DEFAULT);
-  const [showRings, setShowRings] = useState(true);
+  // Off by default - the concentric depth rings are a lot of visual noise
+  // for most sessions. A ring still appears on its own when hovered or
+  // selected (see the ring pass in the draw loop), so the feature stays
+  // reachable without the permanent grid.
+  const [showRings, setShowRings] = useState(false);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   // The preview card is always showing something by default (falling back
@@ -634,21 +638,27 @@ export function useMoveTreeCanvas(
       ctx!.arc(cx, cy, scale, 0, Math.PI * 2);
       ctx!.stroke();
 
-      // Stepped every frame regardless of whether rings are shown, so a
-      // fade-out already in progress doesn't freeze mid-transition and
-      // then jump when rings are toggled back on. Both calls always run
-      // (no short-circuit) - each map has to be advanced every frame.
+      // Stepped every frame so a fade already in progress doesn't freeze
+      // and then jump. NOT gated on showRings any more - a hovered or
+      // selected ring must still be able to fade in while the grid is off.
       const hoverMoving = stepIntensityMap(
         ringHoverIntensityRef.current,
-        showRingsRef.current ? hoveredRingPlyRef.current : null,
+        hoveredRingPlyRef.current,
       );
       const selectMoving = stepIntensityMap(
         ringSelectIntensityRef.current,
-        showRingsRef.current ? selectedRingPlyRef.current : null,
+        selectedRingPlyRef.current,
       );
       const ringsMoving = hoverMoving || selectMoving;
 
-      if (showRingsRef.current) {
+      // Draw the ring grid when it's toggled on; when it's off, still run
+      // the pass if any ring is hovered / selected / mid-fade so that one
+      // ring can show on its own.
+      const anyRingActive =
+        ringHoverIntensityRef.current.size > 0 ||
+        ringSelectIntensityRef.current.size > 0;
+
+      if (showRingsRef.current || anyRingActive) {
         for (let ply = 1; ply <= effectiveMaxPly(); ply++) {
           const rapidity = 2 * kRef.current * ply;
           const ring = transformedRing(rapidity, focusR);
@@ -656,6 +666,14 @@ export function useMoveTreeCanvas(
           // compacted tree can have many rings crowded up against the
           // boundary, and none of them are worth a draw call.
           if (!isFinite(ring.r) || ring.r * scale < MIN_VISIBLE_PX) continue;
+
+          const hoverI = ringHoverIntensityRef.current.get(ply) ?? 0;
+          const selectI = ringSelectIntensityRef.current.get(ply) ?? 0;
+          const highlightI = Math.max(hoverI * 0.7, selectI);
+
+          // Grid off: only the hovered / selected ring is drawn at all.
+          if (!showRingsRef.current && highlightI <= 0.01) continue;
+
           // Every ply is a half-move (one side's move); a ring only lands on
           // a completed full move once both sides have moved, i.e. at an
           // even ply - so only those get labeled by default. Odd (half-move)
@@ -671,9 +689,6 @@ export function useMoveTreeCanvas(
           ctx!.arc(ringCx, ringCy, ringR, 0, Math.PI * 2);
           ctx!.stroke();
 
-          const hoverI = ringHoverIntensityRef.current.get(ply) ?? 0;
-          const selectI = ringSelectIntensityRef.current.get(ply) ?? 0;
-          const highlightI = Math.max(hoverI * 0.7, selectI);
           if (highlightI > 0.01) {
             ctx!.strokeStyle = hexToRgba(baseColor("highlightRingSelect", colors.accent), 0.12 + 0.68 * highlightI);
             ctx!.lineWidth = (major ? 1.2 : 0.75) + 1.6 * highlightI;
