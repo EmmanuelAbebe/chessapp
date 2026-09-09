@@ -58,28 +58,55 @@ export function useGameHistory() {
     setGames(stored);
   }, []);
 
-  // Skips anything whose fingerprint already exists, in prior history or
-  // earlier in this same batch, so neither a duplicate within one paste
-  // nor a re-import of an already-recorded game can double-count in the
-  // stats. Returns how many were actually added, for the caller's own
-  // result messaging.
+  // Skips anything whose fingerprint already exists (in prior history or
+  // earlier in this same batch) so a re-import can't double-count - but a
+  // re-import of an already-recorded game DOES backfill richer detail
+  // (meta / a real played-at) onto the stored copy when the incoming one
+  // has it and the stored one doesn't, so importing before the game-
+  // detail feature existed can be fixed by just importing again. Returns
+  // how many were genuinely new.
   function addEntries(entries: GameHistoryEntry[]): number {
     if (entries.length === 0) return 0;
 
-    const seen = new Set(gamesRef.current.map((g) => g.fingerprint));
-    const deduped: GameHistoryEntry[] = [];
-    for (const entry of entries) {
-      if (seen.has(entry.fingerprint)) continue;
-      seen.add(entry.fingerprint);
-      deduped.push(entry);
+    const incomingByFp = new Map<string, GameHistoryEntry>();
+    for (const e of entries) {
+      if (!incomingByFp.has(e.fingerprint)) incomingByFp.set(e.fingerprint, e);
     }
-    if (deduped.length === 0) return 0;
 
-    const next = [...gamesRef.current, ...deduped].slice(-MAX_GAMES);
+    let enriched = false;
+    const merged = gamesRef.current.map((stored) => {
+      const incoming = incomingByFp.get(stored.fingerprint);
+      const storedHasMeta =
+        stored.meta && Object.keys(stored.meta).length > 0;
+      const incomingHasMeta =
+        incoming?.meta && Object.keys(incoming.meta).length > 0;
+      if (incoming && incomingHasMeta && !storedHasMeta) {
+        enriched = true;
+        return {
+          ...stored,
+          meta: incoming.meta,
+          playedAt: incoming.playedAt,
+          timeControl: stored.timeControl ?? incoming.timeControl,
+        };
+      }
+      return stored;
+    });
+
+    const existingFps = new Set(gamesRef.current.map((g) => g.fingerprint));
+    const additions: GameHistoryEntry[] = [];
+    for (const entry of incomingByFp.values()) {
+      if (existingFps.has(entry.fingerprint)) continue;
+      existingFps.add(entry.fingerprint);
+      additions.push(entry);
+    }
+
+    if (additions.length === 0 && !enriched) return 0;
+
+    const next = [...merged, ...additions].slice(-MAX_GAMES);
     gamesRef.current = next;
     setGames(next);
     writeStoredGames(next);
-    return deduped.length;
+    return additions.length;
   }
 
   function addGame(entry: GameHistoryEntry): boolean {
