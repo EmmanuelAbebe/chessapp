@@ -54,36 +54,25 @@ export function computeRecord(games: GameHistoryEntry[]): RecordSummary {
 export type OpeningLine = {
   /** The opening's family name - "Sicilian Defense", "Ruy Lopez", ... */
   label: string;
-  /** The most-played first few moves under this name, as a mainline
-   * ("1.e4 c5 2.Nf3"), for a bit of detail under the name. */
-  sample: string;
   games: number;
+  wins: number;
+  draws: number;
+  losses: number;
   score: number;
-  results: { wins: number; draws: number; losses: number };
 };
-
-function mainlineLabel(moves: GameHistoryEntry["moves"], plies = 6): string {
-  let label = "";
-  moves.slice(0, plies).forEach((m, i) => {
-    if (i % 2 === 0) label += `${i / 2 + 1}.`;
-    label += `${m.san} `;
-  });
-  return label.trim();
-}
 
 export type OpeningsBreakdown = {
   /** Named families, biggest first. At most `limit` entries. */
   lines: OpeningLine[];
   /** Every game not in `lines`, aggregated, or null if the tail is empty. */
-  other: { games: number; score: number } | null;
+  other: Omit<OpeningLine, "label"> | null;
   /** Total games with a known opening (sum of lines + other). */
   total: number;
 };
 
 /** The player's openings by family, biggest first. Beyond `limit` named
  * slices the tail folds into `other` (so a pie of this never exceeds
- * `limit` + 1 slices). Each line carries a representative move order,
- * game count, and score. */
+ * `limit` + 1 slices). */
 export function computeOpenings(
   games: GameHistoryEntry[],
   { limit = 5 }: { limit?: number } = {},
@@ -100,19 +89,13 @@ export function computeOpenings(
   const all: OpeningLine[] = [];
   for (const [name, gs] of groups) {
     const r = tally(gs);
-    const seqCounts = new Map<string, number>();
-    for (const g of gs) {
-      const s = mainlineLabel(g.moves);
-      seqCounts.set(s, (seqCounts.get(s) ?? 0) + 1);
-    }
-    const sample =
-      [...seqCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
     all.push({
       label: name,
-      sample,
       games: r.games,
+      wins: r.wins,
+      draws: r.draws,
+      losses: r.losses,
       score: r.score,
-      results: { wins: r.wins, draws: r.draws, losses: r.losses },
     });
   }
   all.sort((a, b) => b.games - a.games);
@@ -122,15 +105,19 @@ export function computeOpenings(
   const tail = all.slice(limit);
   const other =
     tail.length > 0
-      ? {
-          games: tail.reduce((s, l) => s + l.games, 0),
-          score: (() => {
-            const w = tail.reduce((s, l) => s + l.results.wins, 0);
-            const d = tail.reduce((s, l) => s + l.results.draws, 0);
-            const g = tail.reduce((s, l) => s + l.games, 0);
-            return g ? ((w + d * 0.5) / g) * 100 : 0;
-          })(),
-        }
+      ? (() => {
+          const w = tail.reduce((s, l) => s + l.wins, 0);
+          const d = tail.reduce((s, l) => s + l.draws, 0);
+          const ls = tail.reduce((s, l) => s + l.losses, 0);
+          const g = w + d + ls;
+          return {
+            games: g,
+            wins: w,
+            draws: d,
+            losses: ls,
+            score: g ? ((w + d * 0.5) / g) * 100 : 0,
+          };
+        })()
       : null;
 
   return { lines, other, total };

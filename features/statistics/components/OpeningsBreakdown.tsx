@@ -24,9 +24,11 @@ const GAP_PX = 3;
 type Slice = {
   key: string;
   label: string;
-  sample?: string;
   color: string;
   games: number;
+  wins: number;
+  draws: number;
+  losses: number;
   score: number;
 };
 
@@ -40,21 +42,25 @@ export function OpeningsBreakdown({
   const [active, setActive] = useState<string | null>(null);
 
   const slices: Slice[] = useMemo(() => {
-    const named = breakdown.lines.map((line, i) => ({
+    const named: Slice[] = breakdown.lines.map((line, i) => ({
       key: line.label,
       label: line.label,
-      sample: line.sample || undefined,
       color: CHART_COLORS[i % CHART_COLORS.length],
       games: line.games,
+      wins: line.wins,
+      draws: line.draws,
+      losses: line.losses,
       score: line.score,
     }));
     if (breakdown.other) {
       named.push({
         key: "__other__",
         label: "Other openings",
-        sample: undefined,
         color: OTHER_COLOR,
         games: breakdown.other.games,
+        wins: breakdown.other.wins,
+        draws: breakdown.other.draws,
+        losses: breakdown.other.losses,
         score: breakdown.other.score,
       });
     }
@@ -153,7 +159,7 @@ export function OpeningsBreakdown({
           </text>
         </svg>
 
-        <ul className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <ul className="flex min-w-0 flex-1 flex-col gap-2">
           {slices.map((s) => {
             const pct = (s.games / total) * 100;
             const dim = active !== null && active !== s.key;
@@ -162,26 +168,30 @@ export function OpeningsBreakdown({
                 key={s.key}
                 onMouseEnter={() => setActive(s.key)}
                 onMouseLeave={() => setActive(null)}
-                className={`flex items-baseline gap-2 rounded px-1 py-0.5 text-sm transition-opacity ${
+                className={`flex flex-col gap-0.5 rounded px-1 py-0.5 text-sm transition-opacity ${
                   dim ? "opacity-40" : ""
                 }`}
               >
-                <span
-                  aria-hidden="true"
-                  className="mt-1 h-2.5 w-2.5 shrink-0 rounded-sm"
-                  style={{ background: s.color }}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="text-text">{s.label}</span>
-                  {s.sample && (
-                    <span className="ml-2 font-mono text-[11px] text-text-faint">
-                      {s.sample}
-                    </span>
-                  )}
-                </span>
-                <span className="shrink-0 font-mono text-xs text-text-faint">
-                  {s.games} · {pct.toFixed(0)}% · {s.score.toFixed(0)}%
-                </span>
+                <div className="flex items-baseline gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 shrink-0 translate-y-0.5 rounded-sm"
+                    style={{ background: s.color }}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-text">
+                    {s.label}
+                  </span>
+                  <span className="shrink-0 font-mono text-xs text-text-faint">
+                    {pct.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="pl-[18px] font-mono text-[11px] text-text-faint">
+                  {s.games} game{s.games === 1 ? "" : "s"} ·{" "}
+                  <span className="text-emerald-500">{s.wins}W</span>{" "}
+                  <span>{s.draws}D</span>{" "}
+                  <span className="text-red-400">{s.losses}L</span> ·{" "}
+                  {s.score.toFixed(0)}% score
+                </div>
               </li>
             );
           })}
@@ -189,7 +199,8 @@ export function OpeningsBreakdown({
       </div>
 
       <p className="mt-2 text-[11px] text-text-faint">
-        Share of games · win-rate score. Family names from the PGN&apos;s own
+        The % on the right is the share of your games; &ldquo;score&rdquo; is
+        win-rate (win 1, draw ½). Family names come from the PGN&apos;s own
         opening tag where present.
       </p>
     </div>
