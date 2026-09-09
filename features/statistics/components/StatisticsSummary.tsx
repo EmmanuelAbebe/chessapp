@@ -62,40 +62,43 @@ export default function StatisticsSummary() {
         </p>
       </div>
 
-      <RecordSummary record={record} />
-
       {profile.gamesCount === 0 ? (
-        <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
-          No games recorded {side === "w" ? "as White" : "as Black"} yet.
-        </p>
+        <>
+          <RecordSummary record={record} />
+          <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
+            No games recorded {side === "w" ? "as White" : "as Black"} yet.
+          </p>
+        </>
       ) : (
         <>
           <ArchetypeHeadline archetype={profile.archetype} />
 
-          <div className="mx-auto w-full max-w-xs">
-            <TraitRadarChart traits={profile.radarTraits} />
+          {/* Chart on the left; the record and the plain numbers on the
+              right (stacks on narrow screens). */}
+          <div className="grid gap-6 md:grid-cols-2 md:items-start">
+            <div className="mx-auto w-full max-w-xs">
+              <TraitRadarChart traits={profile.radarTraits} />
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <RecordSummary record={record} />
+
+              {habits && (
+                <HabitsRow habits={habits} movesCount={profile.movesCount} />
+              )}
+
+              {profile.phaseMix && (
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold tracking-wide text-text-faint uppercase">
+                    Phase mix
+                  </h3>
+                  <PhaseMixBars mix={profile.phaseMix} />
+                </div>
+              )}
+            </div>
           </div>
 
-          {habits && <HabitsRow habits={habits} />}
-
-          {profile.phaseMix && (
-            <div className="mx-auto w-full max-w-sm">
-              <h3 className="mb-2 text-xs font-semibold tracking-wide text-text-faint uppercase">
-                Phase mix
-              </h3>
-              <PhaseMixBars mix={profile.phaseMix} />
-            </div>
-          )}
-
           <OpeningsBreakdown lines={openings} side={side} />
-
-          <p className="text-center text-xs text-text-faint">
-            Based on{" "}
-            {side === "all"
-              ? `${profile.gamesCount} game${profile.gamesCount === 1 ? "" : "s"}`
-              : `${profile.gamesCount} game${profile.gamesCount === 1 ? "" : "s"} you played ${side === "w" ? "as White" : "as Black"}`}
-            , {profile.movesCount} of your own moves.
-          </p>
         </>
       )}
 

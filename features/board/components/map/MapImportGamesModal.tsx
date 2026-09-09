@@ -15,6 +15,7 @@ import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
 import {
   computeFingerprint,
   createHistoryId,
+  extractGameMeta,
   resultForSide,
   type GameHistoryEntry,
 } from "@/features/history/types";
@@ -138,6 +139,7 @@ export function MapImportGamesModal({
         result: gameResult,
         opponentName,
         timeControl: game.headers.TimeControl,
+        meta: extractGameMeta(game.headers),
         moves: game.moves,
         fingerprint: computeFingerprint({
           playerSide: side,

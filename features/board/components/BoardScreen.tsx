@@ -32,6 +32,7 @@ import { useGameHistory } from "@/features/history/useGameHistory";
 import {
   computeFingerprint,
   createHistoryId,
+  extractGameMeta,
   resultForSide,
   type GameResult,
 } from "@/features/history/types";
@@ -139,6 +140,7 @@ export function BoardScreen() {
   const pendingAttributionRef = useRef<{
     moves: ParsedMove[];
     info: ImportedGameInfo;
+    headers: Record<string, string>;
   } | null>(null);
   // Guards a live vs-Stockfish game from being recorded twice off the
   // same `gameStatus.isOver` transition - reset whenever a new such game
@@ -512,6 +514,7 @@ export function BoardScreen() {
         result: gameResult,
         opponentName,
         timeControl: result.info.timeControl,
+        meta: extractGameMeta(result.headers),
         moves: result.moves,
         fingerprint: computeFingerprint({
           playerSide: side,
@@ -523,7 +526,11 @@ export function BoardScreen() {
       return {};
     }
 
-    pendingAttributionRef.current = { moves: result.moves, info: result.info };
+    pendingAttributionRef.current = {
+      moves: result.moves,
+      info: result.info,
+      headers: result.headers,
+    };
     return { needsSide: true };
   }
 
@@ -540,6 +547,7 @@ export function BoardScreen() {
       result: gameResult,
       opponentName,
       timeControl: pending.info.timeControl,
+      meta: extractGameMeta(pending.headers),
       moves: pending.moves,
       fingerprint: computeFingerprint({
         playerSide: side,

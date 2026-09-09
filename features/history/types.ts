@@ -2,6 +2,30 @@ import type { ParsedMove } from "../board/lib/pgn-import";
 
 export type GameResult = "win" | "loss" | "draw";
 
+/** The bits of a PGN's headers worth keeping for the game-detail view -
+ * everything else in a lichess/chess.com export is either already
+ * captured on the entry itself or not interesting. All optional; a live
+ * game against Stockfish has none of it. */
+export type GameMeta = {
+  event?: string;
+  site?: string;
+  round?: string;
+  /** PGN Date / UTCDate, "YYYY.MM.DD". */
+  date?: string;
+  /** PGN UTCTime, "HH:MM:SS". */
+  time?: string;
+  whiteName?: string;
+  blackName?: string;
+  whiteElo?: string;
+  blackElo?: string;
+  eco?: string;
+  opening?: string;
+  termination?: string;
+  /** A clickable link to the game, derived from Site / Link when it's a
+   * URL (lichess puts the game URL in Site; chess.com uses Link). */
+  gameUrl?: string;
+};
+
 export type GameHistoryEntry = {
   id: string;
   source: "import" | "live";
@@ -10,6 +34,7 @@ export type GameHistoryEntry = {
   result: GameResult;
   opponentName?: string;
   timeControl?: string;
+  meta?: GameMeta;
   moves: ParsedMove[];
   // Identifies "the same game" regardless of when/how it was added, so
   // useGameHistory can skip re-adding one already in history - the exact
@@ -20,6 +45,41 @@ export type GameHistoryEntry = {
 
 export function createHistoryId(): string {
   return `hist_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Pull the game-detail fields out of a PGN's raw headers. Safe on a
+ * partial/odd header set - everything's optional and missing/"?" values
+ * are dropped. */
+export function extractGameMeta(headers: Record<string, string>): GameMeta {
+  const val = (key: string): string | undefined => {
+    const v = headers[key]?.trim();
+    return v && v !== "?" && v !== "????.??.??" ? v : undefined;
+  };
+  const site = val("Site");
+  const link = val("Link");
+  const url = [site, link].find((s) => s?.startsWith("http"));
+
+  const meta: GameMeta = {
+    event: val("Event"),
+    site,
+    round: val("Round"),
+    date: val("UTCDate") ?? val("Date"),
+    time: val("UTCTime") ?? val("Time"),
+    whiteName: val("White"),
+    blackName: val("Black"),
+    whiteElo: val("WhiteElo"),
+    blackElo: val("BlackElo"),
+    eco: val("ECO"),
+    opening: val("Opening"),
+    termination: val("Termination"),
+    gameUrl: url,
+  };
+  // Strip empty keys so a game with no useful headers stores `{}` we can
+  // treat as "nothing to show".
+  for (const k of Object.keys(meta) as (keyof GameMeta)[]) {
+    if (meta[k] === undefined) delete meta[k];
+  }
+  return meta;
 }
 
 /** A stable id for "this exact game, played by this side" - two entries

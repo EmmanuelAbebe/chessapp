@@ -16,6 +16,8 @@ export type ImportedGameInfo = {
 export type ImportPgnResult = {
   tree: MoveTreeState;
   info: ImportedGameInfo;
+  /** The game's raw PGN headers, for anything `info` doesn't surface. */
+  headers: Record<string, string>;
   moves: ParsedMove[];
 };
 
@@ -98,24 +100,29 @@ export function splitPgnGames(text: string): string[] {
 /** Parses a single full PGN - headers plus the move list - into a ready-
  * to-use move tree, the same shape a live game builds one move at a time.
  * Throws (chess.js's own error) for anything structurally invalid. */
-export function importPgn(pgn: string): ImportPgnResult {
-  const { headers, moves } = parseGame(pgn);
-
+/** Builds a move tree from an already-parsed move list (an imported
+ * game, or one replayed from game history), cursor left at the start. */
+export function treeFromMoves(moves: ParsedMove[]): MoveTreeState {
   let tree = createMoveTree();
   let parentId = tree.rootId;
-
   for (const move of moves) {
     tree = appendChildNode(tree, parentId, move);
     parentId = tree.currentNodeId;
   }
+  return { ...tree, currentNodeId: tree.rootId };
+}
+
+export function importPgn(pgn: string): ImportPgnResult {
+  const { headers, moves } = parseGame(pgn);
 
   // Land back at the start - reviewing an imported game means stepping
   // through it from move 1, not landing on the final position.
-  tree = { ...tree, currentNodeId: tree.rootId };
+  const tree = treeFromMoves(moves);
 
   return {
     tree,
     moves,
+    headers,
     info: {
       white: headers.White || "White",
       black: headers.Black || "Black",

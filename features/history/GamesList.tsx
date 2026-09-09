@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FaChessBoard, FaUpRightFromSquare } from "react-icons/fa6";
+import { PiGraph } from "react-icons/pi";
 import type { GameHistoryEntry } from "./types";
+import { stashExploreGame } from "./exploreGame";
 
 // The recorded games as a filterable list - so "which side was I in this
 // game" is visible somewhere, and the side filter's effect is concrete.
@@ -42,6 +46,111 @@ function sourceLabel(game: GameHistoryEntry): string {
   return game.timeControl || "import";
 }
 
+function DetailField({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="flex flex-col">
+      <dt className="text-[10px] tracking-wide text-text-faint uppercase">
+        {label}
+      </dt>
+      <dd className="text-text">{value}</dd>
+    </div>
+  );
+}
+
+function GameDetail({ game }: { game: GameHistoryEntry }) {
+  const router = useRouter();
+  const meta = game.meta ?? {};
+  const asWhite = game.playerSide === "w";
+
+  const whiteName = meta.whiteName ?? (asWhite ? "You" : game.opponentName);
+  const blackName = meta.blackName ?? (asWhite ? game.opponentName : "You");
+  const whiteLine = [whiteName ?? "White", meta.whiteElo && `(${meta.whiteElo})`]
+    .filter(Boolean)
+    .join(" ");
+  const blackLine = [blackName ?? "Black", meta.blackElo && `(${meta.blackElo})`]
+    .filter(Boolean)
+    .join(" ");
+
+  const explore = (to: "/board" | "/map") => {
+    stashExploreGame(game);
+    router.push(to);
+  };
+
+  return (
+    <div className="border-t border-border-soft bg-surface-raised/40 px-3 py-3">
+      <div className="mb-3 text-sm">
+        <span className={asWhite ? "font-medium text-text" : "text-text-dim"}>
+          <span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm border border-border-soft align-middle" style={{ background: "#f2f2f2" }} />
+          {whiteLine}
+        </span>
+        <span className="mx-2 text-text-faint">vs</span>
+        <span className={!asWhite ? "font-medium text-text" : "text-text-dim"}>
+          <span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm border border-border-soft align-middle" style={{ background: "#1a1a1a" }} />
+          {blackLine}
+        </span>
+      </div>
+
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
+        <DetailField
+          label="Date"
+          value={
+            meta.date
+              ? `${meta.date.replace(/\./g, "-")}${meta.time ? ` ${meta.time}` : ""}`
+              : `${formatDate(game.playedAt)} (recorded)`
+          }
+        />
+        <DetailField label="Time control" value={game.timeControl} />
+        <DetailField label="Event" value={meta.event} />
+        <DetailField label="Round" value={meta.round} />
+        <DetailField
+          label="Opening"
+          value={[meta.eco, meta.opening].filter(Boolean).join(" ") || undefined}
+        />
+        <DetailField label="Termination" value={meta.termination} />
+        <DetailField
+          label="Moves"
+          value={`${Math.ceil(game.moves.length / 2)}`}
+        />
+        <DetailField
+          label="Source"
+          value={game.source === "live" ? "vs Stockfish" : "Imported"}
+        />
+      </dl>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => explore("/board")}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-dim transition hover:border-accent hover:text-text"
+        >
+          <FaChessBoard aria-hidden="true" className="h-3 w-3" />
+          Explore on board
+        </button>
+        <button
+          type="button"
+          onClick={() => explore("/map")}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-dim transition hover:border-accent hover:text-text"
+        >
+          <PiGraph aria-hidden="true" className="h-3 w-3" />
+          Explore on map
+        </button>
+        {meta.gameUrl && (
+          <a
+            href={meta.gameUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-dim transition hover:border-accent hover:text-text"
+          >
+            <FaUpRightFromSquare aria-hidden="true" className="h-3 w-3" />
+            {meta.gameUrl.includes("lichess") ? "View on Lichess" : "Open game"}
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const selectClass =
   "rounded-md border border-border bg-surface-raised px-2 py-1 text-xs text-text focus:border-accent focus:outline-none";
 
@@ -50,6 +159,7 @@ export function GamesList({ games }: { games: GameHistoryEntry[] }) {
   const [opponent, setOpponent] = useState("all");
   const [rangeDays, setRangeDays] = useState(0);
   const [minVsOpponent, setMinVsOpponent] = useState(1);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // How many times each opponent appears in the (side-filtered) set -
   // drives the opponent dropdown order and the "repeat opponents" filter.
@@ -218,39 +328,52 @@ export function GamesList({ games }: { games: GameHistoryEntry[] }) {
         <ul className="flex flex-col divide-y divide-border-soft overflow-hidden rounded-lg border border-border-soft">
           {filtered.map((game) => {
             const asWhite = game.playerSide === "w";
+            const open = expandedId === game.id;
             return (
-              <li
-                key={game.id}
-                className="flex items-center gap-3 bg-surface px-3 py-2 text-sm"
-              >
-                <span
-                  title={asWhite ? "You played White" : "You played Black"}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-text-dim"
+              <li key={game.id} className="bg-surface">
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(open ? null : game.id)}
+                  aria-expanded={open}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-surface-raised/50"
                 >
                   <span
+                    title={asWhite ? "You played White" : "You played Black"}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-text-dim"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="h-2.5 w-2.5 rounded-sm border border-border-soft"
+                      style={{ background: asWhite ? "#f2f2f2" : "#1a1a1a" }}
+                    />
+                    {asWhite ? "White" : "Black"}
+                  </span>
+
+                  <span
+                    className={`w-10 shrink-0 font-medium ${RESULT_STYLE[game.result]}`}
+                  >
+                    {RESULT_LABEL[game.result]}
+                  </span>
+
+                  <span className="min-w-0 flex-1 truncate text-text">
+                    {game.opponentName ? `vs ${game.opponentName}` : "vs —"}
+                  </span>
+
+                  <span className="hidden shrink-0 text-xs text-text-faint sm:inline">
+                    {sourceLabel(game)}
+                  </span>
+                  <span className="shrink-0 text-xs text-text-faint">
+                    {formatDate(game.playedAt)}
+                  </span>
+                  <span
                     aria-hidden="true"
-                    className="h-2.5 w-2.5 rounded-sm border border-border-soft"
-                    style={{ background: asWhite ? "#f2f2f2" : "#1a1a1a" }}
-                  />
-                  {asWhite ? "White" : "Black"}
-                </span>
+                    className={`shrink-0 text-text-faint transition-transform ${open ? "rotate-90" : ""}`}
+                  >
+                    ›
+                  </span>
+                </button>
 
-                <span
-                  className={`w-10 shrink-0 font-medium ${RESULT_STYLE[game.result]}`}
-                >
-                  {RESULT_LABEL[game.result]}
-                </span>
-
-                <span className="min-w-0 flex-1 truncate text-text">
-                  {game.opponentName ? `vs ${game.opponentName}` : "vs —"}
-                </span>
-
-                <span className="hidden shrink-0 text-xs text-text-faint sm:inline">
-                  {sourceLabel(game)}
-                </span>
-                <span className="shrink-0 text-xs text-text-faint">
-                  {formatDate(game.playedAt)}
-                </span>
+                {open && <GameDetail game={game} />}
               </li>
             );
           })}

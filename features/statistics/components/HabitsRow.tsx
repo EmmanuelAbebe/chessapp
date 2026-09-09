@@ -9,7 +9,14 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function HabitsRow({ habits }: { habits: Habits }) {
+export function HabitsRow({
+  habits,
+  movesCount,
+}: {
+  habits: Habits;
+  /** Total of the player's own moves in the current selection. */
+  movesCount?: number;
+}) {
   const castle =
     habits.neverCastled >= 50
       ? `${habits.neverCastled.toFixed(0)}% uncastled`
@@ -18,11 +25,14 @@ export function HabitsRow({ habits }: { habits: Habits }) {
         : `${habits.castledKingside.toFixed(0)}% kingside`;
 
   return (
-    <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid w-full grid-cols-2 gap-2">
       <Stat
         label="avg. game length"
         value={`${Math.round(habits.avgLength / 2)} moves`}
       />
+      {movesCount !== undefined && (
+        <Stat label="your moves" value={movesCount.toLocaleString()} />
+      )}
       <Stat label="decisive" value={`${habits.decisiveRate.toFixed(0)}%`} />
       <Stat label="castling" value={castle} />
       <Stat
