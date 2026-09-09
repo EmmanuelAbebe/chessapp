@@ -223,6 +223,7 @@ export function MoveTreeMap() {
               isEngineOn={isEngineOn}
               isEngineThinking={isEngineThinking}
               onPlayFromHere={playFromNode}
+              onStopStockfish={startAnalysis}
               onSetAsStart={setNodeAsStart}
               boardOrientation={boardOrientation}
               statsSide={statsSide}

@@ -36,6 +36,7 @@ export function MapPreviewCard({
   isEngineOn,
   isEngineThinking,
   onPlayFromHere,
+  onStopStockfish,
   onSetAsStart,
   boardOrientation,
   statsSide,
@@ -51,6 +52,7 @@ export function MapPreviewCard({
   isEngineOn: boolean;
   isEngineThinking: boolean;
   onPlayFromHere: (node: MoveNode) => void;
+  onStopStockfish: () => void;
   onSetAsStart: (node: MoveNode) => void;
   boardOrientation: "white" | "black";
   statsSide: SideFilter;
@@ -137,15 +139,18 @@ export function MapPreviewCard({
           />
           <button
             type="button"
-            onClick={() => onPlayFromHere(node)}
+            onClick={() =>
+              isEngineOn ? onStopStockfish() : onPlayFromHere(node)
+            }
+            aria-pressed={isEngineOn}
             aria-label={
               isEngineOn
-                ? "Playing against Stockfish"
+                ? "Stop playing Stockfish"
                 : "Play against Stockfish from here"
             }
             title={
               isEngineOn
-                ? "Playing against Stockfish"
+                ? "Stop playing Stockfish"
                 : "Play against Stockfish from here"
             }
             className={`relative flex h-6 w-6 items-center text-gray-300 justify-center rounded-full text-xs shadow transition hover:border hover:border-accent hover:text-text ${

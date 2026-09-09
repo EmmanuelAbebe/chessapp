@@ -610,6 +610,8 @@ export function BoardScreen() {
                   openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
                   onUndo={undoMove}
+                  isPlayingStockfish={isPlayingStockfish}
+                  onStopStockfish={startAnalysis}
                   toggleOrientation={toggleOrientation}
                 />
               </div>
@@ -655,6 +657,8 @@ export function BoardScreen() {
                   openPuzzles={() => openGameMode("puzzles")}
                   onAnalysis={startAnalysis}
                   onUndo={undoMove}
+                  isPlayingStockfish={isPlayingStockfish}
+                  onStopStockfish={startAnalysis}
                   toggleOrientation={toggleOrientation}
                 />
               </div>
@@ -709,6 +713,8 @@ export function BoardScreen() {
               openPuzzles={() => openGameMode("puzzles")}
               onAnalysis={startAnalysis}
               onUndo={undoMove}
+              isPlayingStockfish={isPlayingStockfish}
+              onStopStockfish={startAnalysis}
               toggleOrientation={toggleOrientation}
             />
           </div>

@@ -24,6 +24,10 @@ type BoardControlsProps = {
   openPuzzles: () => void;
   onAnalysis: () => void;
   onUndo: () => void;
+  // The Stockfish icon doubles as a toggle: opens the setup modal when
+  // idle, ends the game (back to analysis) while one is running.
+  isPlayingStockfish: boolean;
+  onStopStockfish: () => void;
   // Vertical beside the board on desktop; horizontal below the move list on
   // mobile, where there's no side column to put a tall stack of icons in.
   layout?: "column" | "row";
@@ -42,11 +46,13 @@ function IconButton({
   label,
   onClick,
   layout,
+  active = false,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
   onClick: () => void;
   layout: "column" | "row";
+  active?: boolean;
 }) {
   return (
     <span className="group relative flex">
@@ -54,7 +60,10 @@ function IconButton({
         type="button"
         onClick={onClick}
         aria-label={label}
-        className="rounded text-text-faint transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        aria-pressed={active}
+        className={`rounded transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+          active ? "text-accent" : "text-text-faint hover:text-text"
+        }`}
       >
         <Icon />
       </button>
@@ -82,6 +91,8 @@ export function BoardControls({
   openPuzzles,
   onAnalysis,
   onUndo,
+  isPlayingStockfish,
+  onStopStockfish,
   layout = "column",
 }: BoardControlsProps) {
   return (
@@ -96,8 +107,13 @@ export function BoardControls({
       />
       <IconButton
         icon={FaFish}
-        label="Play against Stockfish"
-        onClick={openStockfishSetup}
+        label={
+          isPlayingStockfish
+            ? "Stop playing Stockfish"
+            : "Play against Stockfish"
+        }
+        onClick={isPlayingStockfish ? onStopStockfish : openStockfishSetup}
+        active={isPlayingStockfish}
         layout={layout}
       />
       <IconButton
