@@ -692,6 +692,7 @@ export function BoardScreen() {
                   currentNodeId={currentNodeId}
                   onSelectNode={goToNode}
                   onSelectStart={goToStart}
+                  atStart={atRoot}
                 />
               </div>
 

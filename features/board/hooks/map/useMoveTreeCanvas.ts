@@ -927,22 +927,41 @@ export function useMoveTreeCanvas(
             : 1;
         const drawRadius = radius * bounceScale;
 
-        ctx!.beginPath();
-        ctx!.arc(sx, sy, drawRadius, 0, Math.PI * 2);
-        // A node's color is only ever about who moved into it (light/dark
-        // dot) - whether it's a fork is an edge-level fact (see the
-        // hub-parent edge color above), not something the node itself
-        // should visually change for.
-        if (isBlackMove) ctx!.fillStyle = colors.background;
-        else ctx!.fillStyle = hexToRgba(baseColor("nodeWhite", colors.text), brighten ? 1 : 0.35 + closeness * 0.5);
-        ctx!.fill();
-
-        if (isBlackMove) {
-          ctx!.strokeStyle = hexToRgba(baseColor("nodeBlack", colors.text), brighten ? 1 : 0.4 + closeness * 0.5);
-          ctx!.lineWidth = brighten ? 1.8 : 1.3;
+        const isRoot = !node.parentId;
+        if (isRoot) {
+          // The game's starting position - a filled diamond, not a dot, so
+          // it reads as "origin" at any zoom or compaction without leaning
+          // on its label.
+          const half = Math.max(drawRadius, 4) + 1.5;
+          ctx!.save();
+          ctx!.translate(sx, sy);
+          ctx!.rotate(Math.PI / 4);
+          ctx!.fillStyle = baseColor("highlightCurrent", colors.accent);
+          ctx!.strokeStyle = colors.background;
+          ctx!.lineWidth = 1.5;
+          ctx!.beginPath();
+          ctx!.rect(-half, -half, half * 2, half * 2);
+          ctx!.fill();
+          ctx!.stroke();
+          ctx!.restore();
+        } else {
           ctx!.beginPath();
           ctx!.arc(sx, sy, drawRadius, 0, Math.PI * 2);
-          ctx!.stroke();
+          // A node's color is only ever about who moved into it (light/dark
+          // dot) - whether it's a fork is an edge-level fact (see the
+          // hub-parent edge color above), not something the node itself
+          // should visually change for.
+          if (isBlackMove) ctx!.fillStyle = colors.background;
+          else ctx!.fillStyle = hexToRgba(baseColor("nodeWhite", colors.text), brighten ? 1 : 0.35 + closeness * 0.5);
+          ctx!.fill();
+
+          if (isBlackMove) {
+            ctx!.strokeStyle = hexToRgba(baseColor("nodeBlack", colors.text), brighten ? 1 : 0.4 + closeness * 0.5);
+            ctx!.lineWidth = brighten ? 1.8 : 1.3;
+            ctx!.beginPath();
+            ctx!.arc(sx, sy, drawRadius, 0, Math.PI * 2);
+            ctx!.stroke();
+          }
         }
 
         if (isFocus) {
@@ -982,13 +1001,21 @@ export function useMoveTreeCanvas(
         let priority = closeness * 100;
         if (onMainLine) priority += 120;
         if (isFork) priority += 40;
+        if (isRoot) priority += 200;
         if (isPinned) priority += 400;
         if (ringSpotlight > 0.5) priority += 300;
         if (isHovered) priority = 5500;
         if (isCurrent) priority = 5000;
         if (isFocus) priority = 6000;
+        // The start marker keeps its "Start" label at every compaction -
+        // it's the map's anchor point, always worth naming.
         const special =
-          isFocus || isCurrent || isHovered || isPinned || ringSpotlight > 0.5;
+          isRoot ||
+          isFocus ||
+          isCurrent ||
+          isHovered ||
+          isPinned ||
+          ringSpotlight > 0.5;
         // Below LABEL_MIN_K the map is an overview, not something you read
         // move by move - only the deliberate call-outs (focus / current /
         // hovered / pinned / ring-spotlit) get a label; the ambient SAN

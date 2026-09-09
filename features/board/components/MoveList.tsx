@@ -11,6 +11,9 @@ type MoveListProps = {
   currentNodeId: string;
   onSelectNode: (nodeId: string) => void;
   onSelectStart: () => void;
+  /** Whether the board is at the starting position (root). When omitted,
+   * inferred from "no move in the current line is selected". */
+  atStart?: boolean;
 };
 
 type MovePair = {
@@ -86,26 +89,28 @@ export function MoveList({
   currentNodeId,
   onSelectNode,
   onSelectStart,
+  atStart,
 }: MoveListProps) {
   const { settings } = useSettings();
   const movePairs = buildMovePairs(currentLine);
   const currentMoveRef = useRef<HTMLButtonElement | null>(null);
+  const startButtonRef = useRef<HTMLButtonElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [highlight, setHighlight] = useState<HighlightRect | null>(null);
 
   const hasActiveMove = currentLine.some((node) => node.id === currentNodeId);
+  const startActive = atStart ?? !hasActiveMove;
 
   useLayoutEffect(() => {
-    if (!hasActiveMove) {
-      setHighlight(null);
-      return;
-    }
-
-    const button = currentMoveRef.current;
+    const button = hasActiveMove
+      ? currentMoveRef.current
+      : startActive
+        ? startButtonRef.current
+        : null;
     setHighlight(
       button ? { left: button.offsetLeft, width: button.offsetWidth } : null,
     );
-  }, [currentNodeId, currentLine, hasActiveMove]);
+  }, [currentNodeId, currentLine, hasActiveMove, startActive]);
 
   useEffect(() => {
     const button = currentMoveRef.current;
@@ -116,7 +121,8 @@ export function MoveList({
         behavior: "smooth",
       });
     } else {
-      // No move selected (e.g. jumped to the start) - scroll back to the beginning.
+      // No move selected (e.g. jumped to the start) - scroll back to the
+      // beginning so the start marker is in view.
       containerRef.current?.scrollTo({ left: 0, behavior: "smooth" });
     }
   }, [currentNodeId]);
@@ -132,6 +138,24 @@ export function MoveList({
               style={{ left: highlight.left, width: highlight.width }}
             />
           )}
+
+          {/* The starting position - a diamond marker, matching the map's
+              own start-node shape, sitting before move 1. */}
+          <button
+            type="button"
+            ref={startButtonRef}
+            onClick={onSelectStart}
+            aria-label="Go to starting position"
+            aria-current={startActive ? "true" : undefined}
+            className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 hover:bg-surface-raised ${
+              startActive ? "text-accent" : "text-text-faint"
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className="inline-block h-2.5 w-2.5 rotate-45 rounded-[1px] bg-current"
+            />
+          </button>
 
           {movePairs.map((pair) => (
             <div

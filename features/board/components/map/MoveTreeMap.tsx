@@ -202,6 +202,7 @@ export function MoveTreeMap() {
                   currentNodeId={currentNodeId}
                   onSelectNode={goToNode}
                   onSelectStart={() => goToNode(tree.rootId)}
+                  atStart={currentNodeId === tree.rootId}
                 />
               </div>
             </div>
