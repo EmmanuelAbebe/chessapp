@@ -147,7 +147,7 @@ export function BoardScreen() {
   // actually starts (handleStartVsStockfish/handleEditorPlayVsStockfish).
   const liveGameRecordedRef = useRef(false);
 
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const {
     showEvalBar,
     showEvalScore,
@@ -156,6 +156,20 @@ export function BoardScreen() {
     coordinatesPlacement,
     showMoveList,
   } = settings;
+
+  // "Analysis" is a full mode, not just a game-mode flag: turning it on
+  // brings up the analysis chrome (eval bar, eval score, move list,
+  // engine candidate arrows) so the board is actually set up to analyse
+  // with. A later manual toggle of any of these still stands.
+  function enterAnalysis() {
+    startAnalysis();
+    updateSettings({
+      showEvalBar: true,
+      showEvalScore: true,
+      showMoveList: true,
+      showEngineSuggestions: true,
+    });
+  }
 
   // --board-size drives width/height for the whole board-page composition
   // (chat panel, move-list row, board itself all share it). It's set from
@@ -466,7 +480,7 @@ export function BoardScreen() {
   function handleEditorAnalyze(fen: string) {
     setImportedGameInfo(null);
     resetBoard(fen);
-    startAnalysis();
+    enterAnalysis();
     setIsEditingPosition(false);
     positionCommentary.describePosition(fen, null);
   }
@@ -620,7 +634,7 @@ export function BoardScreen() {
                   openPositionSetup={() => setIsEditingPosition(true)}
                   openAiCoach={() => openGameMode("ai-coach")}
                   openPuzzles={() => openGameMode("puzzles")}
-                  onAnalysis={startAnalysis}
+                  onAnalysis={enterAnalysis}
                   onUndo={undoMove}
                   isPlayingStockfish={isPlayingStockfish}
                   onStopStockfish={startAnalysis}
@@ -666,7 +680,7 @@ export function BoardScreen() {
                   openPositionSetup={() => setIsEditingPosition(true)}
                   openAiCoach={() => openGameMode("ai-coach")}
                   openPuzzles={() => openGameMode("puzzles")}
-                  onAnalysis={startAnalysis}
+                  onAnalysis={enterAnalysis}
                   onUndo={undoMove}
                   isPlayingStockfish={isPlayingStockfish}
                   onStopStockfish={startAnalysis}
@@ -722,7 +736,7 @@ export function BoardScreen() {
               openPositionSetup={() => setIsEditingPosition(true)}
               openAiCoach={() => openGameMode("ai-coach")}
               openPuzzles={() => openGameMode("puzzles")}
-              onAnalysis={startAnalysis}
+              onAnalysis={enterAnalysis}
               onUndo={undoMove}
               isPlayingStockfish={isPlayingStockfish}
               onStopStockfish={startAnalysis}
