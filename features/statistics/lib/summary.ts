@@ -1,4 +1,5 @@
 import type { GameHistoryEntry } from "@/features/history/types";
+import { lookupOpeningName } from "./openings-book";
 
 // Plain counting stats - a record, opening breakdown, and a few habits -
 // to sit alongside the interpretive personality traits. All notation-only
@@ -51,47 +52,65 @@ export function computeRecord(games: GameHistoryEntry[]): RecordSummary {
 // --- Openings ---------------------------------------------------------------
 
 export type OpeningLine = {
-  /** e.g. "1.e4 c5 2.Nf3" - the first few plies rendered as a mainline. */
+  /** The opening's family name - "Sicilian Defense", "Ruy Lopez", ... */
   label: string;
+  /** The most-played first few moves under this name, as a mainline
+   * ("1.e4 c5 2.Nf3"), for a bit of detail under the name. */
+  sample: string;
   games: number;
   score: number;
   results: { wins: number; draws: number; losses: number };
 };
 
-/** The player's most-played opening lines (first `plies` half-moves),
- * newest tie-broken by frequency. `plies` of 4 groups by the first two
- * full moves - enough to tell 1.e4 e5 2.Nf3 from 1.e4 e5 2.Bc4 without
- * splintering into hundreds of one-game lines. */
+/** The broad opening family for a game - the PGN's own `Opening` header
+ * (lichess supplies one) collapsed to the part before the first ":", or
+ * the built-in book, or "Other". */
+function openingFamily(game: GameHistoryEntry): string {
+  const header = game.meta?.opening?.trim();
+  if (header) return header.split(":")[0].split(",")[0].trim();
+  return lookupOpeningName(game.moves) ?? "Other";
+}
+
+function mainlineLabel(moves: GameHistoryEntry["moves"], plies = 6): string {
+  let label = "";
+  moves.slice(0, plies).forEach((m, i) => {
+    if (i % 2 === 0) label += `${i / 2 + 1}.`;
+    label += `${m.san} `;
+  });
+  return label.trim();
+}
+
+/** The player's openings by family, most-played first, each with a
+ * representative move order, game count, and score. */
 export function computeOpenings(
   games: GameHistoryEntry[],
-  { plies = 4, limit = 6 }: { plies?: number; limit?: number } = {},
+  { limit = 6 }: { limit?: number } = {},
 ): OpeningLine[] {
-  const groups = new Map<
-    string,
-    { label: string; games: GameHistoryEntry[] }
-  >();
-
+  const groups = new Map<string, GameHistoryEntry[]>();
   for (const game of games) {
     if (game.moves.length === 0) continue;
-    const seq = game.moves.slice(0, plies);
-    const key = seq.map((m) => m.uci).join(" ");
-    let label = "";
-    seq.forEach((m, i) => {
-      if (i % 2 === 0) label += `${i / 2 + 1}.`;
-      label += `${m.san} `;
-    });
-    label = label.trim();
-
-    const entry = groups.get(key);
-    if (entry) entry.games.push(game);
-    else groups.set(key, { label, games: [game] });
+    const name = openingFamily(game);
+    const list = groups.get(name);
+    if (list) list.push(game);
+    else groups.set(name, [game]);
   }
 
   const lines: OpeningLine[] = [];
-  for (const { label, games: gs } of groups.values()) {
+  for (const [name, gs] of groups) {
     const r = tally(gs);
+    // Representative line = the most common first-6-ply sequence in this
+    // family.
+    const seqCounts = new Map<string, number>();
+    for (const g of gs) {
+      const s = mainlineLabel(g.moves);
+      seqCounts.set(s, (seqCounts.get(s) ?? 0) + 1);
+    }
+    const sample =
+      [...seqCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+
     lines.push({
-      label,
+      label: name,
+      sample,
       games: r.games,
       score: r.score,
       results: { wins: r.wins, draws: r.draws, losses: r.losses },

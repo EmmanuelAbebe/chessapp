@@ -6,6 +6,7 @@ import { FaChessBoard, FaUpRightFromSquare } from "react-icons/fa6";
 import { PiGraph } from "react-icons/pi";
 import type { GameHistoryEntry } from "./types";
 import { stashExploreGame } from "./exploreGame";
+import { lookupOpeningName } from "@/features/statistics/lib/openings-book";
 
 // The recorded games as a filterable list - so "which side was I in this
 // game" is visible somewhere, and the side filter's effect is concrete.
@@ -105,7 +106,11 @@ function GameDetail({ game }: { game: GameHistoryEntry }) {
         <DetailField label="Round" value={meta.round} />
         <DetailField
           label="Opening"
-          value={[meta.eco, meta.opening].filter(Boolean).join(" ") || undefined}
+          value={
+            [meta.eco, meta.opening ?? lookupOpeningName(game.moves) ?? undefined]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
         />
         <DetailField label="Termination" value={meta.termination} />
         <DetailField

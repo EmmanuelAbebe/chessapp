@@ -26,13 +26,16 @@ export function OpeningsBreakdown({
         {lines.map((line) => (
           <li key={line.label} className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate font-mono text-text">
-                {line.label}
-              </span>
+              <span className="min-w-0 truncate text-text">{line.label}</span>
               <span className="shrink-0 font-mono text-xs text-text-faint">
                 {line.games} · {line.score.toFixed(0)}%
               </span>
             </div>
+            {line.sample && (
+              <span className="truncate font-mono text-[11px] text-text-faint">
+                {line.sample}
+              </span>
+            )}
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-raised">
               <div
                 className="h-full rounded-full bg-accent"
