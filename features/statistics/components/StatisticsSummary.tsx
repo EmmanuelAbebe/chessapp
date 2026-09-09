@@ -8,6 +8,7 @@ import {
   sideGameCounts,
   type SideFilter,
 } from "@/features/history/SidePlayedFilter";
+import { GamesList } from "@/features/history/GamesList";
 import { computePersonalityProfile } from "../lib/traits";
 import { TraitRadarChart } from "./TraitRadarChart";
 import { PhaseMixBars } from "./PhaseMixBars";
@@ -81,6 +82,8 @@ export default function StatisticsSummary() {
           </p>
         </>
       )}
+
+      <GamesList games={filteredGames} />
     </section>
   );
 }

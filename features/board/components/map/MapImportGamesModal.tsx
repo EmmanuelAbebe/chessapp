@@ -32,9 +32,21 @@ type MapImportGamesModalProps = {
   addGames: (entries: GameHistoryEntry[]) => number;
 };
 
-type Progress = { processed: number; failed: number; matched: number; added: number };
+type Progress = {
+  processed: number;
+  failed: number;
+  matched: number;
+  added: number;
+  unattributed: number;
+};
 
-const EMPTY_PROGRESS: Progress = { processed: 0, failed: 0, matched: 0, added: 0 };
+const EMPTY_PROGRESS: Progress = {
+  processed: 0,
+  failed: 0,
+  matched: 0,
+  added: 0,
+  unattributed: 0,
+};
 
 export function MapImportGamesModal({
   isOpen,
@@ -98,13 +110,24 @@ export function MapImportGamesModal({
   // and the Statistics history (via addGames) update right here, so they
   // visibly grow while a large import is still in progress instead of
   // jumping to their final state only once everything finishes.
-  function handleBatch(batch: ImportBatch) {
+  // `nameOverride` is used by "import my Lichess games", which knows the
+  // exact username and must not race the just-issued setUsernames() state
+  // update that usernameListRef would otherwise still be a step behind.
+  function handleBatch(batch: ImportBatch, nameOverride?: string) {
     onMerge(batch.tree);
 
+    const names = nameOverride
+      ? [nameOverride, ...usernameListRef.current]
+      : usernameListRef.current;
+
     const matched: GameHistoryEntry[] = [];
+    let unattributed = 0;
     for (const game of batch.parsedGames) {
-      const side = matchPlayerSide(game.headers, usernameListRef.current);
-      if (!side) continue;
+      const side = matchPlayerSide(game.headers, names);
+      if (!side) {
+        unattributed += 1;
+        continue;
+      }
       const gameResult = resultForSide(game.headers.Result ?? "*", side);
       const opponentName = side === "w" ? game.headers.Black : game.headers.White;
       matched.push({
@@ -131,6 +154,7 @@ export function MapImportGamesModal({
       failed: batch.failed,
       matched: prev.matched + matched.length,
       added: prev.added + added,
+      unattributed: prev.unattributed + unattributed,
     }));
   }
 
@@ -179,9 +203,10 @@ export function MapImportGamesModal({
 
   async function handleImportMine() {
     if (!lichessUser) return;
-    // Seed the identity store so imported games count as "yours" on the
-    // Statistics page, matching what the URL/paste flows expect the user
-    // to fill in by hand.
+    // Persist it for future imports too, but match THIS import against
+    // `lichessUser` directly (passed into handleBatch) - relying on the
+    // state we just set would race the batches that arrive before the
+    // re-render.
     if (!usernames.trim()) setUsernames(lichessUser);
 
     cancelledRef.current = false;
@@ -196,7 +221,7 @@ export function MapImportGamesModal({
         {
           initialTree: tree,
           isCancelled: () => cancelledRef.current,
-          onBatch: handleBatch,
+          onBatch: (batch) => handleBatch(batch, lichessUser),
         },
         { max: 200 },
       );
@@ -337,6 +362,17 @@ export function MapImportGamesModal({
             {progress.matched > progress.added
               ? ` (${progress.matched - progress.added} already there).`
               : "."}
+            {progress.unattributed > 0 && (
+              <>
+                {" "}
+                <span className="text-amber-500">
+                  {progress.unattributed} game
+                  {progress.unattributed === 1 ? "" : "s"} skipped - none of
+                  your usernames matched their players, so they can&apos;t be
+                  counted as yours. Check the Your usernames field above.
+                </span>
+              </>
+            )}
           </p>
         )}
 
