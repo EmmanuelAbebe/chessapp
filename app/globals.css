@@ -20,6 +20,17 @@
   --bad-soft: rgba(242, 104, 90, 0.12);
   --good: #5fbf8f;
   --good-soft: rgba(95, 191, 143, 0.12);
+
+  /* Categorical chart palette - the validated data-viz default, dark
+     column (surface ~#1a1a19). Used by the openings donut; every slice
+     is also directly labeled in a legend, which covers the CVD-floor and
+     light-mode-contrast relief requirements. */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
 }
 
 :root[data-theme-shade="midnight"] {
@@ -65,6 +76,14 @@
   --bad-soft: rgba(196, 61, 44, 0.1);
   --good: #2e8f5b;
   --good-soft: rgba(46, 143, 91, 0.1);
+
+  /* Categorical chart palette - validated data-viz default, light column. */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
 }
 
 @theme inline {

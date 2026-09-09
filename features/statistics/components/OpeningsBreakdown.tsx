@@ -1,50 +1,188 @@
-import type { OpeningLine } from "../lib/summary";
+"use client";
+
+import { useMemo, useState } from "react";
+import type { OpeningsBreakdown as Breakdown } from "../lib/summary";
+
+const CHART_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+];
+const OTHER_COLOR = "var(--color-text-faint)";
+
+const SIZE = 168;
+const R = 62;
+const THICK = 24;
+const C = 2 * Math.PI * R;
+const GAP_PX = 3;
+
+type Slice = {
+  key: string;
+  label: string;
+  sample?: string;
+  color: string;
+  games: number;
+  score: number;
+};
 
 export function OpeningsBreakdown({
-  lines,
+  breakdown,
   side,
 }: {
-  lines: OpeningLine[];
-  /** Which side these openings are for - just changes the heading. */
+  breakdown: Breakdown;
   side: "all" | "w" | "b";
 }) {
-  if (lines.length === 0) return null;
-  const max = Math.max(...lines.map((l) => l.games));
+  const [active, setActive] = useState<string | null>(null);
+
+  const slices: Slice[] = useMemo(() => {
+    const named = breakdown.lines.map((line, i) => ({
+      key: line.label,
+      label: line.label,
+      sample: line.sample || undefined,
+      color: CHART_COLORS[i % CHART_COLORS.length],
+      games: line.games,
+      score: line.score,
+    }));
+    if (breakdown.other) {
+      named.push({
+        key: "__other__",
+        label: "Other openings",
+        sample: undefined,
+        color: OTHER_COLOR,
+        games: breakdown.other.games,
+        score: breakdown.other.score,
+      });
+    }
+    return named;
+  }, [breakdown]);
+
+  const total = breakdown.total;
+  if (slices.length === 0 || total === 0) return null;
+
   const heading =
     side === "w"
       ? "Your openings as White"
       : side === "b"
         ? "Your openings as Black"
-        : "Most-played openings";
+        : "Your openings";
+
+  // Cumulative arc offsets for the donut ring.
+  let acc = 0;
+  const arcs = slices.map((s) => {
+    const start = acc;
+    const len = (s.games / total) * C;
+    acc += len;
+    return { s, start, len };
+  });
 
   return (
     <div className="w-full">
-      <h3 className="mb-2 text-xs font-semibold tracking-wide text-text-faint uppercase">
+      <h3 className="mb-3 text-xs font-semibold tracking-wide text-text-faint uppercase">
         {heading}
       </h3>
-      <ul className="flex flex-col gap-2">
-        {lines.map((line) => (
-          <li key={line.label} className="flex flex-col gap-1">
-            <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate text-text">{line.label}</span>
-              <span className="shrink-0 font-mono text-xs text-text-faint">
-                {line.games} · {line.score.toFixed(0)}%
-              </span>
-            </div>
-            {line.sample && (
-              <span className="truncate font-mono text-[11px] text-text-faint">
-                {line.sample}
-              </span>
-            )}
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-raised">
-              <div
-                className="h-full rounded-full bg-accent"
-                style={{ width: `${(line.games / max) * 100}%` }}
-              />
-            </div>
-          </li>
-        ))}
-      </ul>
+
+      <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center sm:gap-6">
+        <svg
+          width={SIZE}
+          height={SIZE}
+          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          role="img"
+          aria-label={`${heading}: ${slices
+            .map((s) => `${s.label} ${((s.games / total) * 100).toFixed(0)}%`)
+            .join(", ")}`}
+          className="shrink-0"
+        >
+          <g transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}>
+            {arcs.map(({ s, start, len }) => {
+              const dim = active !== null && active !== s.key;
+              const on = active === s.key;
+              const dash = Math.max(0.5, len - GAP_PX);
+              return (
+                <circle
+                  key={s.key}
+                  cx={SIZE / 2}
+                  cy={SIZE / 2}
+                  r={R}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth={on ? THICK + 4 : THICK}
+                  strokeDasharray={`${dash} ${C - dash}`}
+                  strokeDashoffset={-start}
+                  opacity={dim ? 0.3 : 1}
+                  className="cursor-default transition-[opacity,stroke-width] duration-150"
+                  onMouseEnter={() => setActive(s.key)}
+                  onMouseLeave={() => setActive(null)}
+                >
+                  <title>
+                    {s.label}: {s.games} game{s.games === 1 ? "" : "s"} (
+                    {((s.games / total) * 100).toFixed(0)}%), {s.score.toFixed(0)}
+                    % score
+                  </title>
+                </circle>
+              );
+            })}
+          </g>
+          <text
+            x={SIZE / 2}
+            y={SIZE / 2 - 4}
+            textAnchor="middle"
+            className="fill-text text-lg font-semibold"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {total}
+          </text>
+          <text
+            x={SIZE / 2}
+            y={SIZE / 2 + 12}
+            textAnchor="middle"
+            className="fill-text-faint text-[10px] uppercase tracking-wide"
+          >
+            games
+          </text>
+        </svg>
+
+        <ul className="flex min-w-0 flex-1 flex-col gap-1.5">
+          {slices.map((s) => {
+            const pct = (s.games / total) * 100;
+            const dim = active !== null && active !== s.key;
+            return (
+              <li
+                key={s.key}
+                onMouseEnter={() => setActive(s.key)}
+                onMouseLeave={() => setActive(null)}
+                className={`flex items-baseline gap-2 rounded px-1 py-0.5 text-sm transition-opacity ${
+                  dim ? "opacity-40" : ""
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-1 h-2.5 w-2.5 shrink-0 rounded-sm"
+                  style={{ background: s.color }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="text-text">{s.label}</span>
+                  {s.sample && (
+                    <span className="ml-2 font-mono text-[11px] text-text-faint">
+                      {s.sample}
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 font-mono text-xs text-text-faint">
+                  {s.games} · {pct.toFixed(0)}% · {s.score.toFixed(0)}%
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <p className="mt-2 text-[11px] text-text-faint">
+        Share of games · win-rate score. Family names from the PGN&apos;s own
+        opening tag where present.
+      </p>
     </div>
   );
 }

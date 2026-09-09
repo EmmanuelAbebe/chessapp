@@ -98,7 +98,7 @@ export default function StatisticsSummary() {
             </div>
           </div>
 
-          <OpeningsBreakdown lines={openings} side={side} />
+          <OpeningsBreakdown breakdown={openings} side={side} />
         </>
       )}
 

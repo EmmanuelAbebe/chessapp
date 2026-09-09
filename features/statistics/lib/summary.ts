@@ -80,12 +80,23 @@ function mainlineLabel(moves: GameHistoryEntry["moves"], plies = 6): string {
   return label.trim();
 }
 
-/** The player's openings by family, most-played first, each with a
- * representative move order, game count, and score. */
+export type OpeningsBreakdown = {
+  /** Named families, biggest first. At most `limit` entries. */
+  lines: OpeningLine[];
+  /** Every game not in `lines`, aggregated, or null if the tail is empty. */
+  other: { games: number; score: number } | null;
+  /** Total games with a known opening (sum of lines + other). */
+  total: number;
+};
+
+/** The player's openings by family, biggest first. Beyond `limit` named
+ * slices the tail folds into `other` (so a pie of this never exceeds
+ * `limit` + 1 slices). Each line carries a representative move order,
+ * game count, and score. */
 export function computeOpenings(
   games: GameHistoryEntry[],
-  { limit = 6 }: { limit?: number } = {},
-): OpeningLine[] {
+  { limit = 5 }: { limit?: number } = {},
+): OpeningsBreakdown {
   const groups = new Map<string, GameHistoryEntry[]>();
   for (const game of games) {
     if (game.moves.length === 0) continue;
@@ -95,11 +106,9 @@ export function computeOpenings(
     else groups.set(name, [game]);
   }
 
-  const lines: OpeningLine[] = [];
+  const all: OpeningLine[] = [];
   for (const [name, gs] of groups) {
     const r = tally(gs);
-    // Representative line = the most common first-6-ply sequence in this
-    // family.
     const seqCounts = new Map<string, number>();
     for (const g of gs) {
       const s = mainlineLabel(g.moves);
@@ -107,8 +116,7 @@ export function computeOpenings(
     }
     const sample =
       [...seqCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
-
-    lines.push({
+    all.push({
       label: name,
       sample,
       games: r.games,
@@ -116,8 +124,25 @@ export function computeOpenings(
       results: { wins: r.wins, draws: r.draws, losses: r.losses },
     });
   }
-  lines.sort((a, b) => b.games - a.games);
-  return lines.slice(0, limit);
+  all.sort((a, b) => b.games - a.games);
+
+  const total = all.reduce((sum, l) => sum + l.games, 0);
+  const lines = all.slice(0, limit);
+  const tail = all.slice(limit);
+  const other =
+    tail.length > 0
+      ? {
+          games: tail.reduce((s, l) => s + l.games, 0),
+          score: (() => {
+            const w = tail.reduce((s, l) => s + l.results.wins, 0);
+            const d = tail.reduce((s, l) => s + l.results.draws, 0);
+            const g = tail.reduce((s, l) => s + l.games, 0);
+            return g ? ((w + d * 0.5) / g) * 100 : 0;
+          })(),
+        }
+      : null;
+
+  return { lines, other, total };
 }
 
 // --- Habits ---------------------------------------------------------------
