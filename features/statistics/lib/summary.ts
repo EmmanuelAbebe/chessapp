@@ -1,5 +1,5 @@
 import type { GameHistoryEntry } from "@/features/history/types";
-import { lookupOpeningName } from "./openings-book";
+import { openingFamilyOf } from "@/features/history/gameFacets";
 
 // Plain counting stats - a record, opening breakdown, and a few habits -
 // to sit alongside the interpretive personality traits. All notation-only
@@ -62,15 +62,6 @@ export type OpeningLine = {
   results: { wins: number; draws: number; losses: number };
 };
 
-/** The broad opening family for a game - the PGN's own `Opening` header
- * (lichess supplies one) collapsed to the part before the first ":", or
- * the built-in book, or "Other". */
-function openingFamily(game: GameHistoryEntry): string {
-  const header = game.meta?.opening?.trim();
-  if (header) return header.split(":")[0].split(",")[0].trim();
-  return lookupOpeningName(game.moves) ?? "Other";
-}
-
 function mainlineLabel(moves: GameHistoryEntry["moves"], plies = 6): string {
   let label = "";
   moves.slice(0, plies).forEach((m, i) => {
@@ -100,7 +91,7 @@ export function computeOpenings(
   const groups = new Map<string, GameHistoryEntry[]>();
   for (const game of games) {
     if (game.moves.length === 0) continue;
-    const name = openingFamily(game);
+    const name = openingFamilyOf(game);
     const list = groups.get(name);
     if (list) list.push(game);
     else groups.set(name, [game]);
