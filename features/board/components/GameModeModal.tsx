@@ -201,8 +201,8 @@ export function GameModeModal({
                   Play against Stockfish
                 </span>
                 <span className="text-xs text-text-faint">
-                  Pick a difficulty, then make the first move as either
-                  color - Stockfish plays whichever side you don't.
+                  Pick a difficulty and play on from the current position -
+                  you're whoever's to move, Stockfish takes the other side.
                 </span>
               </button>
 
@@ -259,8 +259,9 @@ export function GameModeModal({
               </button>
 
               <p className="text-xs text-text-faint">
-                Make your first move as either color once the game starts -
-                Stockfish takes whichever side you didn't.
+                The game starts from the position on the board right now.
+                You play whichever side is to move; Stockfish takes the
+                other. (From the standard start, that's you as White.)
               </p>
 
               <SettingsSelect

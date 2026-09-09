@@ -450,10 +450,15 @@ export function BoardScreen() {
   function handleStartVsStockfish(skillLevel: number) {
     setImportedGameInfo(null);
     liveGameRecordedRef.current = false;
-    resetBoard();
-    startVsStockfish("white", skillLevel);
-    changeOrientation("white");
-    announceVsStockfish("white");
+    // Play on from wherever the board currently is (a line you navigated
+    // to, a position you set up), not a forced fresh game - you're
+    // whoever is to move here, Stockfish takes the other side. At the
+    // standard start that's just White, exactly as before.
+    const side: "white" | "black" =
+      chessPosition.split(" ")[1] === "b" ? "black" : "white";
+    startVsStockfish(side, skillLevel);
+    changeOrientation(side);
+    announceVsStockfish(side);
   }
 
   function handleEditorAnalyze(fen: string) {
