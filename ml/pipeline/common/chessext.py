@@ -128,3 +128,90 @@ def static_exchange_eval(board: chess.Board, move: chess.Move) -> float:
     for i in range(len(gains) - 2, -1, -1):
         gains[i] = -max(-gains[i], gains[i + 1])
     return gains[0]
+
+
+_MINOR_PLUS = (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)
+
+
+def _passed_pawns(board: chess.Board, color: chess.Color) -> int:
+    enemy = board.pieces(chess.PAWN, not color)
+    count = 0
+    for sq in board.pieces(chess.PAWN, color):
+        f, r = chess.square_file(sq), chess.square_rank(sq)
+        blocked = False
+        for ef in (f - 1, f, f + 1):
+            if not 0 <= ef <= 7:
+                continue
+            for esq in enemy:
+                if chess.square_file(esq) != ef:
+                    continue
+                er = chess.square_rank(esq)
+                if (color == chess.WHITE and er > r) or (color == chess.BLACK and er < r):
+                    blocked = True
+        if not blocked:
+            count += 1
+    return count
+
+
+def _king_ring_pressure(board: chess.Board, king_color: chess.Color) -> int:
+    king_sq = board.king(king_color)
+    if king_sq is None:
+        return 0
+    ring = chess.SquareSet(chess.BB_KING_ATTACKS[king_sq])
+    return sum(1 for sq in ring if board.is_attacked_by(not king_color, sq))
+
+
+def _loose_pieces(board: chess.Board, color: chess.Color) -> int:
+    """Own minor+ pieces attacked by the enemy and not defended by a
+    friendly piece — a cheap 'something's hanging' proxy (no exchange
+    value; the SEE-accurate version is `static_exchange_eval` per move)."""
+    count = 0
+    for piece_type in _MINOR_PLUS:
+        for sq in board.pieces(piece_type, color):
+            if board.is_attacked_by(not color, sq) and not board.is_attacked_by(color, sq):
+                count += 1
+    return count
+
+
+def static_features(board: chess.Board) -> dict[str, float]:
+    """Cheap position descriptors from the position *before* a move — the
+    inputs stage 04's models learn from. Everything here is O(pieces) or a
+    single legal-move scan; called once per ply in stage 02."""
+    us = board.turn
+    legal = list(board.legal_moves)
+    checks = sum(1 for m in legal if board.gives_check(m))
+    captures = sum(1 for m in legal if board.is_capture(m))
+    majors_minors = sum(
+        len(board.pieces(pt, c))
+        for pt in _MINOR_PLUS
+        for c in (chess.WHITE, chess.BLACK)
+    )
+    mat_w = material_balance(board)
+    total = sum(
+        PIECE_VALUE[pt] * (len(board.pieces(pt, chess.WHITE)) + len(board.pieces(pt, chess.BLACK)))
+        for pt in _MINOR_PLUS + (chess.PAWN,)
+    )
+    return {
+        "st_legal_moves": float(len(legal)),
+        "st_checks_available": float(checks),
+        "st_captures_available": float(captures),
+        "st_pawn_tension": float(pawn_tension(board)),
+        "st_material_total": float(total),
+        "st_material_imbalance": abs(mat_w),
+        "st_majors_minors": float(majors_minors),
+        "st_loose_us": float(_loose_pieces(board, us)),
+        "st_loose_them": float(_loose_pieces(board, not us)),
+        "st_king_ring_us": float(_king_ring_pressure(board, us)),
+        "st_king_ring_them": float(_king_ring_pressure(board, not us)),
+        "st_passed_us": float(_passed_pawns(board, us)),
+        "st_passed_them": float(_passed_pawns(board, not us)),
+        "st_in_check": float(board.is_check()),
+    }
+
+
+STATIC_FEATURE_NAMES = [
+    "st_legal_moves", "st_checks_available", "st_captures_available", "st_pawn_tension",
+    "st_material_total", "st_material_imbalance", "st_majors_minors", "st_loose_us",
+    "st_loose_them", "st_king_ring_us", "st_king_ring_them", "st_passed_us",
+    "st_passed_them", "st_in_check",
+]

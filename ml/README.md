@@ -22,8 +22,17 @@ make venv                 # .venv + requirements.txt
 source .venv/bin/activate
 ```
 
-Stage 03 needs a native Stockfish binary at `./stockfish/stockfish`
-(download the one matching the VM's arch from stockfishchess.org).
+Stage 03 needs a native Stockfish binary at `./stockfish/stockfish`:
+
+```bash
+mkdir -p stockfish && curl -sL \
+  https://github.com/official-stockfish/Stockfish/releases/download/sf_17.1/stockfish-ubuntu-x86-64-avx2.tar \
+  | tar x -C /tmp && cp /tmp/stockfish/stockfish-ubuntu-x86-64-avx2 stockfish/stockfish
+```
+
+(pick the build matching the VM's CPU; `avx2` for anything recent). It runs
+fine but very slowly on a weak/loaded laptop — stage 03 is meant for a
+cloud spot VM.
 
 ## Running the pipeline
 
@@ -48,7 +57,10 @@ different `lichess.month` to append a second month (more games per player).
 ## Tests
 
 ```bash
-.venv/bin/python tests/smoke.py    # stages 01-02, no download
+.venv/bin/python tests/smoke.py           # stages 01-02, no download
+.venv/bin/python tests/smoke_stage03.py   # stage 03 pure functions
+.venv/bin/python tests/smoke_stage04.py   # stage 04 train + apply, synthetic data
+.venv/bin/python tests/engine_check.py    # stage 03 vs a real Stockfish (needs the binary)
 ```
 
 ## Layout

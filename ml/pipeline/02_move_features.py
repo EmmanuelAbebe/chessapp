@@ -62,6 +62,7 @@ FEATURE_SCHEMA = {
     "think_time_s": pl.Float32,
     "legal_moves_before": pl.Int16,
     "epd_before": pl.Utf8,
+    **{name: pl.Float32 for name in chessext.STATIC_FEATURE_NAMES},
 }
 
 _PIECE_LETTER = {
@@ -115,6 +116,7 @@ def _features_for_game(moves: list[dict], inc: int, base: int, book_max_ply: int
         legal_before = board.legal_moves.count()
         dev = chessext.is_developing_move(board, move)
         epd_before = board.epd() if ply <= book_max_ply else None
+        static = chessext.static_features(board)
 
         board.push(move)
         material = chessext.material_balance(board)
@@ -159,6 +161,7 @@ def _features_for_game(moves: list[dict], inc: int, base: int, book_max_ply: int
                 "think_time_s": think,
                 "legal_moves_before": legal_before,
                 "epd_before": epd_before,
+                **static,
             }
         )
         prev_material = material
