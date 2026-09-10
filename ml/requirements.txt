@@ -1,0 +1,27 @@
+# Pipeline + service. CPU-only; no torch. Pinned loosely (compatible-release)
+# so a fresh `pip install -r` on the cloud spot VM matches the dev machine.
+
+# data
+polars~=1.18
+pyarrow~=18.1
+zstandard~=0.23
+python-chess~=1.11
+pyyaml~=6.0
+tqdm~=4.67
+
+# modelling
+scikit-learn~=1.6
+lightgbm~=4.5
+umap-learn~=0.5
+shap~=0.46
+numpy~=2.1
+scipy~=1.14
+
+# nearest-neighbour index (faiss-cpu; sklearn NearestNeighbors is the fallback)
+faiss-cpu~=1.9
+
+# service (ml/service/)
+fastapi~=0.115
+uvicorn~=0.34
+pydantic~=2.10
+httpx~=0.28

@@ -1,0 +1,59 @@
+# One knob-file for the whole pipeline. Every stage reads this via
+# pipeline.common.config.load(); nothing hard-codes a path or threshold.
+
+paths:
+  data_dir: ./data # parquet working data (gitignored)
+  artifacts_dir: ./artifacts # fitted models + reference table (gitignored)
+  stockfish: ./stockfish/stockfish # native SF binary for stage 03 (gitignored)
+
+lichess:
+  # Which monthly dump to ingest. Run one month, then change this and run
+  # again to append a second month (players overlap -> more games each).
+  month: "2024-06"
+  url_template: "https://database.lichess.org/standard/lichess_db_standard_rated_{month}.pgn.zst"
+
+ingest:
+  speed: blitz # bullet | blitz | rapid | classical (Lichess's own bucketing)
+  target_games: 600000 # stop after this many KEPT games (or end of file)
+  elo_min: 600
+  elo_max: 3000
+  min_plies: 10
+  min_eval_coverage: 0.80 # fraction of plies that must carry a [%eval ...]
+  checkpoint_every: 20000 # flush a parquet partition + checkpoint.json this often
+  read_chunk_bytes: 1048576 # 1 MiB decompressed-text read size
+  request_timeout_s: 120
+
+move_features:
+  book_min_count: 20 # a (position -> move) needs this many sightings to count as "book"
+  book_max_ply: 30 # only build the book for the opening/early middlegame
+  # win% drop thresholds (mover's perspective, 0-100 scale) — must match
+  # features/board/lib/move-analysis.ts:classifyMove in the web app.
+  classify:
+    best: 2
+    good: 6
+    inaccuracy: 12
+    mistake: 25
+
+engine_labels:
+  sample_games: 80000 # stratified across the Elo range
+  plies_per_game: 10 # sampled, not every ply (phase coverage + biggest swings)
+  depth: 14
+  multipv: 4
+  threads_per_worker: 1
+  only_move_wp_gap: 15 # top-two win% gap for `only_move`
+  tactic_gain_pawns: 1.5 # forcing line must gain at least this (or mate) for `has_tactic`
+
+player_vectors:
+  min_games: 15
+  min_games_with_clocks: 8
+  min_games_with_evals: 8
+  max_games_per_player: 100
+
+cohort:
+  k_neighbours: 600
+  peer_band_glicko: 60 # +/- this = "peers"
+  stronger_band_glicko: [100, 250] # this much above = "betters"
+
+validate:
+  disentanglement_r2_max: 0.15
+  skill_mae_max: 120

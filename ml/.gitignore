@@ -1,0 +1,15 @@
+# Pipeline working data and model artifacts — large, regenerable, never committed.
+data/
+artifacts/
+stockfish/
+*.zst
+*.pgn
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
