@@ -208,16 +208,17 @@ def _phase_b(month_dir, raw_dir, book_min_count):
     out_dir = month_dir / "move_features"
     out_dir.mkdir(exist_ok=True)
 
-    book = (
+    counts = (
         pl.scan_parquet(raw_dir / "*.parquet")
         .filter(pl.col("epd_before").is_not_null())
         .group_by("epd_before", "uci")
         .len()
         .filter(pl.col("len") >= book_min_count)
-        .select("epd_before", "uci")
         .collect()
     )
-    book_set = set(zip(book["epd_before"], book["uci"]))
+    # persisted for stage 10 / the service (move-rarity / "leaves book at move X")
+    counts.write_parquet(month_dir / "move_freq.parquet")
+    book_set = set(zip(counts["epd_before"], counts["uci"]))
     print(f"opening book: {len(book_set):,} (position, move) pairs")
 
     for part in tqdm(sorted(raw_dir.glob("*.parquet")), desc="phase B (book)"):

@@ -60,6 +60,7 @@ different `lichess.month` to append a second month (more games per player).
 .venv/bin/python tests/smoke.py           # stages 01-02, no download
 .venv/bin/python tests/smoke_stage03.py   # stage 03 pure functions
 .venv/bin/python tests/smoke_stage04.py   # stage 04 train + apply, synthetic data
+.venv/bin/python tests/smoke_pipeline.py  # stages 05-11 end to end, synthetic data
 .venv/bin/python tests/engine_check.py    # stage 03 vs a real Stockfish (needs the binary)
 ```
 
