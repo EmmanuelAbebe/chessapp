@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { GameHistoryEntry } from "./types";
+import { clearGameHistoryServer, getGameHistoryServer, saveGameHistoryServer } from "./serverActions";
 
 // Same separate-key-per-concern convention as
 // features/settings/useAiProviderConfig.ts - game history is its own
@@ -39,8 +41,16 @@ function writeStoredGames(games: GameHistoryEntry[]) {
  * against Stockfish) that the statistics page's personality traits are
  * computed from. Starts empty on the server/first client render (avoids
  * a hydration mismatch) and hydrates from storage right after mount,
- * same pattern as useAiProviderConfig. */
+ * same pattern as useAiProviderConfig.
+ *
+ * Signed-in users additionally sync with the DB (features/history/
+ * serverActions.ts): once per sign-in, the server's copy is merged in
+ * (a re-import's richer detail can now arrive from another device too),
+ * and any games missing there are pushed up. Every local write after
+ * that pushes just its own additions. Signed-out use is untouched -
+ * localStorage remains the only store. */
 export function useGameHistory() {
+  const { status } = useSession();
   const [games, setGames] = useState<GameHistoryEntry[]>([]);
   // The actual source of truth `addEntries` reads/writes, updated
   // synchronously and immediately on every call - a plain state variable
@@ -51,6 +61,7 @@ export function useGameHistory() {
   // would make each call overwrite the last instead of accumulating.
   // Mutating a ref has none of that timing dependency.
   const gamesRef = useRef<GameHistoryEntry[]>([]);
+  const syncedRef = useRef(false);
 
   useEffect(() => {
     const stored = readStoredGames();
@@ -63,10 +74,11 @@ export function useGameHistory() {
   // re-import of an already-recorded game DOES backfill richer detail
   // (meta / a real played-at) onto the stored copy when the incoming one
   // has it and the stored one doesn't, so importing before the game-
-  // detail feature existed can be fixed by just importing again. Returns
-  // how many were genuinely new.
-  function addEntries(entries: GameHistoryEntry[]): number {
-    if (entries.length === 0) return 0;
+  // detail feature existed can be fixed by just importing again. Local-
+  // only: never talks to the server (see addEntries/pullFromServer for
+  // the two callers that do). Returns how many were genuinely new.
+  function mergeLocally(entries: GameHistoryEntry[]): GameHistoryEntry[] {
+    if (entries.length === 0) return [];
 
     const incomingByFp = new Map<string, GameHistoryEntry>();
     for (const e of entries) {
@@ -76,10 +88,8 @@ export function useGameHistory() {
     let enriched = false;
     const merged = gamesRef.current.map((stored) => {
       const incoming = incomingByFp.get(stored.fingerprint);
-      const storedHasMeta =
-        stored.meta && Object.keys(stored.meta).length > 0;
-      const incomingHasMeta =
-        incoming?.meta && Object.keys(incoming.meta).length > 0;
+      const storedHasMeta = stored.meta && Object.keys(stored.meta).length > 0;
+      const incomingHasMeta = incoming?.meta && Object.keys(incoming.meta).length > 0;
       if (incoming && incomingHasMeta && !storedHasMeta) {
         enriched = true;
         return {
@@ -100,12 +110,35 @@ export function useGameHistory() {
       additions.push(entry);
     }
 
-    if (additions.length === 0 && !enriched) return 0;
+    if (additions.length === 0 && !enriched) return [];
 
     const next = [...merged, ...additions].slice(-MAX_GAMES);
     gamesRef.current = next;
     setGames(next);
     writeStoredGames(next);
+    return additions;
+  }
+
+  // Once per sign-in: pull the server's copy in (merging, never
+  // replacing), then push up whatever the server didn't have yet -
+  // typically games recorded here before this browser ever signed in.
+  useEffect(() => {
+    if (status !== "authenticated" || syncedRef.current) return;
+    syncedRef.current = true;
+    void (async () => {
+      const remote = await getGameHistoryServer();
+      mergeLocally(remote);
+      const remoteFps = new Set(remote.map((g) => g.fingerprint));
+      const localOnly = gamesRef.current.filter((g) => !remoteFps.has(g.fingerprint));
+      if (localOnly.length > 0) void saveGameHistoryServer(localOnly);
+    })();
+  }, [status]);
+
+  function addEntries(entries: GameHistoryEntry[]): number {
+    const additions = mergeLocally(entries);
+    if (additions.length > 0 && status === "authenticated") {
+      void saveGameHistoryServer(additions);
+    }
     return additions.length;
   }
 
@@ -117,6 +150,7 @@ export function useGameHistory() {
     gamesRef.current = [];
     setGames([]);
     writeStoredGames([]);
+    if (status === "authenticated") void clearGameHistoryServer();
   }
 
   return { games, addGame, addGames: addEntries, clearHistory };

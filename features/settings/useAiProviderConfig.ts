@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { DEFAULT_MODEL_BY_PROVIDER, type AiProvider } from "./ai-provider-types";
+import { getUserSettingsServer, saveUserSettingsServer } from "./serverActions";
 
 export type { AiProvider };
 export { DEFAULT_MODEL_BY_PROVIDER };
@@ -49,15 +51,49 @@ function readStoredConfig(): AiProviderConfig {
  * its own env var (only meaningful for the default "google" provider,
  * the only one with a server-side key to fall back to). Persisted to
  * localStorage so it survives a reload; read once on mount rather than
- * on every render since it's a synchronous browser API read. */
+ * on every render since it's a synchronous browser API read.
+ *
+ * Signed-in users additionally sync `{provider, model}` with the DB
+ * (features/settings/serverActions.ts) - **never** `apiKey`, which stays
+ * client-side-only exactly as the Settings page's own copy promises. */
 export function useAiProviderConfig() {
   // Starts at the default on the server/first client render (avoids a
   // hydration mismatch) and hydrates from storage right after mount.
+  const { status } = useSession();
   const [config, setConfigState] = useState<AiProviderConfig>(DEFAULT_CONFIG);
+  const syncedRef = useRef(false);
 
   useEffect(() => {
     setConfigState(readStoredConfig());
   }, []);
+
+  useEffect(() => {
+    if (status !== "authenticated" || syncedRef.current) return;
+    syncedRef.current = true;
+    void (async () => {
+      const remote = await getUserSettingsServer();
+      if (remote?.aiProvider?.provider) {
+        setConfigState((prev) => {
+          const next: AiProviderConfig = {
+            ...prev,
+            provider: remote.aiProvider!.provider,
+            model: remote.aiProvider!.model || prev.model,
+          };
+          try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          } catch {
+            // ignore - see setConfig's own comment
+          }
+          return next;
+        });
+      } else {
+        setConfigState((prev) => {
+          void saveUserSettingsServer({ aiProvider: { provider: prev.provider, model: prev.model } });
+          return prev;
+        });
+      }
+    })();
+  }, [status]);
 
   function setConfig(next: AiProviderConfig) {
     setConfigState(next);
@@ -66,6 +102,9 @@ export function useAiProviderConfig() {
     } catch {
       // Storage can fail (private browsing, quota) - the in-memory
       // state above still updates for this session either way.
+    }
+    if (status === "authenticated") {
+      void saveUserSettingsServer({ aiProvider: { provider: next.provider, model: next.model } });
     }
   }
 

@@ -8,17 +8,21 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String         @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?        @unique
   emailVerified DateTime?
   image         String?
   // Only set for credentials accounts; null for Google-only accounts.
   // The one field Auth.js's official adapter schema omits.
   password      String?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime       @default(now())
   accounts      Account[]
   sessions      Session[]
+  playerProfile PlayerProfile?
+  games         GameRecord[]
+  settings      UserSettings?
+  subscription  Subscription?
 }
 
 model Account {
@@ -53,4 +57,80 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// --- Player-behaviour model (ml/) ------------------------------------------
+
+// The computed profile from ml/service - style/skill embedding, cohort
+// deviations, focus areas. `data` is the service's Profile JSON verbatim
+// (see ml/service/schemas.py); `gamesHash` lets a re-analyze skip recompute
+// when the underlying PGN hasn't changed.
+model PlayerProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  data          Json
+  schemaVersion Int      @default(1)
+  gamesHash     String
+  gamesCount    Int
+  computedAt    DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// --- Game history (was localStorage-only, features/history/useGameHistory.ts) ---
+
+// One row per recorded game (imported or played live vs Stockfish). Mirrors
+// features/history/types.ts's GameHistoryEntry; `fingerprint` is the same
+// content hash that hook used to dedupe re-imports, unique per user so two
+// players' identical opening moves never collide.
+model GameRecord {
+  id           String   @id @default(cuid())
+  userId       String
+  source       String // "import" | "live"
+  playedAt     DateTime
+  playerSide   String // "w" | "b"
+  result       String // "win" | "loss" | "draw"
+  opponentName String?
+  timeControl  String?
+  meta         Json? // GameMeta - event/site/eco/opening/termination/gameUrl/...
+  moves        Json // ParsedMove[]
+  fingerprint  String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fingerprint])
+  @@index([userId, playedAt])
+}
+
+// --- Settings (was localStorage-only, SettingsContext.tsx / useAiProviderConfig.ts) ---
+
+// One row per user. `settings` is the AppSettings blob (board/appearance/
+// engine/sound/notifications - features/settings/types.ts); `aiProvider`
+// stores only {provider, model} - the API key deliberately stays
+// client-side-only (see AiCoachSection's own copy: "stored only in your
+// browser"), so it's never part of this row. `usernames` mirrors
+// usePlayerIdentity's comma-separated list.
+model UserSettings {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  settings   Json
+  aiProvider Json
+  usernames  String?
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// --- Subscription (was fully mocked local state, SubscriptionSection.tsx) ---
+
+// Persists which plan the user picked so it survives reload/device change.
+// No payment processor wired up yet (billing history/card on that section
+// stay decorative) - this just makes plan selection real.
+model Subscription {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  plan             String    @default("free") // "free" | "premium" | "pro"
+  status           String    @default("active") // "active" | "canceled"
+  currentPeriodEnd DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

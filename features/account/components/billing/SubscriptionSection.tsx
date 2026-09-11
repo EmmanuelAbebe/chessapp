@@ -1,18 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaCreditCard, FaDownload } from "react-icons/fa6";
 import { primaryButtonClass } from "@/features/account/lib/styles";
 import { INVOICES } from "../../data";
+import {
+  getSubscriptionServer,
+  setSubscriptionPlanServer,
+  setSubscriptionStatusServer,
+  type SubscriptionPlan,
+  type SubscriptionStatus,
+} from "./actions";
 import UpgradePlanModal from "./UpgradePlanModal";
 
+// Persisted via features/account/components/billing/actions.ts - was
+// useState-only before (reset on every reload). No payment processor is
+// wired up yet, so the invoice list and card below stay decorative; only
+// plan/status are real.
 export default function SubscriptionSection() {
-  const [plan, setPlan] = useState("Premium");
-  const [subscriptionStatus, setSubscriptionStatus] = useState<
-    "Active" | "Canceled"
-  >("Active");
+  const [plan, setPlan] = useState<SubscriptionPlan>("Premium");
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>("Active");
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [isCancelConfirming, setIsCancelConfirming] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getSubscriptionServer().then((sub) => {
+      if (!cancelled) {
+        setPlan(sub.plan);
+        setSubscriptionStatus(sub.status);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section>
@@ -53,6 +75,7 @@ export default function SubscriptionSection() {
                 onClick={() => {
                   setSubscriptionStatus("Canceled");
                   setIsCancelConfirming(false);
+                  void setSubscriptionStatusServer("Canceled");
                 }}
                 className="font-medium text-bad hover:underline"
               >
@@ -75,7 +98,10 @@ export default function SubscriptionSection() {
           )
         ) : (
           <button
-            onClick={() => setSubscriptionStatus("Active")}
+            onClick={() => {
+              setSubscriptionStatus("Active");
+              void setSubscriptionStatusServer("Active");
+            }}
             className="text-sm font-medium text-accent hover:underline"
           >
             Reactivate Subscription
@@ -88,8 +114,9 @@ export default function SubscriptionSection() {
           currentPlan={plan}
           onClose={() => setIsUpgradeOpen(false)}
           onSelect={(next) => {
-            setPlan(next);
+            setPlan(next as SubscriptionPlan);
             setIsUpgradeOpen(false);
+            void setSubscriptionPlanServer(next as SubscriptionPlan);
           }}
         />
       )}
