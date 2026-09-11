@@ -10,10 +10,16 @@ const CONFIDENCE_LABEL: Record<FocusArea["confidence"], string> = {
   low: "Low confidence",
 };
 
-function EvidenceRow({ feature, you, cohort }: { feature: string; you: number; cohort: number }) {
+const CONFIDENCE_TITLE: Record<FocusArea["confidence"], string> = {
+  high: "Based on 150+ stronger players who share your style — a reliable comparison.",
+  medium: "Based on 40-150 stronger players who share your style — a reasonable comparison, but expect it to sharpen as the reference pool grows.",
+  low: "Based on fewer than 40 stronger players who share your style — treat this as a hint, not a verdict, until more data comes in.",
+};
+
+function EvidenceRow({ feature, label, you, cohort }: { feature: string; label?: string; you: number; cohort: number }) {
   return (
     <div className="flex items-center justify-between text-xs">
-      <span className="text-text-faint capitalize">{feature.replaceAll("_", " ")}</span>
+      <span className="text-text-faint">{label || feature.replaceAll("_", " ")}</span>
       <span className="font-mono text-text-dim">
         you {you} · stronger peers {cohort}
       </span>
@@ -55,9 +61,15 @@ export function FocusAreaCards({ areas }: { areas: FocusArea[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
-        Focus areas
-      </h3>
+      <div>
+        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
+          Focus areas
+        </h3>
+        <p className="mt-1 text-xs text-text-dim">
+          Places where players who share your style, but are rated higher, consistently do
+          better than you — ranked by estimated rating gain if you closed the gap.
+        </p>
+      </div>
       {areas.map((area) => (
         <details
           key={area.id}
@@ -71,7 +83,7 @@ export function FocusAreaCards({ areas }: { areas: FocusArea[] }) {
                 ~{Math.round(area.estimated_rating_gain)} pts
               </span>
             </span>
-            <span className="text-[11px] text-text-faint">
+            <span className="text-[11px] text-text-faint" title={CONFIDENCE_TITLE[area.confidence]}>
               {CONFIDENCE_LABEL[area.confidence]}
             </span>
           </summary>
@@ -79,7 +91,7 @@ export function FocusAreaCards({ areas }: { areas: FocusArea[] }) {
           <div className="flex flex-col gap-3 border-t border-border-soft px-4 py-3">
             <div className="flex flex-col gap-1">
               {area.evidence.map((e) => (
-                <EvidenceRow key={e.feature} feature={e.feature} you={e.you} cohort={e.cohort} />
+                <EvidenceRow key={e.feature} feature={e.feature} label={e.label} you={e.you} cohort={e.cohort} />
               ))}
             </div>
 

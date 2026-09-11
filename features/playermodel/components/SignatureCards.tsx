@@ -6,9 +6,15 @@ export function SignatureCards({ items }: { items: SignatureItem[] }) {
   if (items.length === 0) return null;
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
-        What makes you unique
-      </h3>
+      <div>
+        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
+          What makes you unique
+        </h3>
+        <p className="mt-1 text-xs text-text-dim">
+          Traits — not necessarily good or bad — where you deviate most from typical players at
+          your rating, compared against your median peer.
+        </p>
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {items.map((item) => (
           <div

@@ -65,6 +65,7 @@ class Cohort(BaseModel):
 
 class Evidence(BaseModel):
     feature: str
+    label: str = ""
     you: float
     cohort: float
     unit: str = ""

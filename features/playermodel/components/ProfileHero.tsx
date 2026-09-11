@@ -50,7 +50,12 @@ export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
       <p className="mt-4 text-xs text-text-faint">
         Based on {source.games_analyzed} {source.time_class} games
         {source.date_range ? ` (${source.date_range[0]} – ${source.date_range[1]})` : ""} ·
-        confidence {Math.round(skill.confidence * 100)}%
+        <span
+          title="How many games this estimate rests on: 50+ games is treated as fully confident, and confidence scales down linearly below that. It's not a measure of how accurate the number is, just how much data went into it."
+        >
+          {" "}
+          confidence {Math.round(skill.confidence * 100)}%
+        </span>
       </p>
     </div>
   );

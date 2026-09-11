@@ -46,6 +46,7 @@ export type Cohort = {
 
 export type Evidence = {
   feature: string;
+  label?: string;
   you: number;
   cohort: number;
   unit?: string;

@@ -69,3 +69,12 @@ cohort:
 validate:
   disentanglement_r2_max: 0.15
   skill_mae_max: 120
+
+# Hand-derived pole-to-pole descriptions for the first few PCA axes, read from
+# the loadings in artifacts/style/pc_loadings.md after each style_embedding
+# run. Indices not listed here fall back to "PC{i}" in 10_export_artifacts.py.
+style_axis_labels:
+  0: "Sharp & forcing ↔ Quiet & maneuvering"
+  1: "Improvises, castles late ↔ Prepared, castles early"
+  2: "Patient & well-prepared ↔ Fast & king-hunting"
+  3: "Calm, pawn-structure play ↔ Volatile, forcing swings"

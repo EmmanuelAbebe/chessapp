@@ -3,8 +3,9 @@
   reference_meta.parquet  — per player: hashed id, embedding, skill, traits,
                             + raw modelled features (for cohort deviation)
   feature_spec.json       — feature lists, Elo-band fill medians, PC axis
-                            labels (placeholders — hand-edit after reading
-                            style/pc_loadings.md), trait buckets
+                            labels (from config.yaml's style_axis_labels,
+                            hand-derived after reading style/pc_loadings.md),
+                            trait buckets
   norms.json              — per Elo-band mean/std of each feature (dashboard bars)
   move_freq.parquet       — copied from data/ (opening rarity)
   manifest.json           — month(s), player count, Elo range, dates, metrics
@@ -81,7 +82,9 @@ def run() -> None:
         "traits": TRAITS,
         "elo_band_fill": fill,
         "global_fill": {f: pv[f].median() for f in MODELLED},
-        "pc_axis_labels": [f"PC{i}" for i in range(10)],  # hand-edit from style/pc_loadings.md
+        "pc_axis_labels": [
+            cfg.get("style_axis_labels", {}).get(i, f"PC{i}") for i in range(10)
+        ],
         "cohort": cfg["cohort"],
     }
     (art / "feature_spec.json").write_text(json.dumps(spec, indent=2))

@@ -28,6 +28,7 @@ from pipeline.common.gameagg import enrich_plies, game_level_agg, moves_agg
 from pipeline.common.movefeatures import FEATURE_SCHEMA, apply_book_tags, features_for_game
 from pipeline.common.playeragg import aggregate_players
 from pipeline.common.project import Artifacts
+from service.labels import label_for
 from service import engine as enginemod
 from service.schemas import (
     Coaching, Cohort, Evidence, ExamplePosition, FocusArea, Profile, SignatureItem,
@@ -335,15 +336,18 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
     focus_conf = "high" if betters.height >= 150 else "medium" if betters.height >= 40 else "low"
     focus_areas = [
         FocusArea(
-            id=d["feature"], rank=i + 1, title=d["feature"].replace("_", " ").title(),
-            evidence=[Evidence(feature=d["feature"], you=round(d["you"], 2), cohort=round(d["cohort"], 2))],
+            id=d["feature"], rank=i + 1, title=label_for(d["feature"]),
+            evidence=[Evidence(feature=d["feature"], label=label_for(d["feature"]), you=round(d["you"], 2), cohort=round(d["cohort"], 2))],
             estimated_rating_gain=round(d["leverage"], 0), confidence=focus_conf,
             example_positions=_example_positions(d["feature"], mine, moves_by_game),
         )
         for i, d in enumerate(positive)
     ]
 
-    # strengths — favourable vs same-skill peers, on skill features with a known direction
+    # strengths — favourable vs same-skill peers, on skill features with a known direction.
+    # Threshold is deliberately looser than focus areas (0.75 MAD vs 1.0): with peer cohorts
+    # this small (~20-150 players), a strict bar leaves strengths empty far more often than
+    # it should — most players clear a lower bar on at least a couple of skill features.
     strength_rows = []
     if peers.height >= 20:
         for f, lower_better in LOWER_IS_BETTER.items():
@@ -354,13 +358,13 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
             mad = float(np.median(np.abs(vals - median)))
             raw = _robust_z(feat[f], median, mad)
             z = -raw if lower_better else raw
-            if z >= 1.0:
+            if z >= 0.75:
                 strength_rows.append((f, z, feat[f], median))
     strength_rows.sort(key=lambda r: -r[1])
     strengths = [
         Strength(
-            id=f, title=f.replace("_", " ").title(),
-            evidence=[Evidence(feature=f, you=round(you, 2), cohort=round(cohort, 2))],
+            id=f, title=label_for(f),
+            evidence=[Evidence(feature=f, label=label_for(f), you=round(you, 2), cohort=round(cohort, 2))],
             text=f"You're stronger than {min(99, int(50 + z * 15))}% of players with your style on this.",
         )
         for f, z, you, cohort in strength_rows[:3]
@@ -384,7 +388,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
                 SignatureItem(
                     feature=f, you=round(feat[f], 2),
                     peers=round(float(np.median(peers[f].drop_nulls())), 2), z=round(z, 2),
-                    text=f"Your {f.replace('_', ' ')} stands out from players at your level.",
+                    text=f"Your {label_for(f).lower()} stands out from players at your level.",
                 )
             )
 
@@ -398,6 +402,8 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
     caveats = [f"Based on {len(games_meta)} {time_class} games."]
     if betters.height < 40:
         caveats.append("Not many stronger players share your style yet — focus areas are lower-confidence.")
+    if peers.height >= 20 and len(strengths) < 2:
+        caveats.append("Your peer cohort is still small, so only your clearest strengths show up here — more games (yours and the reference pool's) will surface more.")
     if len(eval_sources) > 1:
         caveats.append("Some games were analysed locally (no pre-existing evaluation).")
 
