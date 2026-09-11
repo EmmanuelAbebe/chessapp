@@ -1,13 +1,7 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createGroq } from "@ai-sdk/groq";
-import { createOpenAI } from "@ai-sdk/openai";
-import { stepCountIs, streamText, tool, type LanguageModel } from "ai";
+import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
-import {
-  DEFAULT_MODEL_BY_PROVIDER,
-  type AiProvider,
-} from "@/features/settings/ai-provider-types";
+import type { AiProvider } from "@/features/settings/ai-provider-types";
+import { resolveModel } from "@/lib/ai/resolveModel";
 
 type MoveClassification = "best" | "good" | "inaccuracy" | "mistake" | "blunder";
 type GamePhase = "opening" | "middlegame" | "endgame";
@@ -40,6 +34,13 @@ type CoachRequest = {
   isCheck: boolean;
   isCastle: boolean;
   matchesBest: boolean | null;
+  // A compact summary from the player's stored behaviour profile
+  // (features/playermodel - "rated ~1660 blitz; recurring: releases
+  // tension early, drifts in won endgames") - null/absent for anyone
+  // without one yet. Appended to the system prompt so commentary can
+  // reference a recurring pattern, never fed to the model as an
+  // instruction to follow.
+  playerContext: string | null;
   // Bring-your-own provider/key (features/settings/useAiProviderConfig.ts) -
   // an empty/missing apiKey falls back to this server's own env var, but
   // only for "google", the only provider with one.
@@ -47,37 +48,6 @@ type CoachRequest = {
   apiKey: string;
   model: string;
 };
-
-/** Builds the actual model client for whichever provider the request
- * asked for, using the caller's own key - `null` if there's no usable
- * key at all (no user key, and, for anything but "google", no env var
- * to fall back to either). Never logs the key; it only ever passes
- * through this function on its way to the provider's own SDK client. */
-function resolveModel(
-  provider: AiProvider,
-  apiKey: string,
-  model: string,
-): LanguageModel | null {
-  const modelId = model || DEFAULT_MODEL_BY_PROVIDER[provider];
-  const key = apiKey || undefined;
-
-  switch (provider) {
-    case "google": {
-      // The only provider with a server-side fallback - createGoogleGenerativeAI
-      // reads GOOGLE_GENERATIVE_AI_API_KEY itself when apiKey is undefined.
-      if (!key && !process.env.GOOGLE_GENERATIVE_AI_API_KEY) return null;
-      return createGoogleGenerativeAI({ apiKey: key })(modelId);
-    }
-    case "openai":
-      return key ? createOpenAI({ apiKey: key })(modelId) : null;
-    case "anthropic":
-      return key ? createAnthropic({ apiKey: key })(modelId) : null;
-    case "groq":
-      return key ? createGroq({ apiKey: key })(modelId) : null;
-    default:
-      return null;
-  }
-}
 
 // A square/arrow color name, not a hex value - the client maps each to
 // the same design-system token its own sentiment coloring already uses
@@ -217,6 +187,7 @@ export async function POST(request: Request) {
     isCheck,
     isCastle,
     matchesBest,
+    playerContext,
     provider,
     apiKey,
     model: modelId,
@@ -285,6 +256,10 @@ ${evalLine}
 ${factsLine}
 
 Give your coaching comment on this move.`;
+  }
+
+  if (playerContext) {
+    systemPrompt += `\n\nBackground on this player, from their own game history - use it only if it's actually relevant to this specific move, and never state it as a fact about this move if it isn't: ${playerContext}`;
   }
 
   const result = streamText({

@@ -38,6 +38,10 @@ type MoveCommentaryInput = {
   isCheck: boolean;
   isCastle: boolean;
   matchesBest: boolean | null;
+  // The player's own compact behaviour summary (features/playermodel),
+  // or null if they don't have one yet - see the /api/coach route's own
+  // comment on this field for how it's used.
+  playerContext: string | null;
 };
 
 type NodeCommentary = {
@@ -106,6 +110,7 @@ export function useMoveCommentary({
   isCheck,
   isCastle,
   matchesBest,
+  playerContext,
 }: MoveCommentaryInput): NodeCommentary {
   const [display, setDisplay] = useState<NodeCommentary>({
     text: "",
@@ -153,6 +158,7 @@ export function useMoveCommentary({
     isCheck,
     isCastle,
     matchesBest,
+    playerContext,
   });
   latestFieldsRef.current = {
     fen,
@@ -170,6 +176,7 @@ export function useMoveCommentary({
     isCheck,
     isCastle,
     matchesBest,
+    playerContext,
   };
 
   const slotIdRef = useRef<string | null>(null);
@@ -268,6 +275,7 @@ export function useMoveCommentary({
             isCheck: fields.isCheck,
             isCastle: fields.isCastle,
             matchesBest: fields.matchesBest,
+            playerContext: fields.playerContext,
             provider: provider.provider,
             apiKey: provider.apiKey,
             model: provider.model,
@@ -354,6 +362,7 @@ export function useMoveCommentary({
       isCheck,
       isCastle,
       matchesBest,
+      playerContext,
     });
 
     if (slotIdRef.current === nodeId) {

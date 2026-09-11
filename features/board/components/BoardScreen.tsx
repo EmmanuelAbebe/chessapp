@@ -29,6 +29,7 @@ import {
 import { useSettings } from "@/features/settings/SettingsContext";
 import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
 import { useGameHistory } from "@/features/history/useGameHistory";
+import { usePlayerCoachContext } from "@/features/playermodel/usePlayerCoachContext";
 import {
   computeFingerprint,
   createHistoryId,
@@ -298,6 +299,8 @@ export function BoardScreen() {
   const matchesBest =
     beforeSnapshot && lastMove?.uci ? beforeSnapshot.candidates[0]?.move === lastMove.uci : null;
 
+  const playerContext = usePlayerCoachContext();
+
   const commentary = useMoveCommentary({
     nodeId: currentNodeId,
     fen: lastMove?.fen ?? chessPosition,
@@ -315,6 +318,7 @@ export function BoardScreen() {
     isCheck,
     isCastle,
     matchesBest,
+    playerContext,
   });
 
   // The eval chip/glyph read the same classification the coach's own
@@ -483,7 +487,7 @@ export function BoardScreen() {
     resetBoard(fen);
     enterAnalysis();
     setIsEditingPosition(false);
-    positionCommentary.describePosition(fen, null);
+    positionCommentary.describePosition(fen, null, playerContext);
   }
 
   function handleEditorPlayVsStockfish(fen: string) {
@@ -494,7 +498,7 @@ export function BoardScreen() {
     startVsStockfish(side, 10);
     changeOrientation(side);
     setIsEditingPosition(false);
-    positionCommentary.describePosition(fen, side === "white" ? "w" : "b");
+    positionCommentary.describePosition(fen, side === "white" ? "w" : "b", playerContext);
   }
 
   // Returns an error message on malformed PGN (kept on-screen in the

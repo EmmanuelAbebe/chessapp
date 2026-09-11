@@ -39,7 +39,11 @@ export function usePositionCommentary() {
     setState(IDLE);
   }
 
-  async function describePosition(fen: string, humanSide: "w" | "b" | null) {
+  async function describePosition(
+    fen: string,
+    humanSide: "w" | "b" | null,
+    playerContext: string | null = null,
+  ) {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -55,6 +59,7 @@ export function usePositionCommentary() {
           mode: "position",
           fen,
           humanSide,
+          playerContext,
           provider: provider.provider,
           apiKey: provider.apiKey,
           model: provider.model,

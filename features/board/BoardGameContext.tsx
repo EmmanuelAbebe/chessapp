@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { useBoardGame } from "./hooks/useBoardGame";
 import { treeFromMoves } from "./lib/pgn-import";
-import { takeExploreGame } from "@/features/history/exploreGame";
+import { takeExploreFen, takeExploreGame } from "@/features/history/exploreGame";
 
 type BoardGameContextValue = ReturnType<typeof useBoardGame>;
 
@@ -23,6 +23,16 @@ export function BoardGameProvider({ children }: { children: ReactNode }) {
     ref.current.startAnalysis();
     ref.current.loadTree(treeFromMoves(payload.moves));
     ref.current.changeOrientation(payload.playerSide === "b" ? "black" : "white");
+  }, []);
+
+  // Same hand-off, for a single position (a player-model focus area's
+  // "see it in your games" link - features/playermodel - which only has a
+  // FEN, not a full game to replay).
+  useEffect(() => {
+    const fen = takeExploreFen();
+    if (!fen) return;
+    ref.current.resetBoard(fen);
+    ref.current.startAnalysis();
   }, []);
 
   return (
