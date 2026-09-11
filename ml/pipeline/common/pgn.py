@@ -24,6 +24,7 @@ import re
 import urllib.request
 from collections.abc import Iterator
 
+import chess.pgn
 import zstandard
 
 _HEADER_RE = re.compile(r'^\[([A-Za-z0-9_]+)\s+"(.*)"\]\s*$', re.MULTILINE)
@@ -91,3 +92,49 @@ def clock_to_cs(match: re.Match[str] | None) -> int | None:
 
 EVAL_RE = _EVAL_RE
 CLK_RE = _CLK_RE
+
+
+def parse_full_game(headers_text: str, movetext: str):
+    """Full parse of one already header-filtered game: replays the
+    movetext, pulling ``%eval`` / ``%clk`` off each move's comment. Returns
+    ``(game, game_id, move_rows, evaled, clocked)`` or ``None`` if it fails
+    to parse / replay — ``move_rows`` is a list of dicts
+    (``game_id, ply, san, uci, eval_cp, eval_mate, clock_cs``), the exact
+    shape ``movefeatures.features_for_game`` expects. Shared by stage 01
+    (the reference dump) and the inference service (a user's own PGN)."""
+    game = chess.pgn.read_game(io.StringIO(f"{headers_text}\n\n{movetext}\n"))
+    if game is None or game.errors:
+        return None
+
+    h = game.headers
+    game_id = h.get("Site", "").rstrip("/").rsplit("/", 1)[-1]
+    if not game_id:
+        return None
+
+    board = game.board()
+    move_rows: list[dict] = []
+    clocked = 0
+    evaled = 0
+    for ply, node in enumerate(game.mainline(), start=1):
+        move = node.move
+        try:
+            san = board.san(move)
+        except (AssertionError, ValueError):
+            return None
+        comment = node.comment or ""
+        ev = _EVAL_RE.search(comment)
+        eval_cp, eval_mate = parse_eval_token(ev.group(1)) if ev else (None, None)
+        clock_cs = clock_to_cs(_CLK_RE.search(comment))
+        if eval_cp is not None or eval_mate is not None:
+            evaled += 1
+        if clock_cs is not None:
+            clocked += 1
+        move_rows.append(
+            {
+                "game_id": game_id, "ply": ply, "san": san, "uci": move.uci(),
+                "eval_cp": eval_cp, "eval_mate": eval_mate, "clock_cs": clock_cs,
+            }
+        )
+        board.push(move)
+
+    return game, game_id, move_rows, evaled, clocked

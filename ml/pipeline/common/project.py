@@ -11,7 +11,9 @@ import pickle
 
 import lightgbm as lgb
 import numpy as np
+import polars as pl
 
+from pipeline.common import featuremodels
 from pipeline.common.features import LOG_FEATURES, SKILL, SKILL_SUBSCORES, STYLE
 
 
@@ -41,6 +43,19 @@ class Artifacts:
 
         self.spec = json.loads((self.dir / "feature_spec.json").read_text())
         self._load_index(st)
+
+        # only present once stage 04 has actually trained models — some
+        # test fixtures (and stage 11's validation run) don't need these
+        fm_marker = self.dir / "feature_models" / "has_tactic.txt"
+        self.feature_models = featuremodels.load_models(self.dir) if fm_marker.exists() else None
+        ref_path = self.dir / "reference_meta.parquet"
+        self.reference = pl.read_parquet(ref_path) if ref_path.exists() else None
+        book_path = self.dir / "move_freq.parquet"
+        if book_path.exists():
+            mf = pl.read_parquet(book_path)
+            self.book_set = set(zip(mf["epd_before"], mf["uci"]))
+        else:
+            self.book_set = set()
 
     def _load_index(self, st: pathlib.Path) -> None:
         faiss_path = st / "neighbours.faiss"

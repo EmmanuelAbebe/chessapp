@@ -16,6 +16,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from pipeline.common import config as cfgmod
 from pipeline.common import pgn as pgnmod
 from pipeline.common.filters import header_ok, speed_bucket
+from pipeline.common.movefeatures import features_for_game
 
 # import stage 02's feature function by file path (module name starts with a digit)
 import importlib.util
@@ -97,7 +98,7 @@ def main() -> None:
             )
             board.push(node.move)
 
-        rows = s02._features_for_game(moves, inc=0, base=300, book_max_ply=mf["book_max_ply"], thr=mf["classify"])
+        rows = features_for_game(moves, inc=0, base=300, book_max_ply=mf["book_max_ply"], thr=mf["classify"])
         assert rows is not None and len(rows) == len(moves)
         print(f"  parsed {len(rows)} plies")
         for r in rows:

@@ -62,6 +62,19 @@ TRAITS = [
     "trait_defense",
 ]
 
+# for the service's "strengths" comparison (vs same-skill peers): whether a
+# lower value is the good direction. Style features have no such direction —
+# they're preferences, not scored.
+LOWER_IS_BETTER = {
+    "mean_wp_loss": True, "wp_loss_opening": True, "wp_loss_middlegame": True,
+    "wp_loss_endgame": True, "blunder_rate": True, "mistake_rate": True,
+    "wp_loss_p90": True, "acc_quiet": True, "tactical_gap": True,
+    "complexity_penalty": True, "choke": True, "tilt": True,
+    "time_scramble_penalty": True, "post_blunder_penalty": True,
+    "endgame_acpl": True, "vigilance_loose_rate": True,
+    "conversion_rate": False, "save_rate": False,
+}
+
 CONTEXT = ["player_hash", "player_elo", "n_games", "n_games_white", "n_games_black"]
 
 MODELLED = SKILL + STYLE

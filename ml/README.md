@@ -61,8 +61,27 @@ different `lichess.month` to append a second month (more games per player).
 .venv/bin/python tests/smoke_stage03.py   # stage 03 pure functions
 .venv/bin/python tests/smoke_stage04.py   # stage 04 train + apply, synthetic data
 .venv/bin/python tests/smoke_pipeline.py  # stages 05-11 end to end, synthetic data
+.venv/bin/python tests/smoke_service.py   # full real pipeline (02, 04-10) + service + FastAPI, ~90s
 .venv/bin/python tests/engine_check.py    # stage 03 vs a real Stockfish (needs the binary)
 ```
+
+`smoke_service.py` is the most rigorous check: it generates real, legal, PGN
+games (via `tests/fixtures.py`), runs the actual pipeline stages over them
+(not fabricated feature columns), then calls `service.profile.build_profile`
+and exercises the FastAPI app through `TestClient` — the same code path
+production traffic hits.
+
+## Running the service
+
+```bash
+cd ml && source .venv/bin/activate
+export PLAYERMODEL_ARTIFACTS_DIR=./artifacts   # or wherever stage 10 wrote to
+export SERVICE_TOKEN=dev-token                 # optional; unset = no auth
+uvicorn service.app:app --reload --port 8000
+```
+
+`POST /profile` — body `{"games_pgn": "...", "username": "you", "time_class": "blitz"}`,
+header `X-Service-Token` if `SERVICE_TOKEN` is set. `GET /health`.
 
 ## Layout
 

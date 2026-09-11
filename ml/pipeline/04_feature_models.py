@@ -33,20 +33,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from pipeline.common import config as cfgmod  # noqa: E402
 from pipeline.common.chessext import STATIC_FEATURE_NAMES  # noqa: E402
-
-PHASE_CODE = {"opening": 0, "middlegame": 1, "endgame": 2}
-PIECE_CODE = {"p": 0, "n": 1, "b": 2, "r": 3, "q": 4, "k": 5}
-
-POS_FEATURES = [*STATIC_FEATURE_NAMES, "phase_code", "ply"]
-MOVE_EXTRA = ["is_capture", "is_check", "is_castle", "is_pawn_push", "see", "king_dist_delta", "piece_code"]
-
-
-def _encode(df: pl.DataFrame) -> pl.DataFrame:
-    return df.with_columns(
-        phase_code=pl.col("phase").replace_strict(PHASE_CODE, default=1).cast(pl.Int8),
-        piece_code=pl.col("piece_moved").replace_strict(PIECE_CODE, default=0).cast(pl.Int8),
-        king_dist_delta=pl.col("king_dist_delta").fill_null(0),
-    )
+from pipeline.common.featuremodels import (  # noqa: E402
+    MOVE_EXTRA, PHASE_CODE, PIECE_CODE, POS_FEATURES, encode as _encode, score as _score,
+)
 
 
 def _fit_classifier(X, y, groups, name: str, report: list[str]):
@@ -135,18 +124,11 @@ def run() -> None:
     print("\n".join(report[4:]))
 
     # --- apply to the full reference set, in place ------------------------
+    # (via common.featuremodels.score, same code path the service uses)
+    boosters = {name: m.booster_ for name, m in models.items()}
     parts = sorted((month_dir / "move_features").glob("*.parquet"))
     for part in tqdm(parts, desc="scoring move_features"):
-        df = _encode(pl.read_parquet(part))
-        xpos = df.select(POS_FEATURES).to_numpy()
-        xmove = df.select([*POS_FEATURES, *MOVE_EXTRA]).to_numpy()
-        df = df.with_columns(
-            has_tactic_pred=pl.Series(models["has_tactic"].predict_proba(xpos)[:, 1]).cast(pl.Float32),
-            only_move_pred=pl.Series(models["only_move"].predict_proba(xpos)[:, 1]).cast(pl.Float32),
-            complexity_pred=pl.Series(models["complexity"].predict(xpos)).cast(pl.Float32),
-            wp_loss_model=pl.Series(models["wp_loss"].predict(xmove)).cast(pl.Float32),
-        ).drop("phase_code", "piece_code")
-        df.write_parquet(part)
+        _score(pl.read_parquet(part), boosters).write_parquet(part)
     print("done -> move_features/ enriched with 4 prediction columns")
 
 

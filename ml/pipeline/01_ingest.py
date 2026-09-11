@@ -14,14 +14,11 @@ re-streaming and skip-parsing (headers only) up to the recorded position.
 
 from __future__ import annotations
 
-import io
 import json
 import pathlib
 import sys
 import time
 
-import chess
-import chess.pgn
 import polars as pl
 from tqdm import tqdm
 
@@ -87,46 +84,6 @@ class Checkpoint:
         )
 
 
-def parse_game(headers_text: str, movetext: str):
-    """Full parse of a header-filtered game. Returns (game_row, move_rows)
-    or None if it fails a content check or won't parse."""
-    game = chess.pgn.read_game(io.StringIO(f"{headers_text}\n\n{movetext}\n"))
-    if game is None or game.errors:
-        return None
-
-    h = game.headers
-    game_id = h.get("Site", "").rstrip("/").rsplit("/", 1)[-1]
-    if not game_id:
-        return None
-
-    board = game.board()
-    move_rows: list[tuple] = []
-    clocked = 0
-    evaled = 0
-    for ply, node in enumerate(game.mainline(), start=1):
-        move = node.move
-        try:
-            san = board.san(move)
-        except (AssertionError, ValueError):
-            return None
-        comment = node.comment or ""
-        ev = pgnmod.EVAL_RE.search(comment)
-        eval_cp, eval_mate = (
-            pgnmod.parse_eval_token(ev.group(1)) if ev else (None, None)
-        )
-        clock_cs = pgnmod.clock_to_cs(pgnmod.CLK_RE.search(comment))
-        if eval_cp is not None or eval_mate is not None:
-            evaled += 1
-        if clock_cs is not None:
-            clocked += 1
-        move_rows.append(
-            (game_id, ply, san, move.uci(), eval_cp, eval_mate, clock_cs)
-        )
-        board.push(move)
-
-    return game, game_id, move_rows, evaled, clocked
-
-
 def run() -> None:
     cfg = cfgmod.load()
     ing = cfg["ingest"]
@@ -179,7 +136,7 @@ def run() -> None:
 
         parsed = None
         try:
-            parsed = parse_game(headers_text, movetext)
+            parsed = pgnmod.parse_full_game(headers_text, movetext)
         except Exception:  # noqa: BLE001 — a single bad game must not kill the run
             parsed = None
         if parsed is None:
@@ -215,7 +172,10 @@ def run() -> None:
                 "has_clocks": clocked >= pc * 0.8,
             }
         )
-        move_buf.extend(move_rows)
+        move_buf.extend(
+            (r["game_id"], r["ply"], r["san"], r["uci"], r["eval_cp"], r["eval_mate"], r["clock_cs"])
+            for r in move_rows
+        )
         ckpt.games_kept += 1
 
         if ckpt.games_kept % ing["checkpoint_every"] == 0:
