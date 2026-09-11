@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { FaUserCheck } from "react-icons/fa6";
 import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
+import { LichessFetchOptionsFields } from "@/features/lichess/LichessFetchOptionsFields";
+import { useLichessFetchOptions } from "@/features/lichess/useLichessFetchOptions";
 import { useGameHistory } from "./useGameHistory";
 import {
   pgnTextToHistory,
@@ -27,6 +29,7 @@ export function GameDataCard({ compact = false }: { compact?: boolean }) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [lichessConnected, setLichessConnected] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const fetchOptions = useLichessFetchOptions(200);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,7 +85,9 @@ export function GameDataCard({ compact = false }: { compact?: boolean }) {
   function importMine() {
     const controller = new AbortController();
     abortRef.current = controller;
-    void run(() => myLichessGamesToHistory(usernameList, 200, controller.signal));
+    void run(() =>
+      myLichessGamesToHistory(usernameList, fetchOptions.query, controller.signal),
+    );
   }
 
   return (
@@ -142,10 +147,17 @@ export function GameDataCard({ compact = false }: { compact?: boolean }) {
               disabled={busy}
               className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text-dim transition hover:border-accent hover:text-text disabled:opacity-50"
             >
-              Import my recent Lichess games
+              Import my Lichess games
             </button>
           )}
         </div>
+        {lichessConnected && (
+          <LichessFetchOptionsFields
+            state={fetchOptions}
+            idPrefix="game-data"
+            disabled={busy}
+          />
+        )}
         {status && <p className="text-xs text-text-dim">{status}</p>}
         {error && <p className="text-xs text-red-400">{error}</p>}
         <p className="text-[11px] text-text-faint">

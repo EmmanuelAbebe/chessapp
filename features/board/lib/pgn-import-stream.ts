@@ -157,15 +157,27 @@ export function importFromLichessUrl(
  * /api/lichess/games route, which attaches their OAuth token server-side.
  * Streams in exactly like importFromLichessUrl, just without a URL to
  * paste. */
+export type LichessFetchQuery = {
+  max?: number;
+  since?: number;
+  until?: number;
+  rated?: boolean;
+  /** Comma-separated Lichess perf types, e.g. "blitz" or "blitz,rapid".
+   * Omitted (or empty) means every speed. */
+  perfType?: string;
+};
+
 export function importMyLichessGames(
   signal: AbortSignal,
   options: IncrementalImportOptions,
-  query: { max?: number; since?: number; rated?: boolean } = {},
+  query: LichessFetchQuery = {},
 ): Promise<{ tree: MoveTreeState; processed: number; failed: number }> {
   const params = new URLSearchParams();
   if (query.max) params.set("max", String(query.max));
   if (query.since) params.set("since", String(query.since));
+  if (query.until) params.set("until", String(query.until));
   if (query.rated !== undefined) params.set("rated", String(query.rated));
+  if (query.perfType) params.set("perfType", query.perfType);
   const qs = params.toString();
   return runIncrementalImport(
     streamGamesFromUrl(`/api/lichess/games${qs ? `?${qs}` : ""}`, signal),

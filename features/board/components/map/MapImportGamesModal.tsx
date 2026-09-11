@@ -12,6 +12,8 @@ import {
 } from "../../lib/pgn-import-stream";
 import type { MoveTreeState } from "../../types";
 import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
+import { LichessFetchOptionsFields } from "@/features/lichess/LichessFetchOptionsFields";
+import { useLichessFetchOptions } from "@/features/lichess/useLichessFetchOptions";
 import {
   computeFingerprint,
   createHistoryId,
@@ -75,6 +77,7 @@ export function MapImportGamesModal({
   // writes - editing it here updates it there too, so there's only ever
   // one place this actually lives.
   const { usernames, setUsernames, usernameList } = usePlayerIdentity();
+  const fetchOptions = useLichessFetchOptions(200);
 
   const cancelledRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -231,7 +234,7 @@ export function MapImportGamesModal({
           isCancelled: () => cancelledRef.current,
           onBatch: (batch) => handleBatch(batch, lichessUser),
         },
-        { max: 200 },
+        fetchOptions.query,
       );
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
@@ -278,8 +281,15 @@ export function MapImportGamesModal({
               disabled={isImporting}
               className="mt-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-text transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-50"
             >
-              Import my last 200 games
+              Import my last {fetchOptions.max} games
             </button>
+            <div className="mt-2">
+              <LichessFetchOptionsFields
+                state={fetchOptions}
+                idPrefix="map-import"
+                disabled={isImporting}
+              />
+            </div>
           </div>
         )}
 

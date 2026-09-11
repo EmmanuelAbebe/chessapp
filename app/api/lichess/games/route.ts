@@ -32,8 +32,14 @@ export async function GET(request: Request) {
   upstream.searchParams.set("opening", "true");
   const since = params.get("since");
   if (since) upstream.searchParams.set("since", since);
+  const until = params.get("until");
+  if (until) upstream.searchParams.set("until", until);
   const rated = params.get("rated");
   if (rated) upstream.searchParams.set("rated", rated);
+  // Comma-separated: "blitz", "blitz,rapid", etc. - passed straight through,
+  // Lichess itself validates the values.
+  const perfType = params.get("perfType");
+  if (perfType) upstream.searchParams.set("perfType", perfType);
 
   const res = await fetch(upstream, {
     headers: {

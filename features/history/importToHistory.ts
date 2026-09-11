@@ -98,14 +98,35 @@ export async function lichessUrlToHistory(
   return pgnTextToHistory(await res.text(), usernames);
 }
 
+export type LichessImportQuery = {
+  max?: number;
+  since?: number;
+  until?: number;
+  rated?: boolean;
+  /** Comma-separated Lichess perf types, e.g. "blitz" or "blitz,rapid".
+   * Omitted (or empty) means every speed. */
+  perfType?: string;
+};
+
 /** Fetch the signed-in user's own recent games via the internal route
  * (token applied server-side) into history entries. */
 export async function myLichessGamesToHistory(
   usernames: string[],
-  max = 200,
+  query: LichessImportQuery | number = 200,
   signal?: AbortSignal,
 ): Promise<HistoryImportResult> {
-  const res = await fetch(`/api/lichess/games?max=${max}`, {
+  // A bare number is still accepted as just `max`, so existing callers
+  // (`myLichessGamesToHistory(usernames, 200, signal)`) don't need to change.
+  const { max = 200, since, until, rated, perfType } =
+    typeof query === "number" ? { max: query } : query;
+
+  const params = new URLSearchParams({ max: String(max) });
+  if (since) params.set("since", String(since));
+  if (until) params.set("until", String(until));
+  if (rated !== undefined) params.set("rated", String(rated));
+  if (perfType) params.set("perfType", perfType);
+
+  const res = await fetch(`/api/lichess/games?${params.toString()}`, {
     headers: { Accept: "application/x-chess-pgn" },
     signal,
   });

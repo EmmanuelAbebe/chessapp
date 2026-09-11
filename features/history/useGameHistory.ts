@@ -37,6 +37,20 @@ function writeStoredGames(games: GameHistoryEntry[]) {
   }
 }
 
+// A Server Action's whole argument list is serialized as one request body,
+// capped by Next.js at 1 MB by default - a single call carrying a big
+// import (a "last 200 games" pull, or everything a long-time localStorage
+// user already had on first sign-in) blows past that easily once each
+// game's move list/meta is counted. Chunking keeps every call small
+// regardless of how large a single import or the whole history gets.
+const SERVER_PUSH_CHUNK = 20;
+
+async function pushInChunks(entries: GameHistoryEntry[]): Promise<void> {
+  for (let i = 0; i < entries.length; i += SERVER_PUSH_CHUNK) {
+    await saveGameHistoryServer(entries.slice(i, i + SERVER_PUSH_CHUNK));
+  }
+}
+
 /** The persisted history of completed games (imported or played live
  * against Stockfish) that the statistics page's personality traits are
  * computed from. Starts empty on the server/first client render (avoids
@@ -130,14 +144,14 @@ export function useGameHistory() {
       mergeLocally(remote);
       const remoteFps = new Set(remote.map((g) => g.fingerprint));
       const localOnly = gamesRef.current.filter((g) => !remoteFps.has(g.fingerprint));
-      if (localOnly.length > 0) void saveGameHistoryServer(localOnly);
+      if (localOnly.length > 0) void pushInChunks(localOnly);
     })();
   }, [status]);
 
   function addEntries(entries: GameHistoryEntry[]): number {
     const additions = mergeLocally(entries);
     if (additions.length > 0 && status === "authenticated") {
-      void saveGameHistoryServer(additions);
+      void pushInChunks(additions);
     }
     return additions.length;
   }
