@@ -62,6 +62,13 @@ export function useAiProviderConfig() {
   const { status } = useSession();
   const [config, setConfigState] = useState<AiProviderConfig>(DEFAULT_CONFIG);
   const syncedRef = useRef(false);
+  // React may invoke a setState updater function more than once for the
+  // same conceptual update (Strict Mode, concurrent retries), so a Server
+  // Action call - or any other side effect - has no business living inside
+  // one; this ref is what the sync effect below reads instead, and every
+  // side effect happens as its own top-level statement.
+  const configRef = useRef(config);
+  configRef.current = config;
 
   useEffect(() => {
     setConfigState(readStoredConfig());
@@ -73,24 +80,20 @@ export function useAiProviderConfig() {
     void (async () => {
       const remote = await getUserSettingsServer();
       if (remote?.aiProvider?.provider) {
-        setConfigState((prev) => {
-          const next: AiProviderConfig = {
-            ...prev,
-            provider: remote.aiProvider!.provider,
-            model: remote.aiProvider!.model || prev.model,
-          };
-          try {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-          } catch {
-            // ignore - see setConfig's own comment
-          }
-          return next;
-        });
+        const next: AiProviderConfig = {
+          ...configRef.current,
+          provider: remote.aiProvider.provider,
+          model: remote.aiProvider.model || configRef.current.model,
+        };
+        setConfigState(next);
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          // ignore - see setConfig's own comment
+        }
       } else {
-        setConfigState((prev) => {
-          void saveUserSettingsServer({ aiProvider: { provider: prev.provider, model: prev.model } });
-          return prev;
-        });
+        const current = configRef.current;
+        void saveUserSettingsServer({ aiProvider: { provider: current.provider, model: current.model } });
       }
     })();
   }, [status]);

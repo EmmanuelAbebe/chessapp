@@ -24,6 +24,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const { status } = useSession();
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const syncedRef = useRef(false);
+  // React may invoke a setState updater function more than once for the
+  // same conceptual update (Strict Mode, concurrent retries) and calling a
+  // Server Action from inside one - as this used to do - trips "Cannot
+  // update a component while rendering a different component" the moment
+  // that action's own state changes land mid-render. Everything below
+  // reads the latest settings from this ref instead, and only ever calls
+  // setSettings / the server action as separate, top-level statements.
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   useEffect(() => {
     document.documentElement.dataset.themeShade = settings.themeShade;
@@ -35,12 +44,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const remote = await getUserSettingsServer();
       if (remote?.settings) {
-        setSettings((prev) => ({ ...prev, ...remote.settings }));
+        const next = { ...settingsRef.current, ...remote.settings };
+        setSettings(next);
       } else {
-        setSettings((prev) => {
-          void saveUserSettingsServer({ settings: prev });
-          return prev;
-        });
+        void saveUserSettingsServer({ settings: settingsRef.current });
       }
     })();
   }, [status]);
@@ -50,27 +57,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }
 
   function updateSettings(patch: Partial<AppSettings>) {
-    setSettings((prev) => {
-      const next = { ...prev, ...patch };
-      persist(next);
-      return next;
-    });
+    const next = { ...settingsRef.current, ...patch };
+    setSettings(next);
+    persist(next);
   }
 
   function updateSound(patch: Partial<SoundSettings>) {
-    setSettings((prev) => {
-      const next = { ...prev, sound: { ...prev.sound, ...patch } };
-      persist(next);
-      return next;
-    });
+    const next = { ...settingsRef.current, sound: { ...settingsRef.current.sound, ...patch } };
+    setSettings(next);
+    persist(next);
   }
 
   function updateNotifications(patch: Partial<NotificationSettings>) {
-    setSettings((prev) => {
-      const next = { ...prev, notifications: { ...prev.notifications, ...patch } };
-      persist(next);
-      return next;
-    });
+    const next = {
+      ...settingsRef.current,
+      notifications: { ...settingsRef.current.notifications, ...patch },
+    };
+    setSettings(next);
+    persist(next);
   }
 
   return (

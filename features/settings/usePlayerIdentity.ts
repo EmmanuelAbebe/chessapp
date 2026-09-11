@@ -32,6 +32,12 @@ export function usePlayerIdentity() {
   const { status } = useSession();
   const [usernames, setUsernamesState] = useState("");
   const syncedRef = useRef(false);
+  // React may invoke a setState updater function more than once for the
+  // same conceptual update (Strict Mode, concurrent retries), so a Server
+  // Action call has no business living inside one; this ref is what the
+  // sync effect below reads instead.
+  const usernamesRef = useRef(usernames);
+  usernamesRef.current = usernames;
 
   useEffect(() => {
     setUsernamesState(readStoredUsernames());
@@ -49,11 +55,8 @@ export function usePlayerIdentity() {
         } catch {
           // ignore - see setUsernames's own comment
         }
-      } else {
-        setUsernamesState((current) => {
-          if (current) void saveUserSettingsServer({ usernames: current });
-          return current;
-        });
+      } else if (usernamesRef.current) {
+        void saveUserSettingsServer({ usernames: usernamesRef.current });
       }
     })();
   }, [status]);
