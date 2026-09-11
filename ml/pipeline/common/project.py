@@ -92,9 +92,17 @@ class Artifacts:
         return float(xy[0]), float(xy[1])
 
     def neighbours(self, pca_vec: np.ndarray, k: int) -> np.ndarray:
+        """Indices into `self.reference`, closest-first. Clamped to however
+        many reference players actually exist - asking either index for
+        more than it holds pads the result with -1 (faiss) rather than
+        raising, which `reference[idx]` would otherwise silently
+        misinterpret as "last row"."""
         v = np.ascontiguousarray(pca_vec.reshape(1, -1), dtype="float32")
         if self.index_kind == "faiss":
+            k = min(k, self.index.ntotal)
             _, idx = self.index.search(v, k)
-            return idx[0]
-        _, idx = self.index.kneighbors(v, n_neighbors=min(k, self.index.n_samples_fit_))
-        return idx[0]
+        else:
+            k = min(k, self.index.n_samples_fit_)
+            _, idx = self.index.kneighbors(v, n_neighbors=k)
+        idx = idx[0]
+        return idx[idx >= 0]

@@ -42,6 +42,18 @@ class NotEnoughGames(Exception):
     pass
 
 
+_Z_CAP = 8.0
+
+
+def _robust_z(value: float, median: float, mad: float) -> float:
+    """(value - median) / MAD, clipped to +/-_Z_CAP. A near-degenerate peer
+    distribution (most players share one exact value - conversion_rate=1.0
+    is common in a small sample) makes MAD near zero, and an unclipped z
+    can blow up to an absurd, meaningless magnitude for one real outlier."""
+    mad = mad or 1e-6
+    return float(np.clip((value - median) / mad, -_Z_CAP, _Z_CAP))
+
+
 # --- 1. parse ----------------------------------------------------------------
 
 def _parse_games(pgn_text: str, time_class: str, min_plies: int) -> tuple[list[dict], list[list[dict]]]:
@@ -207,9 +219,9 @@ def _cohort_and_deviations(
             if len(vals) < 10 or np.std(vals) < 1e-9:
                 continue
             median = float(np.median(vals))
-            mad = float(np.median(np.abs(vals - median))) or 1e-6
+            mad = float(np.median(np.abs(vals - median)))
             user_val = feat[f]
-            gap = (user_val - median) / mad
+            gap = _robust_z(user_val, median, mad)
 
             X = neigh[f].to_numpy().astype(float).reshape(-1, 1)
             y = neigh["player_elo"].to_numpy().astype(float)
@@ -238,8 +250,9 @@ _BUCKET_FILTER: dict[str, str] = {
 def _example_positions(feature: str, mine: pl.DataFrame, moves_by_game: dict[str, list[dict]], n: int = 2) -> list[ExamplePosition]:
     expr = _BUCKET_FILTER.get(feature)
     bucket = mine.filter(eval(expr, {"pl": pl})) if expr else mine  # noqa: S307 — trusted, module-local
+    bucket = bucket.filter(pl.col("wp_loss").is_not_null())
     if bucket.height == 0:
-        bucket = mine
+        bucket = mine.filter(pl.col("wp_loss").is_not_null())
     top = bucket.sort("wp_loss", descending=True).head(n)
     out = []
     for row in top.iter_rows(named=True):
@@ -337,9 +350,10 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
             vals = peers[f].drop_nulls().to_numpy().astype(float)
             if len(vals) < 10:
                 continue
-            median, mad = float(np.median(vals)), float(np.median(np.abs(vals - np.median(vals)))) or 1e-6
-            adj = (median - feat[f]) if lower_better else (feat[f] - median)
-            z = adj / mad
+            median = float(np.median(vals))
+            mad = float(np.median(np.abs(vals - median)))
+            raw = _robust_z(feat[f], median, mad)
+            z = -raw if lower_better else raw
             if z >= 1.0:
                 strength_rows.append((f, z, feat[f], median))
     strength_rows.sort(key=lambda r: -r[1])
@@ -361,8 +375,8 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
             if len(vals) < 10 or np.std(vals) < 1e-9:
                 continue
             median = float(np.median(vals))
-            mad = float(np.median(np.abs(vals - median))) or 1e-6
-            z = (feat[f] - median) / mad
+            mad = float(np.median(np.abs(vals - median)))
+            z = _robust_z(feat[f], median, mad)
             sig_rows.append((f, z))
         sig_rows.sort(key=lambda r: -abs(r[1]))
         for f, z in sig_rows[:3]:

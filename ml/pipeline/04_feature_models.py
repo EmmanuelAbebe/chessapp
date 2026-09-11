@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import shutil
 import sys
 
 import lightgbm as lgb
@@ -67,16 +68,23 @@ def _fit_regressor(X, y, groups, name: str, report: list[str]):
     return model
 
 
-def run() -> None:
-    cfg = cfgmod.load()
-    month_dir = cfgmod.month_dir(cfg)
-    out_dir = cfg["paths"]["artifacts_dir"] / "feature_models"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
+def _train(cfg, month_dir, out_dir) -> dict[str, object]:
     labels = pl.read_parquet(month_dir / "engine_labels" / "*.parquet")
-    feats = pl.read_parquet(month_dir / "move_features" / "*.parquet").select(
+    # Per-file column projection (not a whole-glob read + .select()): a
+    # partially-rerun scoring pass can leave some move_features/ files with
+    # the 4 prediction columns and others without, and reading the glob as
+    # one table requires every file to share a schema - requesting only
+    # these columns per file sidesteps that regardless of which files
+    # happen to have the extra ones.
+    feat_cols = [
         "game_id", "ply", "phase", "piece_moved", "is_capture", "is_check",
         "is_castle", "is_pawn_push", "see", "king_dist_delta", *STATIC_FEATURE_NAMES,
+    ]
+    feats = pl.concat(
+        [
+            pl.read_parquet(p, columns=feat_cols)
+            for p in sorted((month_dir / "move_features").glob("*.parquet"))
+        ]
     )
     train = _encode(labels.join(feats, on=["game_id", "ply"], how="inner"))
     print(f"training rows: {train.height:,}")
@@ -122,14 +130,54 @@ def run() -> None:
     )
     (out_dir / "report.md").write_text("\n".join(report) + "\n")
     print("\n".join(report[4:]))
+    return {name: m.booster_ for name, m in models.items()}
+
+
+def run() -> None:
+    cfg = cfgmod.load()
+    month_dir = cfgmod.month_dir(cfg)
+    out_dir = cfg["paths"]["artifacts_dir"] / "feature_models"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Skip retraining on a retry once models are already on disk - a killed
+    # attempt's real cost is always the scoring loop below, not training
+    # (seconds, on this run's sample size), but repeating it before every
+    # single retry still adds up and delays reaching resumable work.
+    if all((out_dir / f"{n}.txt").exists() for n in ("has_tactic", "only_move", "complexity", "wp_loss")):
+        print("feature models already trained - loading from disk")
+        boosters = {
+            n: lgb.Booster(model_file=str(out_dir / f"{n}.txt"))
+            for n in ("has_tactic", "only_move", "complexity", "wp_loss")
+        }
+    else:
+        boosters = _train(cfg, month_dir, out_dir)
 
     # --- apply to the full reference set, in place ------------------------
     # (via common.featuremodels.score, same code path the service uses)
-    boosters = {name: m.booster_ for name, m in models.items()}
-    parts = sorted((month_dir / "move_features").glob("*.parquet"))
+    # Scored into a staging dir, resumable per-file there (skip a file
+    # already staged), and only swapped in for the real move_features/ once
+    # every single file is done. move_features/ itself - read as a whole
+    # glob by this function's own training step above and later by stages
+    # 05/09 - is never touched mid-way, so it can never end up with some
+    # files scored and others not (a real bug hit while building this: a
+    # partial in-place rescore left mixed schemas that broke the next
+    # glob read entirely).
+    move_features_dir = month_dir / "move_features"
+    staging_dir = month_dir / "move_features_scored_staging"
+    staging_dir.mkdir(exist_ok=True)
+    parts = sorted(move_features_dir.glob("*.parquet"))
     for part in tqdm(parts, desc="scoring move_features"):
-        _score(pl.read_parquet(part), boosters).write_parquet(part)
-    print("done -> move_features/ enriched with 4 prediction columns")
+        staged = staging_dir / part.name
+        if staged.exists():
+            continue  # resumable: a prior (killed) attempt already scored this one
+        _score(pl.read_parquet(part), boosters).write_parquet(staged)
+
+    if len(list(staging_dir.glob("*.parquet"))) == len(parts):
+        shutil.rmtree(move_features_dir)
+        staging_dir.rename(move_features_dir)
+        print("done -> move_features/ enriched with 4 prediction columns")
+    else:
+        print("scoring incomplete this attempt - re-run to finish (staged progress is kept)")
 
 
 if __name__ == "__main__":

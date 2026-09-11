@@ -14,12 +14,15 @@ lichess:
 
 ingest:
   speed: blitz # bullet | blitz | rapid | classical (Lichess's own bucketing)
-  target_games: 600000 # stop after this many KEPT games (or end of file)
+  # First real run, scaled to this hardware (2 cores, no cloud VM) rather
+  # than the ~500-800k production target - checkpointed, so raising this
+  # and re-running later resumes and grows the set instead of restarting.
+  target_games: 40000 # stop after this many KEPT games (or end of file)
   elo_min: 600
   elo_max: 3000
   min_plies: 10
   min_eval_coverage: 0.80 # fraction of plies that must carry a [%eval ...]
-  checkpoint_every: 20000 # flush a parquet partition + checkpoint.json this often
+  checkpoint_every: 2000 # flush a parquet partition + checkpoint.json this often
   read_chunk_bytes: 1048576 # 1 MiB decompressed-text read size
   request_timeout_s: 120
 
@@ -35,18 +38,27 @@ move_features:
     mistake: 25
 
 engine_labels:
-  sample_games: 80000 # stratified across the Elo range
-  plies_per_game: 10 # sampled, not every ply (phase coverage + biggest swings)
-  depth: 14
-  multipv: 4
+  # No cloud VM this run - sized to actually finish on a loaded 2-core
+  # laptop (a real Stockfish search here runs several seconds under load;
+  # the production 80k/depth-14 pass is meant for a cloud spot VM, see
+  # ml/README.md). Small and shallow, but still a real engine on real
+  # positions - re-run with the production values once a VM is available.
+  sample_games: 150
+  plies_per_game: 4
+  depth: 8
+  multipv: 3
   threads_per_worker: 1
   only_move_wp_gap: 15 # top-two win% gap for `only_move`
   tactic_gain_pawns: 1.5 # forcing line must gain at least this (or mate) for `has_tactic`
 
 player_vectors:
-  min_games: 15
-  min_games_with_clocks: 8
-  min_games_with_evals: 8
+  # Lowered for this first, smaller-than-production run: a 40k-game slice
+  # is a narrow real-time window (Lichess dump order ~= play order), so
+  # even active players rarely rack up 15 games inside it. Raise back to
+  # 15/8/8 once the ingest target itself is scaled up.
+  min_games: 5
+  min_games_with_clocks: 3
+  min_games_with_evals: 3
   max_games_per_player: 100
 
 cohort:

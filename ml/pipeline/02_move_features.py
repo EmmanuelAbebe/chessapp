@@ -46,25 +46,40 @@ def _phase_a(cfg, month_dir, thr, book_max_ply):
         parsed = parse_time_control(tc) or (0, 0)
         base_by_game[gid], inc_by_game[gid] = parsed
 
+    # Sub-batched within each source partition (not just one flush per
+    # partition) - this machine runs with almost no free RAM/swap
+    # alongside the user's own desktop apps, so peak memory matters more
+    # than usual. Each batch is its own skip-if-exists output file, so a
+    # kill partway through a partition loses at most one small batch,
+    # not the whole 2000-game partition.
+    BATCH_GAMES = 200
+
     move_parts = sorted((month_dir / "moves").glob("*.parquet"))
     for part in tqdm(move_parts, desc="phase A (replay)"):
         moves = pl.read_parquet(part).sort("game_id", "ply")
-        out: list[dict] = []
-        for gid, grp in moves.group_by("game_id", maintain_order=True):
-            gid = gid[0] if isinstance(gid, tuple) else gid
-            rows = features_for_game(
-                grp.to_dicts(),
-                inc_by_game.get(gid, 0),
-                base_by_game.get(gid, 0),
-                book_max_ply,
-                thr,
-            )
-            if rows:
-                out.extend(rows)
-        if out:
-            pl.DataFrame(out, schema=FEATURE_SCHEMA).write_parquet(
-                raw_dir / part.name
-            )
+        game_ids = moves["game_id"].unique(maintain_order=True).to_list()
+
+        for batch_idx, start in enumerate(range(0, len(game_ids), BATCH_GAMES)):
+            out_path = raw_dir / f"{part.stem}_{batch_idx:03d}.parquet"
+            if out_path.exists():
+                continue  # resumable: this batch was already written
+
+            batch_ids = game_ids[start : start + BATCH_GAMES]
+            batch_moves = moves.filter(pl.col("game_id").is_in(batch_ids))
+            out: list[dict] = []
+            for gid, grp in batch_moves.group_by("game_id", maintain_order=True):
+                gid = gid[0] if isinstance(gid, tuple) else gid
+                rows = features_for_game(
+                    grp.to_dicts(),
+                    inc_by_game.get(gid, 0),
+                    base_by_game.get(gid, 0),
+                    book_max_ply,
+                    thr,
+                )
+                if rows:
+                    out.extend(rows)
+            if out:
+                pl.DataFrame(out, schema=FEATURE_SCHEMA).write_parquet(out_path)
     return raw_dir
 
 
@@ -86,6 +101,8 @@ def _phase_b(month_dir, raw_dir, book_min_count):
     print(f"opening book: {len(book_set):,} (position, move) pairs")
 
     for part in tqdm(sorted(raw_dir.glob("*.parquet")), desc="phase B (book)"):
+        if (out_dir / part.name).exists():
+            continue  # resumable, same as phase A
         df = apply_book_tags(pl.read_parquet(part), book_set)
         df.write_parquet(out_dir / part.name)
 
