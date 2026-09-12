@@ -9,9 +9,20 @@ import type { AiProvider } from "@/features/settings/ai-provider-types";
 
 export const dynamic = "force-dynamic";
 
+// Lichess caps a single export at this many games; also a sane upper bound
+// so a client-supplied maxGames can't request an enormous PGN.
+const MAX_GAMES_CEILING = 300;
+const MAX_GAMES_FLOOR = 10;
+const MAX_GAMES_FALLBACK = 60; // used only when the user has no imported history to size from
+
 type PostBody = {
   timeClass?: string;
   force?: boolean;
+  /** How many games to fetch/analyze. Omit to default to the size of the
+   * user's own imported game history (features/history) - if they imported
+   * 100 games, the profile analyzes ~100 too, instead of a fixed number
+   * unrelated to what they actually brought in. */
+  maxGames?: number;
   // Same BYO-key pattern as /api/coach - used only in-memory, for this one
   // request, to phrase each focus area's coaching text. Never persisted;
   // the stored PlayerProfile.data keeps whatever coaching text (or null)
@@ -39,9 +50,14 @@ stronger players in your style group tend to...") -> the general principle
 -> one specific action to train next. Each field is one plain sentence, no
 jargon, no hedging, no restating the raw numbers verbatim.`;
 
-async function fetchUserPgn(token: string, username: string, timeClass: string): Promise<string> {
+async function fetchUserPgn(
+  token: string,
+  username: string,
+  timeClass: string,
+  max: number,
+): Promise<string> {
   const url = new URL(`https://lichess.org/api/games/user/${encodeURIComponent(username)}`);
-  url.searchParams.set("max", "60");
+  url.searchParams.set("max", String(max));
   url.searchParams.set("perfType", timeClass);
   url.searchParams.set("rated", "true");
   url.searchParams.set("evals", "true");
@@ -112,9 +128,18 @@ export async function POST(request: Request) {
     throw err;
   }
 
+  let maxGames: number;
+  if (typeof body.maxGames === "number" && Number.isFinite(body.maxGames)) {
+    maxGames = body.maxGames;
+  } else {
+    const importedCount = await prisma.gameRecord.count({ where: { userId } });
+    maxGames = importedCount || MAX_GAMES_FALLBACK;
+  }
+  maxGames = Math.round(Math.min(MAX_GAMES_CEILING, Math.max(MAX_GAMES_FLOOR, maxGames)));
+
   let pgn: string;
   try {
-    pgn = await fetchUserPgn(link.token, link.username, timeClass);
+    pgn = await fetchUserPgn(link.token, link.username, timeClass, maxGames);
   } catch (err) {
     return new Response(`Could not fetch games from Lichess: ${(err as Error).message}`, {
       status: 502,

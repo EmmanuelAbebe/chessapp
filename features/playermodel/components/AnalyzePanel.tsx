@@ -22,9 +22,13 @@ export function AnalyzePanel({
   profile: PlayerProfileData | null;
   status: AnalyzeStatus;
   error: string | null;
-  onAnalyze: (opts?: { force?: boolean }) => void;
+  onAnalyze: (opts?: { force?: boolean; maxGames?: number }) => void;
 }) {
   const [lichessConnected, setLichessConnected] = useState<boolean | null>(null);
+  // Blank = let the server default to the size of the user's imported game
+  // history; typing a number here overrides that for this analysis only.
+  const [maxGamesInput, setMaxGamesInput] = useState("");
+  const maxGames = maxGamesInput.trim() ? Number(maxGamesInput) : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -66,14 +70,31 @@ export function AnalyzePanel({
             : "Analyze your recent blitz games to see your style, skill, and what to train next."}
         </p>
         {lichessConnected && (
-          <button
-            type="button"
-            onClick={() => onAnalyze()}
-            disabled={status === "loading"}
-            className="mt-3 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
-          >
-            {status === "loading" ? "Analyzing… (this can take a minute)" : "Analyze my games"}
-          </button>
+          <>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => onAnalyze({ maxGames })}
+                disabled={status === "loading"}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
+              >
+                {status === "loading" ? "Analyzing… (this can take a minute)" : "Analyze my games"}
+              </button>
+              <input
+                type="number"
+                min={10}
+                max={300}
+                value={maxGamesInput}
+                onChange={(e) => setMaxGamesInput(e.target.value)}
+                placeholder="auto"
+                title="How many recent games to analyze. Leave blank to match the size of your imported game history."
+                className="w-16 rounded-md border border-border bg-transparent px-2 py-2 text-center text-sm text-text placeholder:text-text-faint"
+              />
+            </div>
+            <p className="mt-1.5 text-[11px] text-text-faint">
+              Games to analyze — leave blank to match your imported game history.
+            </p>
+          </>
         )}
         {error && <p className="mt-2 text-xs text-bad">{error}</p>}
       </div>
@@ -88,16 +109,28 @@ export function AnalyzePanel({
       <span>
         Last analyzed {computedAt.toLocaleDateString()} · {profile.source.games_analyzed} games
       </span>
-      <button
-        type="button"
-        onClick={() => onAnalyze({ force: true })}
-        disabled={status === "loading"}
-        className={`rounded-md border px-2.5 py-1 font-medium transition disabled:opacity-50 ${
-          stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
-        }`}
-      >
-        {status === "loading" ? "Refreshing…" : stale ? "Refresh (new games available)" : "Refresh"}
-      </button>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          min={10}
+          max={300}
+          value={maxGamesInput}
+          onChange={(e) => setMaxGamesInput(e.target.value)}
+          placeholder="auto"
+          title="How many recent games to analyze on refresh. Leave blank to match the size of your imported game history."
+          className="w-14 rounded-md border border-border bg-transparent px-1.5 py-1 text-center text-xs text-text placeholder:text-text-faint"
+        />
+        <button
+          type="button"
+          onClick={() => onAnalyze({ force: true, maxGames })}
+          disabled={status === "loading"}
+          className={`rounded-md border px-2.5 py-1 font-medium transition disabled:opacity-50 ${
+            stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
+          }`}
+        >
+          {status === "loading" ? "Refreshing…" : stale ? "Refresh (new games available)" : "Refresh"}
+        </button>
+      </div>
     </div>
   );
 }

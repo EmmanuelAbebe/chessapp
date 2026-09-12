@@ -19,7 +19,7 @@ export function usePlayerProfile(initial: PlayerProfileData | null) {
   const { config } = useAiProviderConfig();
 
   const analyze = useCallback(
-    async (opts?: { force?: boolean }) => {
+    async (opts?: { force?: boolean; maxGames?: number }) => {
       setStatus("loading");
       setError(null);
       try {
@@ -28,6 +28,7 @@ export function usePlayerProfile(initial: PlayerProfileData | null) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             force: opts?.force,
+            maxGames: opts?.maxGames,
             provider: config.provider,
             apiKey: config.apiKey,
             model: config.model,
