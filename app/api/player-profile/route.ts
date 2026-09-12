@@ -9,11 +9,13 @@ import type { AiProvider } from "@/features/settings/ai-provider-types";
 
 export const dynamic = "force-dynamic";
 
-// Lichess caps a single export at this many games; also a sane upper bound
-// so a client-supplied maxGames can't request an enormous PGN.
-const MAX_GAMES_CEILING = 300;
 const MAX_GAMES_FLOOR = 10;
 const MAX_GAMES_FALLBACK = 60; // used only when the user has no imported history to size from
+// Not a UX limit (the client warns past this in AnalyzePanel) - just a
+// hard backstop so a stray/malicious maxGames can't ask this route to hold
+// an unbounded PGN string in memory or send an unbounded body to the ml
+// service. Comfortably above anything a real request should ever need.
+const MAX_GAMES_SAFETY_CEILING = 5000;
 
 type PostBody = {
   timeClass?: string;
@@ -135,7 +137,7 @@ export async function POST(request: Request) {
     const importedCount = await prisma.gameRecord.count({ where: { userId } });
     maxGames = importedCount || MAX_GAMES_FALLBACK;
   }
-  maxGames = Math.round(Math.min(MAX_GAMES_CEILING, Math.max(MAX_GAMES_FLOOR, maxGames)));
+  maxGames = Math.round(Math.min(MAX_GAMES_SAFETY_CEILING, Math.max(MAX_GAMES_FLOOR, maxGames)));
 
   let pgn: string;
   try {

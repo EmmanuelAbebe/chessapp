@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Modal from "@/components/ui/Modal";
 import type { AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
 
 const STALE_AFTER_DAYS = 30;
 const STALE_AFTER_NEW_GAMES = 20;
+// Not a hard cap (the server will fetch as many as asked, up to its own
+// safety backstop) - just the point past which a fetch+analyze can take
+// long enough that we warn before running it.
+const REASONABLE_GAMES = 300;
 
 function isStale(profile: PlayerProfileData, gamesCount: number, computedAt: Date): boolean {
   const daysOld = (Date.now() - computedAt.getTime()) / 86_400_000;
@@ -29,6 +34,7 @@ export function AnalyzePanel({
   // history; typing a number here overrides that for this analysis only.
   const [maxGamesInput, setMaxGamesInput] = useState("");
   const maxGames = maxGamesInput.trim() ? Number(maxGamesInput) : undefined;
+  const [pendingOpts, setPendingOpts] = useState<{ force?: boolean; maxGames?: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +50,44 @@ export function AnalyzePanel({
       cancelled = true;
     };
   }, []);
+
+  function requestAnalyze(opts?: { force?: boolean; maxGames?: number }) {
+    if (opts?.maxGames && opts.maxGames > REASONABLE_GAMES) {
+      setPendingOpts(opts);
+      return;
+    }
+    onAnalyze(opts);
+  }
+
+  const confirmDialog = pendingOpts && (
+    <Modal isOpen onClose={() => setPendingOpts(null)}>
+      <h3 className="text-sm font-semibold text-text">Analyze {pendingOpts.maxGames} games?</h3>
+      <p className="mt-2 text-sm text-text-dim">
+        That's well beyond the {REASONABLE_GAMES} games we'd normally expect - fetching and
+        processing that many can take a long time (several minutes or more) and puts real load
+        on the analysis service. Continue anyway?
+      </p>
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setPendingOpts(null)}
+          className="rounded-md border border-border px-3 py-1.5 text-sm text-text-dim hover:text-text"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onAnalyze(pendingOpts);
+            setPendingOpts(null);
+          }}
+          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
+        >
+          Yes, continue
+        </button>
+      </div>
+    </Modal>
+  );
 
   if (lichessConnected === false) {
     return (
@@ -74,7 +118,7 @@ export function AnalyzePanel({
             <div className="mt-3 flex items-center justify-center gap-2">
               <button
                 type="button"
-                onClick={() => onAnalyze({ maxGames })}
+                onClick={() => requestAnalyze({ maxGames })}
                 disabled={status === "loading"}
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
               >
@@ -83,7 +127,6 @@ export function AnalyzePanel({
               <input
                 type="number"
                 min={10}
-                max={300}
                 value={maxGamesInput}
                 onChange={(e) => setMaxGamesInput(e.target.value)}
                 placeholder="auto"
@@ -97,6 +140,7 @@ export function AnalyzePanel({
           </>
         )}
         {error && <p className="mt-2 text-xs text-bad">{error}</p>}
+        {confirmDialog}
       </div>
     );
   }
@@ -113,7 +157,6 @@ export function AnalyzePanel({
         <input
           type="number"
           min={10}
-          max={300}
           value={maxGamesInput}
           onChange={(e) => setMaxGamesInput(e.target.value)}
           placeholder="auto"
@@ -122,7 +165,7 @@ export function AnalyzePanel({
         />
         <button
           type="button"
-          onClick={() => onAnalyze({ force: true, maxGames })}
+          onClick={() => requestAnalyze({ force: true, maxGames })}
           disabled={status === "loading"}
           className={`rounded-md border px-2.5 py-1 font-medium transition disabled:opacity-50 ${
             stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
@@ -131,6 +174,7 @@ export function AnalyzePanel({
           {status === "loading" ? "Refreshing…" : stale ? "Refresh (new games available)" : "Refresh"}
         </button>
       </div>
+      {confirmDialog}
     </div>
   );
 }
