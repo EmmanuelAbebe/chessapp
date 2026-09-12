@@ -82,6 +82,15 @@ export type FocusArea = {
   confidence: "low" | "medium" | "high";
   example_positions: ExamplePosition[];
   coaching: Coaching;
+  /** Direction-corrected z vs. the stronger-cohort median - negative,
+   * consistently, since a focus area is by definition a weakness. Shares
+   * a sign convention with Strength.z and SignatureItem.z. */
+  z: number;
+  /** False when this focus area came from a style feature (no known
+   * good/bad direction) rather than a graded skill feature - z is still
+   * present but not meaningfully "worse," so exclude it from a chart that
+   * plots skill gaps on a good/bad scale. */
+  graded: boolean;
 };
 
 export type Strength = {
@@ -89,6 +98,7 @@ export type Strength = {
   title: string;
   evidence: Evidence[];
   text?: string;
+  z: number;
 };
 
 export type Source = {

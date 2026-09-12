@@ -347,15 +347,24 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
         key=lambda d: -d["leverage"],
     )[:5]
     focus_conf = "high" if betters.height >= 150 else "medium" if betters.height >= 40 else "low"
-    focus_areas = [
-        FocusArea(
-            id=d["feature"], rank=i + 1, title=label_for(d["feature"]),
-            evidence=[Evidence(feature=d["feature"], label=label_for(d["feature"]), you=round(d["you"], 2), cohort=round(d["cohort"], 2))],
-            estimated_rating_gain=round(d["leverage"], 0), confidence=focus_conf,
-            example_positions=_example_positions(d["feature"], mine, moves_by_game),
+    def _focus_z(d: dict) -> tuple[float, bool]:
+        lower_better = LOWER_IS_BETTER.get(d["feature"])
+        if lower_better is None:
+            return d["gap"], False  # style feature - no known good/bad direction
+        return (-d["gap"] if lower_better else d["gap"]), True
+
+    focus_areas = []
+    for i, d in enumerate(positive):
+        z, graded = _focus_z(d)
+        focus_areas.append(
+            FocusArea(
+                id=d["feature"], rank=i + 1, title=label_for(d["feature"]),
+                evidence=[Evidence(feature=d["feature"], label=label_for(d["feature"]), you=round(d["you"], 2), cohort=round(d["cohort"], 2))],
+                estimated_rating_gain=round(d["leverage"], 0), confidence=focus_conf,
+                example_positions=_example_positions(d["feature"], mine, moves_by_game),
+                z=round(z, 2), graded=graded,
+            )
         )
-        for i, d in enumerate(positive)
-    ]
 
     # strengths — favourable vs same-skill peers, on skill features with a known direction.
     # Threshold is deliberately looser than focus areas (0.75 MAD vs 1.0): with peer cohorts
@@ -379,6 +388,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
             id=f, title=label_for(f),
             evidence=[Evidence(feature=f, label=label_for(f), you=round(you, 2), cohort=round(cohort, 2))],
             text=f"You're stronger than {min(99, int(50 + z * 15))}% of players with your style on this.",
+            z=round(z, 2),
         )
         for f, z, you, cohort in strength_rows[:3]
     ]

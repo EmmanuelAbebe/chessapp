@@ -15,7 +15,7 @@ export type PhaseMix = Record<GamePhase, number>;
 
 /** Share of the player's own moves falling in each game phase - a mix, not
  * a strength-by-phase breakdown. Pairs with the player-behaviour model's
- * per-phase accuracy (PhaseQuadrantChart) when that's available. */
+ * per-phase accuracy (PhaseBreakdownChart) when that's available. */
 export function computePhaseMix(games: GameHistoryEntry[]): PhaseMix | null {
   const counts: PhaseMix = { opening: 0, middlegame: 0, endgame: 0 };
   let total = 0;

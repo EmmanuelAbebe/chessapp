@@ -13,7 +13,7 @@ import { GameDataCard } from "@/features/history/GameDataCard";
 import type { PlayerProfileData } from "@/features/playermodel/types";
 import { computePhaseMix } from "../lib/traits";
 import { computeOpenings } from "../lib/summary";
-import { PhaseQuadrantChart } from "./PhaseQuadrantChart";
+import { PhaseBreakdownChart } from "./PhaseBreakdownChart";
 import { OpeningsBreakdown } from "./OpeningsBreakdown";
 import { WinRateTimeline } from "./WinRateTimeline";
 
@@ -76,7 +76,7 @@ export default function StatisticsSummary({
 
           <div className="grid gap-6 md:grid-cols-2 md:items-start">
             {phaseMix && (
-              <PhaseQuadrantChart mix={phaseMix} accuracy={phaseAccuracy} />
+              <PhaseBreakdownChart mix={phaseMix} accuracy={phaseAccuracy} />
             )}
             <OpeningsBreakdown breakdown={openings} side={side} />
           </div>

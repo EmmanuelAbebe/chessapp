@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { GameHistoryEntry } from "@/features/history/types";
 
 const WINDOW = 20;
@@ -20,6 +20,7 @@ type RollingPoint = {
   playedAt: number;
   rate: number;
   gamesInWindow: number;
+  result: GameHistoryEntry["result"];
 };
 
 /** Trailing-window (<=20 games) win rate, in play order. `mode` only ever
@@ -35,7 +36,10 @@ function rollingWinRate(games: GameHistoryEntry[]): RollingPoint[] {
     queue.push(score);
     sum += score;
     if (queue.length > WINDOW) sum -= queue.shift()!;
-    return { index: i, playedAt: g.playedAt, rate: sum / queue.length, gamesInWindow: queue.length };
+    return {
+      index: i, playedAt: g.playedAt, rate: sum / queue.length,
+      gamesInWindow: queue.length, result: g.result,
+    };
   });
 }
 
@@ -45,6 +49,8 @@ function formatDay(ts: number): string {
 
 export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
   const [mode, setMode] = useState<Mode>("game");
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const points = useMemo(() => rollingWinRate(games), [games]);
 
   if (points.length < 3) {
@@ -72,6 +78,7 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
 
   const last = points[points.length - 1];
   const first = points[0];
+  const active = hoverIdx !== null ? points[hoverIdx] : last;
   const tally = games.reduce(
     (acc, g) => {
       acc.games += 1;
@@ -83,6 +90,26 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
     { games: 0, wins: 0, draws: 0, losses: 0 },
   );
   const overallScore = tally.games ? ((tally.wins + tally.draws * 0.5) / tally.games) * 100 : 0;
+
+  function nearestIndex(clientX: number): number {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return points.length - 1;
+    const localX = ((clientX - rect.left) / rect.width) * W;
+    let best = 0;
+    let bestDist = Infinity;
+    points.forEach((p, i) => {
+      const d = Math.abs(xFor(xVal(p)) - localX);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    });
+    return best;
+  }
+
+  const activeX = xFor(xVal(active));
+  const tooltipLeft = activeX > PAD_L + PLOT_W * 0.65;
+  const resultLabel = active.result === "win" ? "won" : active.result === "draw" ? "drew" : "lost";
 
   return (
     <div className="flex flex-col gap-3">
@@ -109,7 +136,15 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
         </div>
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        preserveAspectRatio="xMidYMid meet"
+        className="cursor-crosshair touch-none select-none"
+        onPointerMove={(e) => setHoverIdx(nearestIndex(e.clientX))}
+        onPointerLeave={() => setHoverIdx(null)}
+      >
         {[0, 50, 100].map((v) => (
           <g key={v}>
             <line
@@ -129,34 +164,57 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
         <path d={areaPath} fill="var(--accent)" fillOpacity={0.12} stroke="none" />
         <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" />
 
-        <circle cx={xFor(xVal(last))} cy={yFor(last.rate)} r={4} fill="var(--accent)" />
-        <text
-          x={xFor(xVal(last))}
-          y={yFor(last.rate) - 8}
-          textAnchor="end"
-          fontSize="11"
-          fontWeight={600}
-          fill="var(--text)"
-        >
-          {last.rate.toFixed(0)}%
-        </text>
+        {hoverIdx === null && (
+          <>
+            <circle cx={xFor(xVal(last))} cy={yFor(last.rate)} r={4} fill="var(--accent)" />
+            <text
+              x={xFor(xVal(last))}
+              y={yFor(last.rate) - 8}
+              textAnchor="end"
+              fontSize="11"
+              fontWeight={600}
+              fill="var(--text)"
+            >
+              {last.rate.toFixed(0)}%
+            </text>
+          </>
+        )}
 
         <text x={xFor(xVal(first))} y={H - 6} fontSize="10" fill="var(--text-faint)">
           {mode === "game" ? `game ${first.index + 1}` : formatDay(first.playedAt)}
         </text>
-        <text
-          x={xFor(xVal(last))}
-          y={H - 6}
-          textAnchor="end"
-          fontSize="10"
-          fill="var(--text-faint)"
-        >
+        <text x={xFor(xVal(last))} y={H - 6} textAnchor="end" fontSize="10" fill="var(--text-faint)">
           {mode === "game" ? `game ${last.index + 1}` : formatDay(last.playedAt)}
         </text>
+
+        {hoverIdx !== null && (
+          <g pointerEvents="none">
+            <line x1={activeX} x2={activeX} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--text-faint)" strokeDasharray="3 3" />
+            <circle cx={activeX} cy={yFor(active.rate)} r={4.5} fill="var(--accent)" stroke="var(--surface)" strokeWidth={1.5} />
+            <g transform={`translate(${tooltipLeft ? activeX - 8 : activeX + 8}, ${Math.max(PAD_T + 2, yFor(active.rate) - 40)})`}>
+              <rect
+                x={tooltipLeft ? -118 : 0}
+                y={0}
+                width={118}
+                height={36}
+                rx={5}
+                fill="var(--surface-raised)"
+                stroke="var(--border)"
+              />
+              <text x={tooltipLeft ? -108 : 10} y={14} fontSize="11" fontWeight={600} fill="var(--text)">
+                {active.rate.toFixed(0)}% rolling
+              </text>
+              <text x={tooltipLeft ? -108 : 10} y={28} fontSize="9.5" fill="var(--text-faint)">
+                game {active.index + 1} · {formatDay(active.playedAt)} · {resultLabel}
+              </text>
+            </g>
+          </g>
+        )}
       </svg>
 
       <p className="text-[11px] text-text-faint">
-        Rolling win rate over your last {WINDOW} games (win 1, draw ½) —{" "}
+        Rolling win rate over your last {WINDOW} games (win 1, draw ½) — hover to inspect a
+        point;{" "}
         {mode === "game"
           ? "spaced by game count."
           : "spaced by when you actually played, so breaks show as gaps."}

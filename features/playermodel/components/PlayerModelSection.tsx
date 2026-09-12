@@ -3,11 +3,9 @@
 import type { AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
 import { AnalyzePanel } from "./AnalyzePanel";
-import { FocusAreaCards } from "./FocusAreaCards";
 import { ProfileHero } from "./ProfileHero";
-import { SignatureCards } from "./SignatureCards";
-import { StrengthCards } from "./StrengthCards";
 import { StyleAxes } from "./StyleAxes";
+import { WhereYouDiffer } from "./WhereYouDiffer";
 
 /** The player-behaviour model, composed onto /dashboard/statistics above
  * the existing (notation-only) StatisticsSummary, which stays as "the
@@ -36,14 +34,14 @@ export function PlayerModelSection({
 
       {profile && (
         <>
-          <div className="grid gap-6 md:grid-cols-2 md:items-start">
-            <ProfileHero profile={profile} />
-            <StyleAxes axes={profile.style.axes} />
-          </div>
+          <ProfileHero profile={profile} />
+          <StyleAxes axes={profile.style.axes} />
 
-          <SignatureCards items={profile.style.signature} />
-          <StrengthCards strengths={profile.strengths} />
-          <FocusAreaCards areas={profile.focus_areas} />
+          <WhereYouDiffer
+            strengths={profile.strengths}
+            focusAreas={profile.focus_areas}
+            signature={profile.style.signature}
+          />
 
           {profile.caveats.length > 0 && (
             <ul className="flex flex-col gap-1 text-xs text-text-faint">

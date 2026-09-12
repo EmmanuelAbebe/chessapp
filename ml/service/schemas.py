@@ -107,6 +107,13 @@ class FocusArea(BaseModel):
     confidence: str  # "low" | "medium" | "high"
     example_positions: list[ExamplePosition]
     coaching: Coaching = Coaching()
+    # direction-corrected z (negative = worse, matching Strength.z's sign
+    # convention) so a client can plot strengths + focus_areas on one
+    # shared diverging scale. `graded` is false for a focus area that
+    # turned up on a style feature (no known good/bad direction) - still
+    # worth surfacing as a focus area, but excluded from that shared chart.
+    z: float = 0.0
+    graded: bool = True
 
 
 class Strength(BaseModel):
@@ -114,6 +121,7 @@ class Strength(BaseModel):
     title: str
     evidence: list[Evidence]
     text: str = ""
+    z: float = 0.0
 
 
 class Profile(BaseModel):
