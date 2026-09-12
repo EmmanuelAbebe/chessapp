@@ -159,7 +159,11 @@ export function MoveList({
 
           {movePairs.map((pair) => (
             <div
-              key={pair.moveNumber}
+              // A pair always has at least one move, and node ids are
+              // unique per move-tree node - moveNumber alone isn't, since a
+              // black-only pair (e.g. after a takeback/variation) can share
+              // its number with another pair already in the line.
+              key={pair.white?.id ?? pair.black?.id}
               className="flex shrink-0 flex-row items-center"
             >
               <span className="text-text-faint">{pair.moveNumber}.</span>
