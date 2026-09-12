@@ -124,56 +124,64 @@ export function computeOpenings(
 }
 
 // --- Habits ---------------------------------------------------------------
+//
+// Castling split and check rate used to live here too, alongside notation-
+// only aggression/volatility/vigilance traits - all dropped in favour of
+// the player-behaviour model's engine-verified equivalents (castled_ply_
+// mean/never_castled_rate/castle_queenside_rate/check_rate), which cover
+// the same ground more reliably. Time pressure stays: it's a *frequency*
+// ("how often are you low on the clock"), distinct from the model's clock
+// sub-score, which measures whether accuracy actually suffers there.
+
+function parseClockSeconds(clock: string | undefined): number | null {
+  const match = clock?.match(/^(\d+):(\d+):(\d+)$/);
+  if (!match) return null;
+  const [, h, m, s] = match;
+  return Number(h) * 3600 + Number(m) * 60 + Number(s);
+}
+
+function baseSeconds(timeControl: string | undefined): number | null {
+  const match = timeControl?.match(/^(\d+)\+/);
+  return match ? Number(match[1]) : null;
+}
 
 export type Habits = {
   /** Average total half-moves per game. */
   avgLength: number;
-  /** Share of games the player castled kingside / queenside / not at all. */
-  castledKingside: number;
-  castledQueenside: number;
-  neverCastled: number;
   /** Share of games with a decisive (non-draw) result. */
   decisiveRate: number;
-  /** Share of the player's own moves that give check. */
-  checkRate: number;
+  /** Share of the player's own moves made with under 15% of their base
+   * time left - null when none of the games carry clock annotations. */
+  timePressureRate: number | null;
 };
 
 export function computeHabits(games: GameHistoryEntry[]): Habits | null {
   if (games.length === 0) return null;
 
   let totalPlies = 0;
-  let kingside = 0;
-  let queenside = 0;
   let decisive = 0;
-  let ownMoves = 0;
-  let checks = 0;
+  let clockedMoves = 0;
+  let lowClockMoves = 0;
 
   for (const game of games) {
     totalPlies += game.moves.length;
     if (game.result !== "draw") decisive += 1;
 
-    let castled: "k" | "q" | null = null;
+    const base = baseSeconds(game.timeControl);
+    if (!base) continue;
     for (const move of game.moves) {
-      if (move.side === game.playerSide) {
-        ownMoves += 1;
-        if (move.san.includes("+") || move.san.includes("#")) checks += 1;
-        if (!castled) {
-          if (move.san === "O-O") castled = "k";
-          else if (move.san === "O-O-O") castled = "q";
-        }
-      }
+      if (move.side !== game.playerSide) continue;
+      const remaining = parseClockSeconds(move.comment);
+      if (remaining === null) continue;
+      clockedMoves += 1;
+      if (remaining / base < 0.15) lowClockMoves += 1;
     }
-    if (castled === "k") kingside += 1;
-    else if (castled === "q") queenside += 1;
   }
 
   const n = games.length;
   return {
     avgLength: totalPlies / n,
-    castledKingside: (kingside / n) * 100,
-    castledQueenside: (queenside / n) * 100,
-    neverCastled: ((n - kingside - queenside) / n) * 100,
     decisiveRate: (decisive / n) * 100,
-    checkRate: ownMoves ? (checks / ownMoves) * 100 : 0,
+    timePressureRate: clockedMoves > 0 ? (lowClockMoves / clockedMoves) * 100 : null,
   };
 }

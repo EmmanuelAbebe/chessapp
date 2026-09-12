@@ -1,6 +1,6 @@
 "use client";
 
-import { usePlayerProfile } from "../usePlayerProfile";
+import type { AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
 import { AnalyzePanel } from "./AnalyzePanel";
 import { FocusAreaCards } from "./FocusAreaCards";
@@ -11,22 +11,28 @@ import { StyleAxes } from "./StyleAxes";
 
 /** The player-behaviour model, composed onto /dashboard/statistics above
  * the existing (notation-only) StatisticsSummary, which stays as "the
- * numbers." `initialProfile` comes from the server (features/playermodel/
- * data.ts); usePlayerProfile takes over from there for Analyze/Refresh. */
+ * numbers." Profile state is lifted to StatisticsPageClient (rather than
+ * owned here via usePlayerProfile directly) so StatisticsSummary's phase
+ * comparison chart can read the same `phase_accuracy` without a second,
+ * independent fetch. */
 export function PlayerModelSection({
-  initialProfile,
+  profile,
+  status,
+  error,
+  onAnalyze,
 }: {
-  initialProfile: PlayerProfileData | null;
+  profile: PlayerProfileData | null;
+  status: AnalyzeStatus;
+  error: string | null;
+  onAnalyze: (opts?: { force?: boolean; maxGames?: number }) => void;
 }) {
-  const { profile, status, error, analyze } = usePlayerProfile(initialProfile);
-
   return (
     <section className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-text">Your playing style</h2>
       </div>
 
-      <AnalyzePanel profile={profile} status={status} error={error} onAnalyze={analyze} />
+      <AnalyzePanel profile={profile} status={status} error={error} onAnalyze={onAnalyze} />
 
       {profile && (
         <>

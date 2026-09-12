@@ -17,13 +17,6 @@ export function HabitsRow({
   /** Total of the player's own moves in the current selection. */
   movesCount?: number;
 }) {
-  const castle =
-    habits.neverCastled >= 50
-      ? `${habits.neverCastled.toFixed(0)}% uncastled`
-      : habits.castledQueenside > habits.castledKingside
-        ? `${habits.castledQueenside.toFixed(0)}% queenside`
-        : `${habits.castledKingside.toFixed(0)}% kingside`;
-
   return (
     <div className="grid w-full grid-cols-2 gap-2">
       <Stat
@@ -34,11 +27,12 @@ export function HabitsRow({
         <Stat label="your moves" value={movesCount.toLocaleString()} />
       )}
       <Stat label="decisive" value={`${habits.decisiveRate.toFixed(0)}%`} />
-      <Stat label="castling" value={castle} />
-      <Stat
-        label="your moves give check"
-        value={`${habits.checkRate.toFixed(1)}%`}
-      />
+      {habits.timePressureRate !== null && (
+        <Stat
+          label="moves in time trouble"
+          value={`${habits.timePressureRate.toFixed(0)}%`}
+        />
+      )}
     </div>
   );
 }

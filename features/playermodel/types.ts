@@ -44,6 +44,11 @@ export type Cohort = {
   description?: string;
 };
 
+export type PhaseAccuracy = {
+  you: number;
+  peers: number;
+};
+
 export type Evidence = {
   feature: string;
   label?: string;
@@ -104,6 +109,7 @@ export type PlayerProfileData = {
   cohort: Cohort;
   focus_areas: FocusArea[];
   strengths: Strength[];
+  phase_accuracy: Partial<Record<"opening" | "middlegame" | "endgame", PhaseAccuracy>>;
   coach_context: string;
   caveats: string[];
 };

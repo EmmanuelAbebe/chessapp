@@ -10,16 +10,22 @@ import {
 } from "@/features/history/SidePlayedFilter";
 import { GamesList } from "@/features/history/GamesList";
 import { GameDataCard } from "@/features/history/GameDataCard";
-import { computePersonalityProfile } from "../lib/traits";
+import type { PlayerProfileData } from "@/features/playermodel/types";
+import { computePhaseMix, totalPlayerMoves } from "../lib/traits";
 import { computeRecord, computeOpenings, computeHabits } from "../lib/summary";
-import { TraitRadarChart } from "./TraitRadarChart";
-import { PhaseMixBars } from "./PhaseMixBars";
-import { ArchetypeHeadline } from "./ArchetypeHeadline";
+import { PhaseComparisonChart } from "./PhaseComparisonChart";
 import { RecordSummary } from "./RecordSummary";
 import { OpeningsBreakdown } from "./OpeningsBreakdown";
 import { HabitsRow } from "./HabitsRow";
 
-export default function StatisticsSummary() {
+export default function StatisticsSummary({
+  phaseAccuracy,
+}: {
+  /** From the player-behaviour model above (StatisticsPageClient), so the
+   * phase chart can pair move-share with real accuracy without a second
+   * fetch. Undefined until that model has been analyzed at least once. */
+  phaseAccuracy?: PlayerProfileData["phase_accuracy"];
+}) {
   const { games } = useGameHistory();
   const [side, setSide] = useState<SideFilter>("all");
 
@@ -28,16 +34,14 @@ export default function StatisticsSummary() {
     () => filterGamesBySide(games, side),
     [games, side],
   );
-  const profile = useMemo(
-    () => computePersonalityProfile(filteredGames),
-    [filteredGames],
-  );
   const record = useMemo(() => computeRecord(games), [games]);
   const openings = useMemo(
     () => computeOpenings(filteredGames),
     [filteredGames],
   );
   const habits = useMemo(() => computeHabits(filteredGames), [filteredGames]);
+  const phaseMix = useMemo(() => computePhaseMix(filteredGames), [filteredGames]);
+  const movesCount = useMemo(() => totalPlayerMoves(filteredGames), [filteredGames]);
 
   if (counts.all === 0) {
     return (
@@ -64,7 +68,7 @@ export default function StatisticsSummary() {
         </p>
       </div>
 
-      {profile.gamesCount === 0 ? (
+      {filteredGames.length === 0 ? (
         <>
           <RecordSummary record={record} />
           <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
@@ -73,38 +77,20 @@ export default function StatisticsSummary() {
         </>
       ) : (
         <>
-          <ArchetypeHeadline archetype={profile.archetype} />
-
-          {/* Chart on the left; the record and the plain numbers on the
-              right (stacks on narrow screens). */}
           <div className="grid gap-6 md:grid-cols-2 md:items-start">
-            <div className="mx-auto w-full max-w-xs">
-              <TraitRadarChart traits={profile.radarTraits} />
-            </div>
-
             <div className="flex flex-col gap-4">
               <RecordSummary record={record} />
-
-              {habits && (
-                <HabitsRow habits={habits} movesCount={profile.movesCount} />
-              )}
-
-              {profile.phaseMix && (
-                <div>
-                  <h3 className="mb-2 text-xs font-semibold tracking-wide text-text-faint uppercase">
-                    Phase mix
-                  </h3>
-                  <PhaseMixBars mix={profile.phaseMix} />
-                </div>
-              )}
+              {habits && <HabitsRow habits={habits} movesCount={movesCount} />}
             </div>
+
+            {phaseMix && (
+              <PhaseComparisonChart mix={phaseMix} accuracy={phaseAccuracy} />
+            )}
           </div>
 
           <OpeningsBreakdown breakdown={openings} side={side} />
         </>
       )}
-
-      <GamesList games={filteredGames} />
 
       <details className="rounded-lg border border-border-soft bg-surface">
         <summary className="cursor-pointer px-4 py-3 text-xs font-semibold tracking-wide text-text-faint uppercase">
@@ -114,6 +100,8 @@ export default function StatisticsSummary() {
           <GameDataCard />
         </div>
       </details>
+
+      <GamesList games={filteredGames} />
     </section>
   );
 }

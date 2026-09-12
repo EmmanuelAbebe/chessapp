@@ -63,6 +63,17 @@ class Cohort(BaseModel):
     description: str = ""
 
 
+class PhaseAccuracy(BaseModel):
+    """Win-probability loss (lower is better) in one game phase, you vs. the
+    median of same-skill peers - unconditional (unlike Evidence, which only
+    appears when a feature happens to qualify as a focus area/strength), so
+    the dashboard can always pair this against its own phase move-share
+    chart even when neither phase cleared either threshold."""
+
+    you: float
+    peers: float
+
+
 class Evidence(BaseModel):
     feature: str
     label: str = ""
@@ -114,5 +125,6 @@ class Profile(BaseModel):
     cohort: Cohort
     focus_areas: list[FocusArea]
     strengths: list[Strength]
+    phase_accuracy: dict[str, PhaseAccuracy] = {}
     coach_context: str
     caveats: list[str] = []

@@ -31,8 +31,8 @@ from pipeline.common.project import Artifacts
 from service.labels import label_for
 from service import engine as enginemod
 from service.schemas import (
-    Coaching, Cohort, Evidence, ExamplePosition, FocusArea, Profile, SignatureItem,
-    Skill, Source, Strength, Style, StyleAxis, SubScore,
+    Coaching, Cohort, Evidence, ExamplePosition, FocusArea, PhaseAccuracy, Profile,
+    SignatureItem, Skill, Source, Strength, Style, StyleAxis, SubScore,
 )
 
 _VALID_RESULTS = {"1-0", "0-1", "1/2-1/2"}
@@ -397,6 +397,24 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
         for i in range(min(4, len(pca_vec)))
     ]
 
+    # phase accuracy — you vs. same-skill peers' median wp_loss (lower is
+    # better) in each phase. Unconditional, unlike strengths/focus_areas/
+    # signature: the dashboard pairs this against its own notation-only
+    # phase move-share chart, so it needs a value for every phase that has
+    # peer data, not just the ones that happen to clear a deviation bar.
+    phase_accuracy: dict[str, PhaseAccuracy] = {}
+    if peers.height >= 20:
+        for phase, key in (
+            ("opening", "wp_loss_opening"),
+            ("middlegame", "wp_loss_middlegame"),
+            ("endgame", "wp_loss_endgame"),
+        ):
+            vals = peers[key].drop_nulls().to_numpy().astype(float)
+            if len(vals) >= 10:
+                phase_accuracy[phase] = PhaseAccuracy(
+                    you=round(feat[key], 2), peers=round(float(np.median(vals)), 2)
+                )
+
     dates = [g["utc_date"] for g in games_meta if g["utc_date"]]
     eval_sources = set(sources)
     caveats = [f"Based on {len(games_meta)} {time_class} games."]
@@ -431,6 +449,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
         ),
         focus_areas=focus_areas,
         strengths=strengths,
+        phase_accuracy=phase_accuracy,
         coach_context=coach_context,
         caveats=caveats,
     )
