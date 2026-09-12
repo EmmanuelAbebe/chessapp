@@ -1,11 +1,17 @@
 import type { GameHistoryEntry } from "@/features/history/types";
 import { openingFamilyOf } from "@/features/history/gameFacets";
 
-// Plain counting stats - a record, opening breakdown, and a few habits -
-// to sit alongside the interpretive personality traits. All notation-only
-// (no engine), same as traits.ts.
-
-// --- Record ------------------------------------------------------------------
+// Plain counting stats - a win/loss tally and an opening breakdown - to sit
+// alongside the player-behaviour model above. Notation-only (no engine),
+// same as traits.ts.
+//
+// A per-side record breakdown (overall/White/Black, each its own W/D/L bar)
+// used to live here, replaced by WinRateTimeline's rolling trend - the
+// side split is still available (it's what the page's own side filter
+// already narrows `games` to before calling computeTally), it's just one
+// number/line now instead of three parallel bars. Habits (game length,
+// decisive rate, time-in-trouble) were dropped outright - not redundant
+// with anything, just not meaningfully informative on their own.
 
 export type WinLossRecord = {
   games: number;
@@ -16,7 +22,7 @@ export type WinLossRecord = {
   score: number;
 };
 
-function tally(games: GameHistoryEntry[]): WinLossRecord {
+export function computeTally(games: GameHistoryEntry[]): WinLossRecord {
   let wins = 0;
   let draws = 0;
   let losses = 0;
@@ -32,20 +38,6 @@ function tally(games: GameHistoryEntry[]): WinLossRecord {
     draws,
     losses,
     score: games_ ? ((wins + draws * 0.5) / games_) * 100 : 0,
-  };
-}
-
-export type RecordSummary = {
-  overall: WinLossRecord;
-  asWhite: WinLossRecord;
-  asBlack: WinLossRecord;
-};
-
-export function computeRecord(games: GameHistoryEntry[]): RecordSummary {
-  return {
-    overall: tally(games),
-    asWhite: tally(games.filter((g) => g.playerSide === "w")),
-    asBlack: tally(games.filter((g) => g.playerSide === "b")),
   };
 }
 
@@ -88,7 +80,7 @@ export function computeOpenings(
 
   const all: OpeningLine[] = [];
   for (const [name, gs] of groups) {
-    const r = tally(gs);
+    const r = computeTally(gs);
     all.push({
       label: name,
       games: r.games,
@@ -121,67 +113,4 @@ export function computeOpenings(
       : null;
 
   return { lines, other, total };
-}
-
-// --- Habits ---------------------------------------------------------------
-//
-// Castling split and check rate used to live here too, alongside notation-
-// only aggression/volatility/vigilance traits - all dropped in favour of
-// the player-behaviour model's engine-verified equivalents (castled_ply_
-// mean/never_castled_rate/castle_queenside_rate/check_rate), which cover
-// the same ground more reliably. Time pressure stays: it's a *frequency*
-// ("how often are you low on the clock"), distinct from the model's clock
-// sub-score, which measures whether accuracy actually suffers there.
-
-function parseClockSeconds(clock: string | undefined): number | null {
-  const match = clock?.match(/^(\d+):(\d+):(\d+)$/);
-  if (!match) return null;
-  const [, h, m, s] = match;
-  return Number(h) * 3600 + Number(m) * 60 + Number(s);
-}
-
-function baseSeconds(timeControl: string | undefined): number | null {
-  const match = timeControl?.match(/^(\d+)\+/);
-  return match ? Number(match[1]) : null;
-}
-
-export type Habits = {
-  /** Average total half-moves per game. */
-  avgLength: number;
-  /** Share of games with a decisive (non-draw) result. */
-  decisiveRate: number;
-  /** Share of the player's own moves made with under 15% of their base
-   * time left - null when none of the games carry clock annotations. */
-  timePressureRate: number | null;
-};
-
-export function computeHabits(games: GameHistoryEntry[]): Habits | null {
-  if (games.length === 0) return null;
-
-  let totalPlies = 0;
-  let decisive = 0;
-  let clockedMoves = 0;
-  let lowClockMoves = 0;
-
-  for (const game of games) {
-    totalPlies += game.moves.length;
-    if (game.result !== "draw") decisive += 1;
-
-    const base = baseSeconds(game.timeControl);
-    if (!base) continue;
-    for (const move of game.moves) {
-      if (move.side !== game.playerSide) continue;
-      const remaining = parseClockSeconds(move.comment);
-      if (remaining === null) continue;
-      clockedMoves += 1;
-      if (remaining / base < 0.15) lowClockMoves += 1;
-    }
-  }
-
-  const n = games.length;
-  return {
-    avgLength: totalPlies / n,
-    decisiveRate: (decisive / n) * 100,
-    timePressureRate: clockedMoves > 0 ? (lowClockMoves / clockedMoves) * 100 : null,
-  };
 }

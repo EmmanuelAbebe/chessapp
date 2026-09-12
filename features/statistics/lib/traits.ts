@@ -1,6 +1,5 @@
 import { detectGamePhase, type GamePhase } from "@/features/board/lib/move-analysis";
 import type { GameHistoryEntry } from "@/features/history/types";
-import type { ParsedMove } from "@/features/board/lib/pgn-import";
 
 // Style/personality traits (aggression, volatility, vigilance, repertoire
 // breadth) and the archetype headline built from them used to live here,
@@ -12,19 +11,11 @@ import type { ParsedMove } from "@/features/board/lib/pgn-import";
 // no engine equivalent (the model has per-phase *accuracy*, not how much
 // of a game is spent in each phase).
 
-function playerMoves(game: GameHistoryEntry): ParsedMove[] {
-  return game.moves.filter((move) => move.side === game.playerSide);
-}
-
-export function totalPlayerMoves(games: GameHistoryEntry[]): number {
-  return games.reduce((sum, game) => sum + playerMoves(game).length, 0);
-}
-
 export type PhaseMix = Record<GamePhase, number>;
 
 /** Share of the player's own moves falling in each game phase - a mix, not
  * a strength-by-phase breakdown. Pairs with the player-behaviour model's
- * per-phase accuracy (PhaseComparisonChart) when that's available. */
+ * per-phase accuracy (PhaseQuadrantChart) when that's available. */
 export function computePhaseMix(games: GameHistoryEntry[]): PhaseMix | null {
   const counts: PhaseMix = { opening: 0, middlegame: 0, endgame: 0 };
   let total = 0;

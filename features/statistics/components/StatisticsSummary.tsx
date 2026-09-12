@@ -11,12 +11,11 @@ import {
 import { GamesList } from "@/features/history/GamesList";
 import { GameDataCard } from "@/features/history/GameDataCard";
 import type { PlayerProfileData } from "@/features/playermodel/types";
-import { computePhaseMix, totalPlayerMoves } from "../lib/traits";
-import { computeRecord, computeOpenings, computeHabits } from "../lib/summary";
-import { PhaseComparisonChart } from "./PhaseComparisonChart";
-import { RecordSummary } from "./RecordSummary";
+import { computePhaseMix } from "../lib/traits";
+import { computeOpenings } from "../lib/summary";
+import { PhaseQuadrantChart } from "./PhaseQuadrantChart";
 import { OpeningsBreakdown } from "./OpeningsBreakdown";
-import { HabitsRow } from "./HabitsRow";
+import { WinRateTimeline } from "./WinRateTimeline";
 
 export default function StatisticsSummary({
   phaseAccuracy,
@@ -34,14 +33,11 @@ export default function StatisticsSummary({
     () => filterGamesBySide(games, side),
     [games, side],
   );
-  const record = useMemo(() => computeRecord(games), [games]);
   const openings = useMemo(
     () => computeOpenings(filteredGames),
     [filteredGames],
   );
-  const habits = useMemo(() => computeHabits(filteredGames), [filteredGames]);
   const phaseMix = useMemo(() => computePhaseMix(filteredGames), [filteredGames]);
-  const movesCount = useMemo(() => totalPlayerMoves(filteredGames), [filteredGames]);
 
   if (counts.all === 0) {
     return (
@@ -69,26 +65,21 @@ export default function StatisticsSummary({
       </div>
 
       {filteredGames.length === 0 ? (
-        <>
-          <RecordSummary record={record} />
-          <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
-            No games recorded {side === "w" ? "as White" : "as Black"} yet.
-          </p>
-        </>
+        <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
+          No games recorded {side === "w" ? "as White" : "as Black"} yet.
+        </p>
       ) : (
         <>
-          <div className="grid gap-6 md:grid-cols-2 md:items-start">
-            <div className="flex flex-col gap-4">
-              <RecordSummary record={record} />
-              {habits && <HabitsRow habits={habits} movesCount={movesCount} />}
-            </div>
-
-            {phaseMix && (
-              <PhaseComparisonChart mix={phaseMix} accuracy={phaseAccuracy} />
-            )}
+          <div className="rounded-lg border border-border-soft bg-surface p-4">
+            <WinRateTimeline games={filteredGames} />
           </div>
 
-          <OpeningsBreakdown breakdown={openings} side={side} />
+          <div className="grid gap-6 md:grid-cols-2 md:items-start">
+            {phaseMix && (
+              <PhaseQuadrantChart mix={phaseMix} accuracy={phaseAccuracy} />
+            )}
+            <OpeningsBreakdown breakdown={openings} side={side} />
+          </div>
         </>
       )}
 

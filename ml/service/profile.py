@@ -22,7 +22,7 @@ from sklearn.linear_model import LinearRegression
 
 from pipeline.common import pgn as pgnmod
 from pipeline.common.featuremodels import score as score_features
-from pipeline.common.features import LOWER_IS_BETTER, MODELLED, TRAITS
+from pipeline.common.features import LOWER_IS_BETTER, MODELLED, SKILL_SUBSCORES, TRAITS
 from pipeline.common.filters import parse_time_control, speed_bucket
 from pipeline.common.gameagg import enrich_plies, game_level_agg, moves_agg
 from pipeline.common.movefeatures import FEATURE_SCHEMA, apply_book_tags, features_for_game
@@ -328,6 +328,19 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
 
     confidence = min(1.0, len(games_meta) / 50.0)
 
+    # sub-score percentile within your rating band (not style-filtered —
+    # a plain "how does this sub-score compare to players near your Elo"
+    # read, independent of the style-neighbourhood cohort used elsewhere).
+    band_pop = art.reference.filter(
+        (pl.col("player_elo") - feat["player_elo"]).abs() <= cfg["cohort"]["peer_band_glicko"]
+    )
+    sub_pct: dict[str, float] = {}
+    if band_pop.height >= 10:
+        for name in SKILL_SUBSCORES:
+            vals = band_pop[f"skill_{name}"].drop_nulls().to_numpy().astype(float)
+            if len(vals) >= 10:
+                sub_pct[name] = round(float((vals < skill[name]).mean() * 100), 1)
+
     # focus areas — improvement leverage vs stronger style-neighbours
     positive = sorted(
         (d for d in deviations if d["leverage"] > 2.0 and abs(d["gap"]) >= 1.0),
@@ -439,7 +452,10 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
         ),
         skill=Skill(
             overall=round(skill["overall"], 0), confidence=round(confidence, 2),
-            sub={k: SubScore(score=round(v, 0)) for k, v in skill.items() if k != "overall"},
+            sub={
+                k: SubScore(score=round(v, 0), pct_in_band=sub_pct.get(k))
+                for k, v in skill.items() if k != "overall"
+            },
         ),
         style=Style(vector=[round(float(v), 3) for v in pca_vec], umap_xy=xy, axes=axes, signature=signature),
         cohort=Cohort(

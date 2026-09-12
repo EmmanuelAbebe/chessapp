@@ -1,11 +1,6 @@
 import type { PlayerProfileData } from "../types";
-
-const SUB_LABELS: Record<string, string> = {
-  tactical: "Tactical",
-  positional: "Positional",
-  endgame: "Endgame",
-  clock: "Time management",
-};
+import { SkillRadar } from "./SkillRadar";
+import { ConfidenceGauge } from "./ConfidenceGauge";
 
 export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
   const { skill, cohort, source } = profile;
@@ -28,34 +23,14 @@ export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
         </p>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2">
-        {Object.entries(skill.sub).map(([key, sub]) => (
-          <div key={key} className="flex items-center gap-3">
-            <span className="w-32 shrink-0 text-xs text-text-dim">
-              {SUB_LABELS[key] ?? key}
-            </span>
-            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-raised">
-              <span
-                className="block h-full rounded-full bg-accent/70"
-                style={{ width: `${Math.max(4, Math.min(100, ((sub.score - 600) / 1800) * 100))}%` }}
-              />
-            </span>
-            <span className="w-10 shrink-0 text-right font-mono text-xs text-text-faint">
-              {Math.round(sub.score)}
-            </span>
-          </div>
-        ))}
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-4">
+        <SkillRadar sub={skill.sub} />
+        <ConfidenceGauge confidence={skill.confidence} gamesAnalyzed={source.games_analyzed} />
       </div>
 
-      <p className="mt-4 text-xs text-text-faint">
-        Based on {source.games_analyzed} {source.time_class} games
-        {source.date_range ? ` (${source.date_range[0]} – ${source.date_range[1]})` : ""} ·
-        <span
-          title="How many games this estimate rests on: 50+ games is treated as fully confident, and confidence scales down linearly below that. It's not a measure of how accurate the number is, just how much data went into it."
-        >
-          {" "}
-          confidence {Math.round(skill.confidence * 100)}%
-        </span>
+      <p className="mt-3 text-xs text-text-faint">
+        {source.games_analyzed} {source.time_class} games
+        {source.date_range ? ` · ${source.date_range[0]} – ${source.date_range[1]}` : ""}
       </p>
     </div>
   );
