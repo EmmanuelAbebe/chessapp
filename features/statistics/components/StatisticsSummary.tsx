@@ -19,11 +19,16 @@ import { WinRateTimeline } from "./WinRateTimeline";
 
 export default function StatisticsSummary({
   phaseAccuracy,
+  perGame,
 }: {
   /** From the player-behaviour model above (StatisticsPageClient), so the
    * phase chart can pair move-share with real accuracy without a second
    * fetch. Undefined until that model has been analyzed at least once. */
   phaseAccuracy?: PlayerProfileData["phase_accuracy"];
+  /** Real per-game move-quality from the last analysis, so the win-rate
+   * timeline can explain a bucket with actual accuracy/blunder numbers
+   * instead of just the game list. */
+  perGame?: PlayerProfileData["per_game"];
 }) {
   const { games } = useGameHistory();
   const [side, setSide] = useState<SideFilter>("all");
@@ -71,7 +76,7 @@ export default function StatisticsSummary({
       ) : (
         <>
           <div className="rounded-lg border border-border-soft bg-surface p-5">
-            <WinRateTimeline games={filteredGames} />
+            <WinRateTimeline games={filteredGames} perGame={perGame} />
           </div>
 
           {phaseMix && (

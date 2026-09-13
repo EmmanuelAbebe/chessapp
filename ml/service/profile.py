@@ -31,8 +31,8 @@ from pipeline.common.project import Artifacts
 from service.labels import label_for
 from service import engine as enginemod
 from service.schemas import (
-    Coaching, Cohort, Evidence, ExamplePosition, FocusArea, PhaseAccuracy, Profile,
-    SignatureItem, Skill, Source, Strength, Style, StyleAxis, SubScore,
+    Coaching, Cohort, Evidence, ExamplePosition, FocusArea, PerGameStats, PhaseAccuracy,
+    Profile, SignatureItem, Skill, Source, Strength, Style, StyleAxis, SubScore,
 )
 
 _VALID_RESULTS = {"1-0", "0-1", "1/2-1/2"}
@@ -145,9 +145,13 @@ def _move_features(games_meta: list[dict], all_moves: list[list[dict]], book_max
     return pl.DataFrame(rows, schema=FEATURE_SCHEMA) if rows else None
 
 
-def _aggregate_me(mf_df: pl.DataFrame, games_meta: list[dict]) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """Returns (my_vector_1_row, my_moves_df) — the second is kept for
-    picking example positions later."""
+def _aggregate_me(
+    mf_df: pl.DataFrame, games_meta: list[dict]
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Returns (my_vector_1_row, my_moves_df, my_per_game_df) — the second
+    is kept for picking example positions later, the third for exposing
+    real per-game move-quality (PerGameStats) instead of only the
+    player-level aggregate."""
     games_df = pl.DataFrame(games_meta)
     tc = [parse_time_control(t) or (0, 0) for t in games_df["time_control"]]
     games_df = games_df.with_columns(tc_base=pl.Series([b for b, _ in tc], dtype=pl.Int32))
@@ -179,7 +183,7 @@ def _aggregate_me(mf_df: pl.DataFrame, games_meta: list[dict]) -> tuple[pl.DataF
         player_hash=pl.lit("me"),
     ).drop("castle_san")
 
-    return aggregate_players(ga, ["player_hash"]), mine
+    return aggregate_players(ga, ["player_hash"]), mine, ga
 
 
 def _fill_nulls(vec: pl.DataFrame, spec: dict) -> dict[str, float]:
@@ -318,8 +322,24 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
             wp_loss_model=pl.col("wp_loss"),
         )
 
-    vec, mine = _aggregate_me(mf_df, games_meta)
+    vec, mine, ga = _aggregate_me(mf_df, games_meta)
     feat = _fill_nulls(vec, art.spec)
+
+    per_game_stats = [
+        PerGameStats(
+            game_id=row["game_id"],
+            date=row["utc_date"],
+            result=row["result_for_player"],
+            mean_wp_loss=round(row["mean_wp_loss"], 2),
+            blunder_rate=round(row["blunder_rate"], 3),
+            mistake_rate=round(row["mistake_rate"], 3),
+            wp_loss_opening=round(row["wp_loss_opening"], 2) if row["wp_loss_opening"] is not None else None,
+            wp_loss_middlegame=round(row["wp_loss_middlegame"], 2) if row["wp_loss_middlegame"] is not None else None,
+            wp_loss_endgame=round(row["wp_loss_endgame"], 2) if row["wp_loss_endgame"] is not None else None,
+        )
+        for row in ga.iter_rows(named=True)
+        if row["mean_wp_loss"] is not None and row["blunder_rate"] is not None
+    ]
 
     skill = art.skill(feat)
     pca_vec = art.style_pca(feat, skill["overall"])
@@ -480,6 +500,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
         focus_areas=focus_areas,
         strengths=strengths,
         phase_accuracy=phase_accuracy,
+        per_game=per_game_stats,
         coach_context=coach_context,
         caveats=caveats,
     )

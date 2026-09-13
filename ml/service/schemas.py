@@ -124,6 +124,26 @@ class Strength(BaseModel):
     z: float = 0.0
 
 
+class PerGameStats(BaseModel):
+    """Real move-quality features for one analyzed game - the same
+    per-game row moves_agg/game_level_agg already compute on the way to
+    the player-level aggregate, just not discarded this time. `game_id`
+    is the Lichess game id (from the PGN's Site header), so a client can
+    match it against a GameHistoryEntry's meta.gameUrl to explain a
+    specific win-rate stretch with real accuracy numbers, not just the
+    game list."""
+
+    game_id: str
+    date: str | None = None
+    result: str  # "win" | "loss" | "draw", from this player's side
+    mean_wp_loss: float
+    blunder_rate: float
+    mistake_rate: float
+    wp_loss_opening: float | None = None
+    wp_loss_middlegame: float | None = None
+    wp_loss_endgame: float | None = None
+
+
 class Profile(BaseModel):
     schema_version: int = 1
     computed_at: str
@@ -134,5 +154,6 @@ class Profile(BaseModel):
     focus_areas: list[FocusArea]
     strengths: list[Strength]
     phase_accuracy: dict[str, PhaseAccuracy] = {}
+    per_game: list[PerGameStats] = []
     coach_context: str
     caveats: list[str] = []

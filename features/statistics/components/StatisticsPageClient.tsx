@@ -34,7 +34,7 @@ export function StatisticsPageClient({
           Plain counts from your recorded games - no engine, no comparison group. Read
           alongside &quot;Your playing style&quot; above for what these numbers actually mean.
         </p>
-        <StatisticsSummary phaseAccuracy={profile?.phase_accuracy} />
+        <StatisticsSummary phaseAccuracy={profile?.phase_accuracy} perGame={profile?.per_game} />
       </div>
     </div>
   );

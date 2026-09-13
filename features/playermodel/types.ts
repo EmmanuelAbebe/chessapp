@@ -101,6 +101,18 @@ export type Strength = {
   z: number;
 };
 
+export type PerGameStats = {
+  game_id: string;
+  date?: string | null;
+  result: "win" | "loss" | "draw";
+  mean_wp_loss: number;
+  blunder_rate: number;
+  mistake_rate: number;
+  wp_loss_opening?: number | null;
+  wp_loss_middlegame?: number | null;
+  wp_loss_endgame?: number | null;
+};
+
 export type Source = {
   provider: string;
   username: string;
@@ -120,6 +132,7 @@ export type PlayerProfileData = {
   focus_areas: FocusArea[];
   strengths: Strength[];
   phase_accuracy: Partial<Record<"opening" | "middlegame" | "endgame", PhaseAccuracy>>;
+  per_game: PerGameStats[];
   coach_context: string;
   caveats: string[];
 };

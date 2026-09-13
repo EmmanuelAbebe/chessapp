@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { GameHistoryEntry } from "@/features/history/types";
 import { stashExploreGame } from "@/features/history/exploreGame";
 import { openingFamilyOf } from "@/features/history/gameFacets";
+import type { PerGameStats } from "@/features/playermodel/types";
 
 const WINDOW = 20;
 const W = 640;
@@ -86,6 +87,72 @@ function formatDay(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/** The Lichess game id from a GameHistoryEntry's stored URL - the same id
+ * PerGameStats.game_id carries (both come from the PGN's Site header),
+ * so this is the join key between "games in this bucket" and "real
+ * move-quality for this bucket," despite the two coming from separate
+ * fetches (GameRecord vs. the last /profile analysis). */
+function lichessIdFromUrl(url: string | undefined): string | null {
+  if (!url) return null;
+  const m = url.match(/lichess\.org\/([a-zA-Z0-9]{8})/);
+  return m ? m[1] : null;
+}
+
+function average(vals: (number | null | undefined)[]): number | null {
+  const nums = vals.filter((v): v is number => typeof v === "number");
+  return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+}
+
+type QualitySummary = {
+  meanWpLoss: number | null;
+  blunderRate: number | null;
+  mistakeRate: number | null;
+  matched: number;
+  total: number;
+};
+
+function summarizeQuality(games: GameHistoryEntry[], perGameById: Map<string, PerGameStats>): QualitySummary {
+  const matched = games
+    .map((g) => perGameById.get(lichessIdFromUrl(g.meta?.gameUrl) ?? ""))
+    .filter((p): p is PerGameStats => p !== undefined);
+  return {
+    meanWpLoss: average(matched.map((p) => p.mean_wp_loss)),
+    blunderRate: average(matched.map((p) => p.blunder_rate)),
+    mistakeRate: average(matched.map((p) => p.mistake_rate)),
+    matched: matched.length,
+    total: games.length,
+  };
+}
+
+function QualityRow({
+  label,
+  bucketValue,
+  overallValue,
+  unit = "%",
+  scale = 1,
+}: {
+  label: string;
+  bucketValue: number | null;
+  overallValue: number | null;
+  unit?: string;
+  scale?: number;
+}) {
+  if (bucketValue === null || overallValue === null) return null;
+  const diffPct = overallValue === 0 ? 0 : ((bucketValue - overallValue) / overallValue) * 100;
+  const better = bucketValue < overallValue; // both metrics here are "lower is better"
+  const color = Math.abs(diffPct) < 5 ? "var(--text-dim)" : better ? "var(--good)" : "var(--bad)";
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-text-faint">{label}</span>
+      <span className="font-mono" style={{ color }}>
+        {(bucketValue * scale).toFixed(1)}
+        {unit} (overall {(overallValue * scale).toFixed(1)}
+        {unit}) {Math.abs(diffPct) < 5 ? "· about the same" : better ? "· better" : "· worse"}
+      </span>
+    </div>
+  );
+}
+
 function dominantOpening(games: GameHistoryEntry[]): string {
   const counts = new Map<string, number>();
   for (const g of games) {
@@ -108,13 +175,26 @@ const RESULT_COLOR: Record<GameHistoryEntry["result"], string> = {
   win: "text-good", draw: "text-text-dim", loss: "text-bad",
 };
 
-function BucketDetail({ bucket, onOpenGame }: { bucket: Bucket; onOpenGame: (g: GameHistoryEntry) => void }) {
+function BucketDetail({
+  bucket,
+  onOpenGame,
+  perGameById,
+  overall,
+}: {
+  bucket: Bucket;
+  onOpenGame: (g: GameHistoryEntry) => void;
+  perGameById: Map<string, PerGameStats>;
+  overall: QualitySummary;
+}) {
   const first = bucket.games[0];
   const last = bucket.games[bucket.games.length - 1];
   const dateRange =
     first.playedAt === last.playedAt || formatDay(first.playedAt) === formatDay(last.playedAt)
       ? formatDay(first.playedAt)
       : `${formatDay(first.playedAt)} – ${formatDay(last.playedAt)}`;
+
+  const quality = summarizeQuality(bucket.games, perGameById);
+  const hasQuality = quality.matched >= Math.max(2, Math.ceil(quality.total / 2));
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border-soft bg-surface p-4">
@@ -127,28 +207,72 @@ function BucketDetail({ bucket, onOpenGame }: { bucket: Bucket; onOpenGame: (g: 
         </span>
       </div>
       <p className="text-xs text-text-faint">{dominantOpening(bucket.games)}</p>
+
+      {hasQuality ? (
+        <div className="flex flex-col gap-1 rounded-md bg-surface-raised/60 p-2.5">
+          <span className="mb-0.5 text-[10px] font-semibold tracking-wide text-text-faint uppercase">
+            Real move quality this stretch, vs. your overall average
+          </span>
+          <QualityRow label="Move accuracy loss" bucketValue={quality.meanWpLoss} overallValue={overall.meanWpLoss} />
+          <QualityRow
+            label="Blunder rate"
+            bucketValue={quality.blunderRate}
+            overallValue={overall.blunderRate}
+            scale={100}
+          />
+          <QualityRow
+            label="Mistake rate"
+            bucketValue={quality.mistakeRate}
+            overallValue={overall.mistakeRate}
+            scale={100}
+          />
+        </div>
+      ) : (
+        <p className="text-[11px] text-text-faint">
+          Not enough of these games matched your last analysis to compare real move quality —
+          try Analyze/Refresh above with a games count that covers this stretch.
+        </p>
+      )}
+
       <div className="flex flex-col divide-y divide-border-soft">
-        {bucket.games.map((g) => (
-          <div key={g.id} className="flex items-center justify-between gap-3 py-1.5 text-xs">
-            <span className="text-text-faint">{formatDay(g.playedAt)}</span>
-            <span className={`font-medium ${RESULT_COLOR[g.result]}`}>{RESULT_LABEL[g.result]}</span>
-            <span className="min-w-0 flex-1 truncate text-text-dim">{openingFamilyOf(g)}</span>
-            <span className="shrink-0 text-text-faint">{g.opponentName ?? "—"}</span>
-            <button
-              type="button"
-              onClick={() => onOpenGame(g)}
-              className="shrink-0 rounded-md border border-border px-2 py-0.5 text-text-dim transition hover:border-accent hover:text-text"
-            >
-              View
-            </button>
-          </div>
-        ))}
+        {bucket.games.map((g) => {
+          const pg = perGameById.get(lichessIdFromUrl(g.meta?.gameUrl) ?? "");
+          return (
+            <div key={g.id} className="flex items-center justify-between gap-3 py-1.5 text-xs">
+              <span className="text-text-faint">{formatDay(g.playedAt)}</span>
+              <span className={`font-medium ${RESULT_COLOR[g.result]}`}>{RESULT_LABEL[g.result]}</span>
+              <span className="min-w-0 flex-1 truncate text-text-dim">{openingFamilyOf(g)}</span>
+              {pg && (
+                <span className="shrink-0 font-mono text-text-faint" title="Move accuracy loss (lower is better)">
+                  −{pg.mean_wp_loss.toFixed(1)}%
+                </span>
+              )}
+              <span className="shrink-0 text-text-faint">{g.opponentName ?? "—"}</span>
+              <button
+                type="button"
+                onClick={() => onOpenGame(g)}
+                className="shrink-0 rounded-md border border-border px-2 py-0.5 text-text-dim transition hover:border-accent hover:text-text"
+              >
+                View
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
+export function WinRateTimeline({
+  games,
+  perGame,
+}: {
+  games: GameHistoryEntry[];
+  /** Real per-game move-quality from the last analysis (undefined until
+   * the model has been run at least once) - lets a clicked bucket show
+   * actual accuracy/blunder numbers instead of only the game list. */
+  perGame?: PerGameStats[];
+}) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("game");
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -158,6 +282,17 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
   const sorted = useMemo(() => [...games].sort((a, b) => a.playedAt - b.playedAt), [games]);
   const points = useMemo(() => rollingWinRate(sorted), [sorted]);
   const buckets = useMemo(() => computeBuckets(sorted), [sorted]);
+  const perGameById = useMemo(() => new Map((perGame ?? []).map((p) => [p.game_id, p])), [perGame]);
+  const overallQuality = useMemo(
+    () => ({
+      meanWpLoss: average((perGame ?? []).map((p) => p.mean_wp_loss)),
+      blunderRate: average((perGame ?? []).map((p) => p.blunder_rate)),
+      mistakeRate: average((perGame ?? []).map((p) => p.mistake_rate)),
+      matched: perGame?.length ?? 0,
+      total: perGame?.length ?? 0,
+    }),
+    [perGame],
+  );
 
   if (points.length < 3) {
     return (
@@ -368,13 +503,18 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
       </div>
 
       {selectedBucket !== null && buckets[selectedBucket] && (
-        <BucketDetail bucket={buckets[selectedBucket]} onOpenGame={openGame} />
+        <BucketDetail
+          bucket={buckets[selectedBucket]}
+          onOpenGame={openGame}
+          perGameById={perGameById}
+          overall={overallQuality}
+        />
       )}
 
       <p className="text-[11px] text-text-faint">
         Line: rolling win rate over your last {WINDOW} games (win 1, draw ½) — hover to
         inspect a point. Bars: each stretch&apos;s own record (green ≥ 50%, red &lt; 50%) —
-        click one to see exactly which games and openings drove it;{" "}
+        click one for the games, openings, and (once analyzed) real move accuracy behind it;{" "}
         {mode === "game"
           ? "spaced by game count."
           : "spaced by when you actually played, so breaks show as gaps."}
