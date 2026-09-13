@@ -7,11 +7,20 @@ const PHASES: { key: keyof PhaseMix; label: string }[] = [
   { key: "endgame", label: "Endgame" },
 ];
 
-/** Move share (how much of a game you spend in each phase) paired with
- * accuracy gap vs. players at your level in that same phase - two bars per
- * row sharing a zero-centred scale for the gap, so "biggest share" and
- * "biggest weakness" read as two separate, comparable questions instead of
- * being folded into one metric. */
+const W = 860;
+const ROW_H = 56;
+const PAD_T = 10;
+const PAD_L = 4;
+const SHARE_X = 100;
+const SHARE_W = 420;
+const GAP = 24;
+const GAP_W = 240;
+const GAP_X0 = SHARE_X + SHARE_W + GAP;
+const GAP_ZERO = GAP_X0 + GAP_W / 2;
+const H = PHASES.length * ROW_H + PAD_T + 10;
+
+/** Exact port of the mock's fig.4: a move-share bar next to an accuracy-
+ * gap line-and-dot marker on a zero-centred scale, one row per phase. */
 export function PhaseBreakdownChart({
   mix,
   accuracy,
@@ -24,7 +33,8 @@ export function PhaseBreakdownChart({
     const acc = accuracy?.[key];
     return acc ? acc.you - acc.peers : null;
   });
-  const scale = Math.max(1, ...deltas.filter((d): d is number => d !== null).map((d) => Math.abs(d)));
+  const maxGap = Math.max(1, ...deltas.filter((d): d is number => d !== null).map((d) => Math.abs(d)));
+  const gapXFor = (v: number) => GAP_ZERO + (v / maxGap) * (GAP_W / 2);
 
   return (
     <div>
@@ -32,56 +42,67 @@ export function PhaseBreakdownChart({
         Phase mix{hasAccuracy ? " & accuracy" : ""}
       </h3>
       <p className="mb-3 text-[11px] text-text-faint">
-        Left bar: how much of each game you spend in that phase. Right bar:{" "}
+        Move share: how much of each game you spend in that phase. Accuracy gap vs. peers:{" "}
         {hasAccuracy
-          ? "your move-quality gap vs. players at your level there — red is worse than typical, green is better."
-          : "analyze your games above to see your accuracy gap in each phase."}
+          ? "your move-quality gap vs. players at your level there — green is better than typical, red is worse."
+          : "analyze your games above to see this axis."}
       </p>
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-3 text-[9px] font-semibold tracking-wide text-text-faint uppercase">
-          <span className="w-20 shrink-0 sm:w-24" />
-          <span className="flex-[3]">move share</span>
-          <span className="flex-[2]">accuracy gap</span>
-        </div>
-        {PHASES.map(({ key, label }) => {
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet">
+        <text x={SHARE_X} y={PAD_T + 2} fontSize="9" fontWeight={600} fill="var(--text-faint)">
+          move share
+        </text>
+        <text x={GAP_X0} y={PAD_T + 2} fontSize="9" fontWeight={600} fill="var(--text-faint)">
+          accuracy gap vs. peers (wp_loss)
+        </text>
+        <line x1={GAP_ZERO} x2={GAP_ZERO} y1={PAD_T + 10} y2={H - 6} stroke="var(--border)" />
+
+        {PHASES.map(({ key, label }, i) => {
+          const y = PAD_T + 14 + i * ROW_H;
           const share = mix[key];
-          const delta = deltas[PHASES.findIndex((p) => p.key === key)];
-          const pct = delta !== null ? (Math.abs(delta) / scale) * 50 : 0;
-          const gapColor = delta === null ? "var(--text-faint)" : delta <= 0 ? "var(--good)" : "var(--bad)";
+          const delta = deltas[i];
+          const barW = (share / 100) * SHARE_W;
+
+          const gx = delta !== null ? gapXFor(delta) : GAP_ZERO;
+          const color = delta === null ? "var(--text-faint)" : delta <= 0 ? "var(--good)" : "var(--bad)";
+          const lx = delta !== null && delta >= 0 ? gx + 10 : gx - 10;
+
           return (
-            <div key={key} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-xs font-medium text-text sm:w-24">{label}</span>
+            <g key={key}>
+              <text x={PAD_L} y={y + 14} fontSize="12" fontWeight={600} fill="var(--text)">
+                {label}
+              </text>
 
-              <div className="h-2 flex-[3] overflow-hidden rounded-full bg-surface-raised">
-                <div className="h-full rounded-full bg-accent" style={{ width: `${share}%` }} />
-              </div>
-              <span className="w-9 shrink-0 text-right font-mono text-[11px] text-text-faint">
+              <rect x={SHARE_X} y={y} width={SHARE_W} height={22} fill="var(--surface-raised)" rx={3} />
+              <rect x={SHARE_X} y={y} width={barW} height={22} fill="var(--accent)" rx={3} opacity={0.9} />
+              <text x={SHARE_X + SHARE_W + 8} y={y + 16} fontSize="11" fill="var(--text-dim)">
                 {share.toFixed(0)}%
-              </span>
+              </text>
 
-              <div className="relative h-2 flex-[2] overflow-hidden rounded-full bg-surface-raised">
-                <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
-                {delta !== null && (
-                  <div
-                    className="absolute inset-y-0 rounded-full"
-                    style={
-                      delta >= 0
-                        ? { left: "50%", width: `${pct}%`, background: gapColor }
-                        : { right: "50%", width: `${pct}%`, background: gapColor }
-                    }
-                  />
-                )}
-              </div>
-              <span
-                className="w-14 shrink-0 text-right font-mono text-[11px] font-semibold"
-                style={{ color: gapColor }}
+              <line
+                x1={GAP_ZERO}
+                x2={gx}
+                y1={y + 11}
+                y2={y + 11}
+                stroke={color}
+                strokeWidth={3}
+                strokeLinecap="round"
+                opacity={delta === null ? 0.5 : 1}
+              />
+              <circle cx={gx} cy={y + 11} r={5.5} fill={color} opacity={delta === null ? 0.5 : 1} />
+              <text
+                x={lx}
+                y={y + 15}
+                textAnchor={delta !== null && delta >= 0 ? "start" : "end"}
+                fontSize="11"
+                fontWeight={600}
+                fill={color}
               >
                 {delta !== null ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)}` : "pending"}
-              </span>
-            </div>
+              </text>
+            </g>
           );
         })}
-      </div>
+      </svg>
     </div>
   );
 }
