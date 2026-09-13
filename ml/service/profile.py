@@ -370,6 +370,10 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
     # Threshold is deliberately looser than focus areas (0.75 MAD vs 1.0): with peer cohorts
     # this small (~20-150 players), a strict bar leaves strengths empty far more often than
     # it should — most players clear a lower bar on at least a couple of skill features.
+    # Capped at 5, same as focus areas, so a player who qualifies for several isn't
+    # truncated to 3 while focus areas show all 5 - that was a structural bias toward
+    # red (focus areas compare you to *stronger* players - almost everyone has gaps
+    # there - while strengths compare you to same-skill peers, a fairer, harder bar).
     strength_rows = []
     if peers.height >= 20:
         for f, lower_better in LOWER_IS_BETTER.items():
@@ -390,7 +394,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
             text=f"You're stronger than {min(99, int(50 + z * 15))}% of players with your style on this.",
             z=round(z, 2),
         )
-        for f, z, you, cohort in strength_rows[:3]
+        for f, z, you, cohort in strength_rows[:5]
     ]
 
     # signature — biggest deviations from same-skill peers, any feature (style-flavoured framing)
