@@ -28,7 +28,7 @@ export function ConfidenceGauge({ confidence, gamesAnalyzed }: { confidence: num
   const value = Math.max(0, Math.min(1, confidence));
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[180px]">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-xs">
         <path d={arcPath(0, 1)} stroke="var(--surface-raised)" strokeWidth={14} fill="none" strokeLinecap="round" />
         <path d={arcPath(0, value)} stroke="var(--accent)" strokeWidth={14} fill="none" strokeLinecap="round" />
         {[0, 0.5, 1].map((t) => {

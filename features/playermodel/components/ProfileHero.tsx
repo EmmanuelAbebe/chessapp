@@ -23,7 +23,7 @@ export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
         </p>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-4">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-8">
         <SkillRadar sub={skill.sub} />
         <ConfidenceGauge confidence={skill.confidence} gamesAnalyzed={source.games_analyzed} />
       </div>

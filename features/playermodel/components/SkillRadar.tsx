@@ -36,7 +36,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg viewBox={`-56 -20 ${SIZE + 112} ${SIZE + 40}`} className="w-full max-w-[240px]">
+      <svg viewBox={`-56 -20 ${SIZE + 112} ${SIZE + 40}`} className="w-full max-w-sm">
         {[0.25, 0.5, 0.75, 1].map((frac) => (
           <polygon
             key={frac}

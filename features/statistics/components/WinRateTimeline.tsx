@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { GameHistoryEntry } from "@/features/history/types";
+import { stashExploreGame } from "@/features/history/exploreGame";
+import { openingFamilyOf } from "@/features/history/gameFacets";
 
 const WINDOW = 20;
 const W = 640;
@@ -12,6 +15,7 @@ const PAD_T = 16;
 const PAD_B = 26;
 const PLOT_W = W - PAD_L - PAD_R;
 const PLOT_H = H - PAD_T - PAD_B;
+const MAX_BUCKETS = 12;
 
 type Mode = "game" | "day";
 
@@ -23,12 +27,21 @@ type RollingPoint = {
   result: GameHistoryEntry["result"];
 };
 
+type Bucket = {
+  startIdx: number;
+  endIdx: number; // inclusive
+  games: GameHistoryEntry[];
+  wins: number;
+  draws: number;
+  losses: number;
+  score: number; // this batch's own win rate, 0-100 - not the rolling average
+};
+
 /** Trailing-window (<=20 games) win rate, in play order. `mode` only ever
  * changes which x-axis this same series is plotted against - "per game"
  * spaces points evenly by count, "per day" spaces them by real elapsed
  * time, so gaps in play show up as gaps instead of being smoothed away. */
-function rollingWinRate(games: GameHistoryEntry[]): RollingPoint[] {
-  const sorted = [...games].sort((a, b) => a.playedAt - b.playedAt);
+function rollingWinRate(sorted: GameHistoryEntry[]): RollingPoint[] {
   const queue: number[] = [];
   let sum = 0;
   return sorted.map((g, i) => {
@@ -43,15 +56,108 @@ function rollingWinRate(games: GameHistoryEntry[]): RollingPoint[] {
   });
 }
 
+/** Chunks of consecutive games (like a stock chart's candles) - each
+ * bucket's own win rate, not the rolling average, so a stretch that
+ * dragged the trend down shows up as a bar you can click into to see
+ * exactly which games did that and why. */
+function computeBuckets(sorted: GameHistoryEntry[]): Bucket[] {
+  const n = sorted.length;
+  if (n === 0) return [];
+  const bucketSize = Math.max(3, Math.ceil(n / MAX_BUCKETS));
+  const buckets: Bucket[] = [];
+  for (let start = 0; start < n; start += bucketSize) {
+    const end = Math.min(n, start + bucketSize);
+    const slice = sorted.slice(start, end);
+    let wins = 0, draws = 0, losses = 0;
+    for (const g of slice) {
+      if (g.result === "win") wins += 1;
+      else if (g.result === "draw") draws += 1;
+      else losses += 1;
+    }
+    buckets.push({
+      startIdx: start, endIdx: end - 1, games: slice, wins, draws, losses,
+      score: ((wins + draws * 0.5) / slice.length) * 100,
+    });
+  }
+  return buckets;
+}
+
 function formatDay(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function dominantOpening(games: GameHistoryEntry[]): string {
+  const counts = new Map<string, number>();
+  for (const g of games) {
+    const name = openingFamilyOf(g);
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  let best = "—";
+  let bestCount = 0;
+  for (const [name, count] of counts) {
+    if (count > bestCount) {
+      best = name;
+      bestCount = count;
+    }
+  }
+  return counts.size > 1 ? `mostly ${best}` : best;
+}
+
+const RESULT_LABEL: Record<GameHistoryEntry["result"], string> = { win: "Won", draw: "Drew", loss: "Lost" };
+const RESULT_COLOR: Record<GameHistoryEntry["result"], string> = {
+  win: "text-good", draw: "text-text-dim", loss: "text-bad",
+};
+
+function BucketDetail({ bucket, onOpenGame }: { bucket: Bucket; onOpenGame: (g: GameHistoryEntry) => void }) {
+  const first = bucket.games[0];
+  const last = bucket.games[bucket.games.length - 1];
+  const dateRange =
+    first.playedAt === last.playedAt || formatDay(first.playedAt) === formatDay(last.playedAt)
+      ? formatDay(first.playedAt)
+      : `${formatDay(first.playedAt)} – ${formatDay(last.playedAt)}`;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border-soft bg-surface p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-sm font-semibold text-text">
+          Games {bucket.startIdx + 1}–{bucket.endIdx + 1} · {dateRange}
+        </span>
+        <span className="font-mono text-xs text-text-dim">
+          {bucket.wins}W {bucket.draws}D {bucket.losses}L · {bucket.score.toFixed(0)}% this stretch
+        </span>
+      </div>
+      <p className="text-xs text-text-faint">{dominantOpening(bucket.games)}</p>
+      <div className="flex flex-col divide-y divide-border-soft">
+        {bucket.games.map((g) => (
+          <div key={g.id} className="flex items-center justify-between gap-3 py-1.5 text-xs">
+            <span className="text-text-faint">{formatDay(g.playedAt)}</span>
+            <span className={`font-medium ${RESULT_COLOR[g.result]}`}>{RESULT_LABEL[g.result]}</span>
+            <span className="min-w-0 flex-1 truncate text-text-dim">{openingFamilyOf(g)}</span>
+            <span className="shrink-0 text-text-faint">{g.opponentName ?? "—"}</span>
+            <button
+              type="button"
+              onClick={() => onOpenGame(g)}
+              className="shrink-0 rounded-md border border-border px-2 py-0.5 text-text-dim transition hover:border-accent hover:text-text"
+            >
+              View
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("game");
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [selectedBucket, setSelectedBucket] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const points = useMemo(() => rollingWinRate(games), [games]);
+
+  const sorted = useMemo(() => [...games].sort((a, b) => a.playedAt - b.playedAt), [games]);
+  const points = useMemo(() => rollingWinRate(sorted), [sorted]);
+  const buckets = useMemo(() => computeBuckets(sorted), [sorted]);
 
   if (points.length < 3) {
     return (
@@ -59,6 +165,11 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
         A few more games will start showing a trend here.
       </p>
     );
+  }
+
+  function openGame(game: GameHistoryEntry) {
+    stashExploreGame(game);
+    router.push("/board");
   }
 
   const xVal = (p: RollingPoint) => (mode === "game" ? p.index : p.playedAt);
@@ -90,6 +201,7 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
     { games: 0, wins: 0, draws: 0, losses: 0 },
   );
   const overallScore = tally.games ? ((tally.wins + tally.draws * 0.5) / tally.games) * 100 : 0;
+  const barW = Math.max(5, Math.min(22, PLOT_W / buckets.length - 4));
 
   function nearestIndex(clientX: number): number {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -110,6 +222,7 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
   const activeX = xFor(xVal(active));
   const tooltipLeft = activeX > PAD_L + PLOT_W * 0.65;
   const resultLabel = active.result === "win" ? "won" : active.result === "draw" ? "drew" : "lost";
+  const baselineY = yFor(50);
 
   return (
     <div className="flex flex-col gap-3">
@@ -162,11 +275,51 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
           </g>
         ))}
 
-        <path d={areaPath} fill="var(--accent)" fillOpacity={0.12} stroke="none" />
-        <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" />
+        {buckets.map((b, i) => {
+          const midIdx = Math.floor((b.startIdx + b.endIdx) / 2);
+          const cx = xFor(xVal(points[midIdx]));
+          const scoreY = yFor(b.score);
+          const barY = Math.min(baselineY, scoreY);
+          const barH = Math.max(1, Math.abs(scoreY - baselineY));
+          const color = b.score >= 50 ? "var(--good)" : "var(--bad)";
+          const selected = selectedBucket === i;
+          return (
+            <g
+              key={i}
+              onClick={() => setSelectedBucket(selected ? null : i)}
+              className="cursor-pointer"
+            >
+              <rect x={cx - barW / 2 - 3} y={PAD_T} width={barW + 6} height={PLOT_H} fill="transparent" />
+              <rect
+                x={cx - barW / 2}
+                y={barY}
+                width={barW}
+                height={barH}
+                fill={color}
+                opacity={selected ? 0.85 : 0.3}
+                rx={1.5}
+              />
+              {selected && (
+                <rect
+                  x={cx - barW / 2 - 2}
+                  y={barY - 2}
+                  width={barW + 4}
+                  height={barH + 4}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={1.5}
+                  rx={2}
+                />
+              )}
+            </g>
+          );
+        })}
+
+        <path d={areaPath} fill="var(--accent)" fillOpacity={0.1} stroke="none" pointerEvents="none" />
+        <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" pointerEvents="none" />
 
         {hoverIdx === null && (
-          <>
+          <g pointerEvents="none">
             <circle cx={xFor(xVal(last))} cy={yFor(last.rate)} r={4} fill="var(--accent)" />
             <text
               x={xFor(xVal(last))}
@@ -178,7 +331,7 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
             >
               {last.rate.toFixed(0)}%
             </text>
-          </>
+          </g>
         )}
 
         <text x={xFor(xVal(first))} y={H - 6} fontSize="10" fill="var(--text-faint)">
@@ -214,9 +367,14 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
       </svg>
       </div>
 
+      {selectedBucket !== null && buckets[selectedBucket] && (
+        <BucketDetail bucket={buckets[selectedBucket]} onOpenGame={openGame} />
+      )}
+
       <p className="text-[11px] text-text-faint">
-        Rolling win rate over your last {WINDOW} games (win 1, draw ½) — hover to inspect a
-        point;{" "}
+        Line: rolling win rate over your last {WINDOW} games (win 1, draw ½) — hover to
+        inspect a point. Bars: each stretch&apos;s own record (green ≥ 50%, red &lt; 50%) —
+        click one to see exactly which games and openings drove it;{" "}
         {mode === "game"
           ? "spaced by game count."
           : "spaced by when you actually played, so breaks show as gaps."}
