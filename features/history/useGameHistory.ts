@@ -10,10 +10,16 @@ import { clearGameHistoryServer, getGameHistoryServer, saveGameHistoryServer } f
 // thing, not folded into the generic (unpersisted) AppSettings blob.
 const STORAGE_KEY = "chessapp:game-history";
 
-// Bounds localStorage growth - a personality profile only needs a
-// meaningful sample, not every game ever played. Oldest entries drop
-// off first once the cap is hit (see addEntries below).
-const MAX_GAMES = 300;
+// Bounds only what's *persisted to localStorage* (~8KB/game observed for
+// a real account - 1,222 games is already ~9.7MB, near what browsers
+// typically quota per origin), not the in-memory list every chart reads.
+// A signed-in user's full history still renders in the current session
+// (and re-syncs from the server, the real source of truth, on next
+// load); this just keeps the localStorage write from silently failing
+// past a few hundred games. Was previously also capping the in-memory
+// list, which is what made "the numbers"/openings only ever reflect the
+// most recent 300 games no matter how many were actually imported.
+const STORAGE_MAX_GAMES = 300;
 
 function readStoredGames(): GameHistoryEntry[] {
   if (typeof window === "undefined") return [];
@@ -126,10 +132,10 @@ export function useGameHistory() {
 
     if (additions.length === 0 && !enriched) return [];
 
-    const next = [...merged, ...additions].slice(-MAX_GAMES);
+    const next = [...merged, ...additions];
     gamesRef.current = next;
     setGames(next);
-    writeStoredGames(next);
+    writeStoredGames(next.slice(-STORAGE_MAX_GAMES));
     return additions;
   }
 

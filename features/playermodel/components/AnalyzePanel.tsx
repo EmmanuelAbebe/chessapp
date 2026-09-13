@@ -198,6 +198,7 @@ export function AnalyzePanel({
         </div>
       </div>
       {showOptions && <div className="flex justify-end">{optionsRow}</div>}
+      {error && <p className="text-right text-xs text-bad">{error}</p>}
       {confirmDialog}
     </div>
   );
