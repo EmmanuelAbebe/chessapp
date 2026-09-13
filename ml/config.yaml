@@ -59,7 +59,19 @@ player_vectors:
   min_games: 5
   min_games_with_clocks: 3
   min_games_with_evals: 3
+  # Caps one REFERENCE player's contribution to the training population
+  # (stage 06), so a single hyperactive account doesn't dominate it -
+  # unrelated to how many games a live user's own request analyzes, see
+  # service.max_games_per_request below. Don't reuse this one for that.
   max_games_per_player: 100
+
+# The live inference service (one real user's own /profile request), as
+# opposed to player_vectors above (building the reference population).
+# The Next.js route already decides how many games to fetch/send here
+# (features/playermodel's maxGames, warned past 300) - this is just a
+# safety backstop against an unbounded PGN, not a real per-user limit.
+service:
+  max_games_per_request: 1000
 
 cohort:
   k_neighbours: 600

@@ -287,7 +287,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
 
     games_meta, all_moves = _parse_games(pgn_text, time_class, ing["min_plies"])
     games_meta, all_moves = _select_my_recent_games(
-        games_meta, all_moves, username, pv_cfg["max_games_per_player"]
+        games_meta, all_moves, username, cfg["service"]["max_games_per_request"]
     )
     if len(games_meta) < pv_cfg["min_games"]:
         raise NotEnoughGames(
