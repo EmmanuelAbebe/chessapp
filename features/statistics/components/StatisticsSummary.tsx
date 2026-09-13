@@ -74,10 +74,12 @@ export default function StatisticsSummary({
             <WinRateTimeline games={filteredGames} />
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 md:items-start">
-            {phaseMix && (
+          {phaseMix && (
+            <div className="rounded-lg border border-border-soft bg-surface p-4">
               <PhaseBreakdownChart mix={phaseMix} accuracy={phaseAccuracy} />
-            )}
+            </div>
+          )}
+          <div className="rounded-lg border border-border-soft bg-surface p-4">
             <OpeningsBreakdown breakdown={openings} side={side} />
           </div>
         </>
