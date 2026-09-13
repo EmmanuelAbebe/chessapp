@@ -47,7 +47,7 @@ export default function StatisticsSummary({
           Stockfish are recorded automatically; set your usernames below,
           then paste a PGN or a lichess export URL.
         </p>
-        <div className="rounded-lg border border-border-soft bg-surface p-4">
+        <div className="rounded-lg border border-border-soft bg-surface p-5">
           <GameDataCard />
         </div>
       </section>
@@ -70,16 +70,16 @@ export default function StatisticsSummary({
         </p>
       ) : (
         <>
-          <div className="rounded-lg border border-border-soft bg-surface p-4">
+          <div className="rounded-lg border border-border-soft bg-surface p-5">
             <WinRateTimeline games={filteredGames} />
           </div>
 
           {phaseMix && (
-            <div className="rounded-lg border border-border-soft bg-surface p-4">
+            <div className="rounded-lg border border-border-soft bg-surface p-5">
               <PhaseBreakdownChart mix={phaseMix} accuracy={phaseAccuracy} />
             </div>
           )}
-          <div className="rounded-lg border border-border-soft bg-surface p-4">
+          <div className="rounded-lg border border-border-soft bg-surface p-5">
             <OpeningsBreakdown breakdown={openings} side={side} />
           </div>
         </>

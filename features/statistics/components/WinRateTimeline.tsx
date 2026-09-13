@@ -136,12 +136,13 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
         </div>
       </div>
 
+      <div className="overflow-x-auto">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        width="100%"
+        style={{ minWidth: 480 }}
+        className="w-full cursor-crosshair touch-none select-none"
         preserveAspectRatio="xMidYMid meet"
-        className="cursor-crosshair touch-none select-none"
         onPointerMove={(e) => setHoverIdx(nearestIndex(e.clientX))}
         onPointerLeave={() => setHoverIdx(null)}
       >
@@ -211,6 +212,7 @@ export function WinRateTimeline({ games }: { games: GameHistoryEntry[] }) {
           </g>
         )}
       </svg>
+      </div>
 
       <p className="text-[11px] text-text-faint">
         Rolling win rate over your last {WINDOW} games (win 1, draw ½) — hover to inspect a

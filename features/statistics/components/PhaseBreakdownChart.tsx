@@ -47,7 +47,13 @@ export function PhaseBreakdownChart({
           ? "your move-quality gap vs. players at your level there — green is better than typical, red is worse."
           : "analyze your games above to see this axis."}
       </p>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet">
+      <div className="overflow-x-auto">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ minWidth: 480 }}
+        className="w-full"
+        preserveAspectRatio="xMidYMid meet"
+      >
         <text x={SHARE_X} y={PAD_T + 2} fontSize="9" fontWeight={600} fill="var(--text-faint)">
           move share
         </text>
@@ -103,6 +109,7 @@ export function PhaseBreakdownChart({
           );
         })}
       </svg>
+      </div>
     </div>
   );
 }

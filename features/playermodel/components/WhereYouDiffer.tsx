@@ -32,6 +32,14 @@ function titleCase(feature: string): string {
   return feature.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** A rough, consistent plain-language reading of a z-score, so the raw
+ * number isn't the only thing on offer for someone who doesn't know what
+ * a z-score is - same conversion the server already uses for Strength.text. */
+function zGloss(z: number): string {
+  const pct = Math.min(99, Math.max(1, Math.round(50 + Math.abs(z) * 15)));
+  return z >= 0 ? `stronger than ~${pct}% of players at your level` : `behind ~${pct}% of players at your level`;
+}
+
 function EvidenceRow({ evidence }: { evidence: Evidence }) {
   return (
     <div className="flex items-center justify-between text-xs">
@@ -70,42 +78,44 @@ function DivergingRow({
   );
 
   const summary = (
-    <div className="flex cursor-pointer items-center gap-3 px-3 py-2">
-      <span className="w-32 shrink-0 truncate text-xs text-text sm:w-40">{row.title}</span>
-      <div className="relative h-3 flex-1 overflow-hidden rounded-sm bg-surface-raised">
-        <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
-        <div
-          className="absolute inset-y-0 rounded-sm"
-          style={
-            positive
-              ? { left: "50%", width: `${fillPct}%`, background: color }
-              : { right: "50%", width: `${fillPct}%`, background: color }
-          }
-        />
-      </div>
-      {row.estimatedRatingGain !== undefined && (
-        <span className="hidden shrink-0 rounded-full bg-bad-soft px-2 py-0.5 text-[10px] font-semibold text-bad sm:inline">
-          ~{Math.round(row.estimatedRatingGain)} pts
+    <div className="flex cursor-pointer flex-col gap-0.5 px-3 py-2.5 transition hover:bg-surface-raised/60">
+      <div className="flex items-center gap-3">
+        <span className="w-32 shrink-0 truncate text-xs text-text sm:w-40">{row.title}</span>
+        <div className="relative h-3 flex-1 overflow-hidden rounded-sm bg-surface-raised">
+          <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
+          <div
+            className="absolute inset-y-0 rounded-sm"
+            style={
+              positive
+                ? { left: "50%", width: `${fillPct}%`, background: color }
+                : { right: "50%", width: `${fillPct}%`, background: color }
+            }
+          />
+        </div>
+        {row.estimatedRatingGain !== undefined && (
+          <span className="hidden shrink-0 rounded-full bg-bad-soft px-2 py-0.5 text-[10px] font-semibold text-bad sm:inline">
+            ~{Math.round(row.estimatedRatingGain)} pts
+          </span>
+        )}
+        <span className="w-12 shrink-0 text-right font-mono text-xs font-semibold" style={{ color }}>
+          {clamped > 0 ? "+" : ""}
+          {clamped.toFixed(1)}
         </span>
+      </div>
+      {!neutral && (
+        <span className="pl-0 text-[10.5px] text-text-faint sm:pl-[calc(8rem+0.75rem)]">{zGloss(row.z)}</span>
       )}
-      <span
-        className="w-12 shrink-0 text-right font-mono text-xs font-semibold"
-        style={{ color }}
-      >
-        {clamped > 0 ? "+" : ""}
-        {clamped.toFixed(1)}
-      </span>
     </div>
   );
 
   if (!hasDetail) {
-    return <div className="rounded-md border border-border-soft bg-surface">{summary}</div>;
+    return <div>{summary}</div>;
   }
 
   return (
-    <details className="group rounded-md border border-border-soft bg-surface">
+    <details className="group">
       <summary className="list-none marker:content-none [&::-webkit-details-marker]:hidden">{summary}</summary>
-      <div className="flex flex-col gap-3 border-t border-border-soft px-3 py-3">
+      <div className="flex flex-col gap-3 border-t border-border-soft bg-surface-raised/40 px-3 py-3">
         {row.confidence && (
           <span className="text-[11px] text-text-faint" title={CONFIDENCE_TITLE[row.confidence]}>
             {CONFIDENCE_LABEL[row.confidence]}
@@ -139,6 +149,35 @@ function DivergingRow({
         )}
       </div>
     </details>
+  );
+}
+
+function RowList({
+  rows,
+  scale,
+  neutral,
+  emptyMessage,
+  onOpenPosition,
+}: {
+  rows: Row[];
+  scale: number;
+  neutral?: boolean;
+  emptyMessage: string;
+  onOpenPosition: (fen: string) => void;
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-border-soft bg-surface px-3 py-6 text-center text-xs text-text-dim">
+        {emptyMessage}
+      </div>
+    );
+  }
+  return (
+    <div className="divide-y divide-border-soft rounded-lg border border-border-soft bg-surface">
+      {rows.map((row) => (
+        <DivergingRow key={row.id} row={row} scale={scale} neutral={neutral} onOpenPosition={onOpenPosition} />
+      ))}
+    </div>
   );
 }
 
@@ -205,26 +244,29 @@ export function WhereYouDiffer({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 md:items-start">
-        {skillRows.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <span className="text-[11px] font-semibold tracking-wide text-text-faint uppercase">
-              Skill gaps vs. players at your level
-            </span>
-            {skillRows.map((row) => (
-              <DivergingRow key={row.id} row={row} scale={skillScale} onOpenPosition={openPosition} />
-            ))}
-          </div>
-        )}
-        {styleRows.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <span className="text-[11px] font-semibold tracking-wide text-text-faint uppercase">
-              Style signature — different, not graded
-            </span>
-            {styleRows.map((row) => (
-              <DivergingRow key={row.id} row={row} scale={styleScale} neutral onOpenPosition={openPosition} />
-            ))}
-          </div>
-        )}
+        <div className="flex flex-col gap-2">
+          <span className="text-[11px] font-semibold tracking-wide text-text-faint uppercase">
+            Skill gaps vs. players at your level
+          </span>
+          <RowList
+            rows={skillRows}
+            scale={skillScale}
+            onOpenPosition={openPosition}
+            emptyMessage="No notable gaps — solidly consistent with players at your level."
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-[11px] font-semibold tracking-wide text-text-faint uppercase">
+            Style signature — different, not graded
+          </span>
+          <RowList
+            rows={styleRows}
+            scale={styleScale}
+            neutral
+            onOpenPosition={openPosition}
+            emptyMessage="Not enough data yet for a style signature."
+          />
+        </div>
       </div>
     </div>
   );

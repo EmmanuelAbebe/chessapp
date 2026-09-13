@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { FiSettings } from "react-icons/fi";
 import Modal from "@/components/ui/Modal";
 import type { AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
@@ -33,6 +34,7 @@ export function AnalyzePanel({
   // Blank = let the server default to the size of the user's imported game
   // history; typing a number here overrides that for this analysis only.
   const [maxGamesInput, setMaxGamesInput] = useState("");
+  const [showOptions, setShowOptions] = useState(false);
   const maxGames = maxGamesInput.trim() ? Number(maxGamesInput) : undefined;
   const [pendingOpts, setPendingOpts] = useState<{ force?: boolean; maxGames?: number } | null>(null);
 
@@ -58,6 +60,23 @@ export function AnalyzePanel({
     }
     onAnalyze(opts);
   }
+
+  const optionsRow = showOptions && (
+    <div className="flex items-center gap-2 text-xs text-text-dim">
+      <label htmlFor="max-games-input">Games to analyze</label>
+      <input
+        id="max-games-input"
+        type="number"
+        min={10}
+        value={maxGamesInput}
+        onChange={(e) => setMaxGamesInput(e.target.value)}
+        placeholder="auto"
+        title="How many recent games to analyze. Leave blank to match the size of your imported game history."
+        className="w-16 rounded-md border border-border bg-transparent px-2 py-1 text-center text-xs text-text placeholder:text-text-faint"
+      />
+      <span className="text-text-faint">leave blank to match your imported history</span>
+    </div>
+  );
 
   const confirmDialog = pendingOpts && (
     <Modal isOpen onClose={() => setPendingOpts(null)}>
@@ -114,8 +133,8 @@ export function AnalyzePanel({
             : "Analyze your recent blitz games to see your style, skill, and what to train next."}
         </p>
         {lichessConnected && (
-          <>
-            <div className="mt-3 flex items-center justify-center gap-2">
+          <div className="mt-3 flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => requestAnalyze({ maxGames })}
@@ -124,20 +143,20 @@ export function AnalyzePanel({
               >
                 {status === "loading" ? "Analyzing… (this can take a minute)" : "Analyze my games"}
               </button>
-              <input
-                type="number"
-                min={10}
-                value={maxGamesInput}
-                onChange={(e) => setMaxGamesInput(e.target.value)}
-                placeholder="auto"
-                title="How many recent games to analyze. Leave blank to match the size of your imported game history."
-                className="w-16 rounded-md border border-border bg-transparent px-2 py-2 text-center text-sm text-text placeholder:text-text-faint"
-              />
+              <button
+                type="button"
+                onClick={() => setShowOptions((v) => !v)}
+                aria-label="Analysis options"
+                aria-expanded={showOptions}
+                className={`rounded-lg border p-2 transition ${
+                  showOptions ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
+                }`}
+              >
+                <FiSettings size={16} />
+              </button>
             </div>
-            <p className="mt-1.5 text-[11px] text-text-faint">
-              Games to analyze — leave blank to match your imported game history.
-            </p>
-          </>
+            {optionsRow}
+          </div>
         )}
         {error && <p className="mt-2 text-xs text-bad">{error}</p>}
         {confirmDialog}
@@ -149,31 +168,36 @@ export function AnalyzePanel({
   const stale = isStale(profile, profile.source.games_analyzed, computedAt);
 
   return (
-    <div className="flex items-center justify-between gap-3 text-xs text-text-faint">
-      <span>
-        Last analyzed {computedAt.toLocaleDateString()} · {profile.source.games_analyzed} games
-      </span>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min={10}
-          value={maxGamesInput}
-          onChange={(e) => setMaxGamesInput(e.target.value)}
-          placeholder="auto"
-          title="How many recent games to analyze on refresh. Leave blank to match the size of your imported game history."
-          className="w-14 rounded-md border border-border bg-transparent px-1.5 py-1 text-center text-xs text-text placeholder:text-text-faint"
-        />
-        <button
-          type="button"
-          onClick={() => requestAnalyze({ force: true, maxGames })}
-          disabled={status === "loading"}
-          className={`rounded-md border px-2.5 py-1 font-medium transition disabled:opacity-50 ${
-            stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
-          }`}
-        >
-          {status === "loading" ? "Refreshing…" : stale ? "Refresh (new games available)" : "Refresh"}
-        </button>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3 text-xs text-text-faint">
+        <span>
+          Last analyzed {computedAt.toLocaleDateString()} · {profile.source.games_analyzed} games
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowOptions((v) => !v)}
+            aria-label="Analysis options"
+            aria-expanded={showOptions}
+            className={`rounded-md border p-1.5 transition ${
+              showOptions ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
+            }`}
+          >
+            <FiSettings size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={() => requestAnalyze({ force: true, maxGames })}
+            disabled={status === "loading"}
+            className={`rounded-md border px-2.5 py-1 font-medium transition disabled:opacity-50 ${
+              stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
+            }`}
+          >
+            {status === "loading" ? "Refreshing…" : stale ? "Refresh (new games available)" : "Refresh"}
+          </button>
+        </div>
       </div>
+      {showOptions && <div className="flex justify-end">{optionsRow}</div>}
       {confirmDialog}
     </div>
   );

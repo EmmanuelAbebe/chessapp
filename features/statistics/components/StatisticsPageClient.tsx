@@ -29,7 +29,11 @@ export function StatisticsPageClient({
       </div>
 
       <div className="border-t border-border-soft pt-6">
-        <h2 className="mb-6 text-lg font-bold text-text">The numbers</h2>
+        <h2 className="text-lg font-bold text-text">The numbers</h2>
+        <p className="mt-0.5 mb-6 text-xs text-text-faint">
+          Plain counts from your recorded games - no engine, no comparison group. Read
+          alongside &quot;Your playing style&quot; above for what these numbers actually mean.
+        </p>
         <StatisticsSummary phaseAccuracy={profile?.phase_accuracy} />
       </div>
     </div>
