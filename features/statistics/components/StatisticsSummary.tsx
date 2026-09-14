@@ -97,14 +97,13 @@ export default function StatisticsSummary({
 
       <details className="rounded-lg border border-border-soft bg-surface">
         <summary className="cursor-pointer px-4 py-3 text-xs font-semibold tracking-wide text-text-faint uppercase">
-          Manage games
+          Manage &amp; browse games
         </summary>
-        <div className="border-t border-border-soft p-4">
+        <div className="flex flex-col gap-4 border-t border-border-soft p-4">
           <GameDataCard />
+          <GamesList games={filteredGames} />
         </div>
       </details>
-
-      <GamesList games={filteredGames} />
     </section>
   );
 }
