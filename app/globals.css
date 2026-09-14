@@ -112,27 +112,6 @@
   --font-serif: var(--font-source-serif), Georgia, "Iowan Old Style", serif;
 }
 
-/* Statistics page only (app/dashboard/statistics/page.tsx loads these via
-   next/font and applies this class) - redefining --font-sans/--font-mono
-   here means every existing font-sans/font-mono utility inside this
-   subtree picks up IBM Plex without touching any component, and nothing
-   outside this page is affected. Headings get the condensed cut
-   specifically, matching the type pairing from the chart-concept mocks
-   this was pulled from. */
-.stats-typography {
-  --font-sans: var(--font-plex-sans), -apple-system, "Segoe UI", system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
-}
-.stats-typography h1,
-.stats-typography h2,
-.stats-typography h3 {
-  font-family: var(--font-plex-condensed), var(--font-sans);
-  letter-spacing: -0.01em;
-}
-.stats-typography svg text {
-  font-family: var(--font-plex-mono), var(--font-mono);
-}
-
 html {
   /* Reserve the scrollbar's width permanently so toggling body's overflow
      (modals lock scroll while open) never shifts the layout by however
