@@ -28,9 +28,9 @@ function tierColor(pct: number): string {
   return "var(--bad)";
 }
 
-const SIZE = 220;
+const SIZE = 260;
 const CENTER = SIZE / 2;
-const R = 66;
+const R = 80;
 
 function pointFor(index: number, count: number, frac: number) {
   const angle = -Math.PI / 2 + (2 * Math.PI * index) / count;
@@ -57,7 +57,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg viewBox={`-56 -20 ${SIZE + 112} ${SIZE + 40}`} className="w-full max-w-lg">
+      <svg viewBox={`-68 -24 ${SIZE + 136} ${SIZE + 71}`} className="w-full max-w-xl">
         {[0.25, 0.5, 0.75, 1].map((frac) => (
           <polygon
             key={frac}
