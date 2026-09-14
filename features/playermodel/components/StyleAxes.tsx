@@ -20,7 +20,7 @@ function tickLeft(t: number): number {
 export function StyleAxes({ axes }: { axes: StyleAxis[] }) {
   if (axes.length === 0) return null;
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border-soft bg-surface p-6">
+    <div className="flex flex-col gap-4">
       <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
         Your style
         <HintIcon

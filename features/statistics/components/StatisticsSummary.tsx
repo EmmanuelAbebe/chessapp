@@ -75,24 +75,12 @@ export default function StatisticsSummary({
           No games recorded {side === "w" ? "as White" : "as Black"} yet.
         </p>
       ) : (
-        <>
-          <div className="rounded-lg border border-border-soft bg-surface p-6">
-            <WinRateTimeline games={filteredGames} perGame={perGame} />
-          </div>
-
-          <div className="rounded-lg border border-border-soft bg-surface p-6">
-            <AccuracyTrend perGame={perGame} />
-          </div>
-
-          {phaseMix && (
-            <div className="rounded-lg border border-border-soft bg-surface p-6">
-              <PhaseBreakdownChart mix={phaseMix} accuracy={phaseAccuracy} />
-            </div>
-          )}
-          <div className="rounded-lg border border-border-soft bg-surface p-6">
-            <OpeningsBreakdown breakdown={openings} side={side} games={filteredGames} />
-          </div>
-        </>
+        <div className="flex flex-col [&>*:not(:first-child)]:mt-10 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border-soft [&>*:not(:first-child)]:pt-10">
+          <WinRateTimeline games={filteredGames} perGame={perGame} />
+          <AccuracyTrend perGame={perGame} />
+          {phaseMix && <PhaseBreakdownChart mix={phaseMix} accuracy={phaseAccuracy} />}
+          <OpeningsBreakdown breakdown={openings} side={side} games={filteredGames} />
+        </div>
       )}
 
       <details className="rounded-lg border border-border-soft bg-surface">

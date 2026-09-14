@@ -5,7 +5,7 @@ import { ConfidenceGauge } from "./ConfidenceGauge";
 export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
   const { skill, cohort, source } = profile;
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border-soft bg-surface p-6">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <p className="text-xs font-semibold tracking-wide text-text-faint uppercase">
