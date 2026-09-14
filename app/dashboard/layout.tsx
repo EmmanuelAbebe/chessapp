@@ -13,7 +13,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-8 sm:px-6">
-      <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-surface p-12 shadow-lg md:min-h-[calc(100dvh-4rem)]">
+      <div className="min-w-0 pt-6 pb-12 flex-1 md:min-h-[calc(100dvh-4rem)]">
         <div className="mb-6 flex items-center justify-between gap-4">
           <span className="text-sm text-text-faint">
             Signed in as {session.user.email}
