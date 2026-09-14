@@ -63,11 +63,11 @@ export type OpeningsBreakdown = {
 };
 
 /** The player's openings by family, biggest first. Beyond `limit` named
- * slices the tail folds into `other` (so a pie of this never exceeds
- * `limit` + 1 slices). */
+ * rows the tail folds into `other`, so a long-tail account doesn't get
+ * one bar per opening it's only played once or twice. */
 export function computeOpenings(
   games: GameHistoryEntry[],
-  { limit = 5 }: { limit?: number } = {},
+  { limit = 8 }: { limit?: number } = {},
 ): OpeningsBreakdown {
   const groups = new Map<string, GameHistoryEntry[]>();
   for (const game of games) {

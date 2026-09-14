@@ -58,17 +58,23 @@ function CoachingBlock({ coaching }: { coaching?: Coaching }) {
   return <p className="font-serif text-[13.5px] leading-relaxed text-text">{lines.join(" ")}</p>;
 }
 
+// A fixed scale, not one stretched to fit whichever row has the biggest
+// |z| - a single outlier (style z can run to +/-8) would otherwise
+// compress every other bar in the same panel down to a sliver. Bars
+// beyond this just clamp to the edge; the exact value still shows in
+// the numeric label, so nothing is hidden, only de-emphasized.
+const DISPLAY_SCALE = 4;
+
 function DivergingRow({
   row,
-  scale,
   neutral,
   onOpenPosition,
 }: {
   row: Row;
-  scale: number;
   neutral?: boolean;
   onOpenPosition: (fen: string) => void;
 }) {
+  const scale = DISPLAY_SCALE;
   const clamped = Math.max(-scale, Math.min(scale, row.z));
   const fillPct = (Math.abs(clamped) / scale) * 50;
   const positive = clamped >= 0;
@@ -154,13 +160,11 @@ function DivergingRow({
 
 function RowList({
   rows,
-  scale,
   neutral,
   emptyMessage,
   onOpenPosition,
 }: {
   rows: Row[];
-  scale: number;
   neutral?: boolean;
   emptyMessage: string;
   onOpenPosition: (fen: string) => void;
@@ -175,7 +179,7 @@ function RowList({
   return (
     <div className="divide-y divide-border-soft rounded-lg border border-border-soft bg-surface">
       {rows.map((row) => (
-        <DivergingRow key={row.id} row={row} scale={scale} neutral={neutral} onOpenPosition={onOpenPosition} />
+        <DivergingRow key={row.id} row={row} neutral={neutral} onOpenPosition={onOpenPosition} />
       ))}
     </div>
   );
@@ -228,11 +232,8 @@ export function WhereYouDiffer({
     );
   }
 
-  const skillScale = Math.max(2, ...skillRows.map((r) => Math.abs(r.z)));
-  const styleScale = Math.max(2, ...styleRows.map((r) => Math.abs(r.z)));
-
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div>
         <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
           Where you differ
@@ -243,30 +244,27 @@ export function WhereYouDiffer({
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 md:items-start">
-        <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-semibold tracking-wide text-text-faint uppercase">
-            Skill gaps vs. players at your level
-          </span>
-          <RowList
-            rows={skillRows}
-            scale={skillScale}
-            onOpenPosition={openPosition}
-            emptyMessage="No notable gaps — solidly consistent with players at your level."
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-semibold tracking-wide text-text-faint uppercase">
-            Style signature — different, not graded
-          </span>
-          <RowList
-            rows={styleRows}
-            scale={styleScale}
-            neutral
-            onOpenPosition={openPosition}
-            emptyMessage="Not enough data yet for a style signature."
-          />
-        </div>
+      <div className="flex flex-col gap-2">
+        <span className="text-[11px] font-semibold tracking-wide text-text-faint uppercase">
+          Skill gaps vs. players at your level
+        </span>
+        <RowList
+          rows={skillRows}
+          onOpenPosition={openPosition}
+          emptyMessage="No notable gaps — solidly consistent with players at your level."
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-[11px] font-semibold tracking-wide text-text-faint uppercase">
+          Style signature — different, not graded
+        </span>
+        <RowList
+          rows={styleRows}
+          neutral
+          onOpenPosition={openPosition}
+          emptyMessage="Not enough data yet for a style signature."
+        />
       </div>
     </div>
   );
