@@ -46,9 +46,7 @@ export function PlayerModelSection({
               Refreshing…
             </div>
           )}
-          <div
-            className={`flex flex-col transition-opacity [&>*:not(:first-child)]:mt-10 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border-soft [&>*:not(:first-child)]:pt-10 ${status === "loading" ? "opacity-50" : ""}`}
-          >
+          <div className={`flex flex-col gap-16 transition-opacity ${status === "loading" ? "opacity-50" : ""}`}>
             <ProfileHero profile={profile} />
             <StyleAxes axes={profile.style.axes} />
 
