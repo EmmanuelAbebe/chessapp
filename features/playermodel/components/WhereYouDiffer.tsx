@@ -239,8 +239,13 @@ export function WhereYouDiffer({
           Where you differ
         </h3>
         <p className="text-[11px] text-text-dim">
-          Skill gaps (green = better, red = worse than players at your level) and style
-          signature (how you differ, not graded) — click a row for the detail.
+          Two comparisons, side by side. <span className="font-medium text-text">Skill
+          gaps</span> shows where you&apos;re ahead or behind players at your own rating —
+          the same comparison behind your Skill estimate above (green = you&apos;re better,
+          red = worse). <span className="font-medium text-text">Style signature</span> shows
+          habits that differ from typical play at your level — not graded, just different.
+          Click any row to see the underlying numbers; a focus area also expands into
+          concrete coaching and example positions pulled from your own games.
         </p>
       </div>
 

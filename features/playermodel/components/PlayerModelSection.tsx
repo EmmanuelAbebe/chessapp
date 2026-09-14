@@ -9,8 +9,8 @@ import { StyleAxes } from "./StyleAxes";
 import { WhereYouDiffer } from "./WhereYouDiffer";
 
 /** The player-behaviour model, composed onto /dashboard/statistics above
- * the existing (notation-only) StatisticsSummary, which stays as "the
- * numbers." Profile state is lifted to StatisticsPageClient (rather than
+ * the existing (notation-only) StatisticsSummary, which stays as "Game
+ * history." Profile state is lifted to StatisticsPageClient (rather than
  * owned here via usePlayerProfile directly) so StatisticsSummary's phase
  * comparison chart can read the same `phase_accuracy` without a second,
  * independent fetch. */
@@ -28,7 +28,7 @@ export function PlayerModelSection({
   return (
     <section className="flex flex-col gap-6">
       <div>
-        <h2 className="text-lg font-bold text-text">Your playing style</h2>
+        <h2 className="text-base font-semibold text-text">Your playing style</h2>
         <p className="mt-0.5 text-xs text-text-faint">
           Engine-verified, compared against players who share your style - skill estimate,
           style axes, and where you differ from them.
