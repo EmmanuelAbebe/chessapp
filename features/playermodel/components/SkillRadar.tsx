@@ -7,6 +7,27 @@ const SUB_LABELS: Record<string, string> = {
   clock: "Time management",
 };
 
+// A plain-language read of each percentile instead of a bare number - the
+// same idea as the style axes' descriptive poles, applied to a fixed set
+// of categories that don't have a natural opposite pole of their own.
+const TIERS: [number, string][] = [
+  [85, "Elite"],
+  [65, "Strong"],
+  [40, "Solid"],
+  [20, "Developing"],
+  [0, "Weak spot"],
+];
+
+function tierFor(pct: number): string {
+  return TIERS.find(([min]) => pct >= min)?.[1] ?? TIERS[TIERS.length - 1][1];
+}
+
+function tierColor(pct: number): string {
+  if (pct >= 65) return "var(--good)";
+  if (pct >= 40) return "var(--text-dim)";
+  return "var(--bad)";
+}
+
 const SIZE = 220;
 const CENTER = SIZE / 2;
 const R = 66;
@@ -62,20 +83,21 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
           const p = dataPts[i];
           const v = values[i];
           const label = SUB_LABELS[key] ?? key;
+          const tier = tierFor(v.pct);
           const detail = v.estimated
-            ? `${label}: ~${v.pct.toFixed(0)}% (estimated - not enough same-rating players yet to rank against)`
-            : `${label}: ${v.pct.toFixed(0)}th percentile among players near your rating`;
+            ? `${label}: ${tier} (~${v.pct.toFixed(0)}%, estimated - not enough same-rating players yet to rank against)`
+            : `${label}: ${tier} - ${v.pct.toFixed(0)}th percentile among players near your rating`;
           return (
-            <g key={key} className="cursor-default">
-              <circle cx={p.x} cy={p.y} r={10} fill="transparent">
+            <g key={key} className="group cursor-default">
+              <circle cx={p.x} cy={p.y} r={12} fill="transparent">
                 <title>{detail}</title>
               </circle>
               <circle
                 cx={p.x}
                 cy={p.y}
                 r={3.5}
-                fill="var(--accent)"
-                className="pointer-events-none transition-[r]"
+                fill={tierColor(v.pct)}
+                className="pointer-events-none transition-[r] group-hover:[r:5.5px]"
               />
             </g>
           );
@@ -92,8 +114,16 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
               <text x={lp.x} y={lp.y - 4} textAnchor={anchor} fontSize="11" fill="var(--text)">
                 {SUB_LABELS[key] ?? key}
               </text>
-              <text x={lp.x} y={lp.y + 9} textAnchor={anchor} fontSize="10" fill="var(--text-faint)">
-                {v.estimated ? `~${v.pct.toFixed(0)}%*` : `${v.pct.toFixed(0)}th pct.`}
+              <text
+                x={lp.x}
+                y={lp.y + 9}
+                textAnchor={anchor}
+                fontSize="10"
+                fontWeight={600}
+                fill={tierColor(v.pct)}
+              >
+                {tierFor(v.pct)}
+                {v.estimated ? "*" : ""}
               </text>
             </g>
           );
