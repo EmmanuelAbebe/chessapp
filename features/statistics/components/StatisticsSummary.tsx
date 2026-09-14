@@ -16,6 +16,7 @@ import { computeOpenings } from "../lib/summary";
 import { PhaseBreakdownChart } from "./PhaseBreakdownChart";
 import { OpeningsBreakdown } from "./OpeningsBreakdown";
 import { WinRateTimeline } from "./WinRateTimeline";
+import { AccuracyTrend } from "./AccuracyTrend";
 
 export default function StatisticsSummary({
   phaseAccuracy,
@@ -77,6 +78,10 @@ export default function StatisticsSummary({
         <>
           <div className="rounded-lg border border-border-soft bg-surface p-5">
             <WinRateTimeline games={filteredGames} perGame={perGame} />
+          </div>
+
+          <div className="rounded-lg border border-border-soft bg-surface p-5">
+            <AccuracyTrend perGame={perGame} />
           </div>
 
           {phaseMix && (

@@ -337,6 +337,8 @@ export function WinRateTimeline({
   );
   const overallScore = tally.games ? ((tally.wins + tally.draws * 0.5) / tally.games) * 100 : 0;
   const barW = Math.max(5, Math.min(22, PLOT_W / buckets.length - 4));
+  const maxBucketGames = Math.max(...buckets.map((b) => b.games.length));
+  const maxBarH = PLOT_H * 0.85; // leaves headroom so a full-size bucket doesn't touch the top gridline
 
   function nearestIndex(clientX: number): number {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -357,7 +359,6 @@ export function WinRateTimeline({
   const activeX = xFor(xVal(active));
   const tooltipLeft = activeX > PAD_L + PLOT_W * 0.65;
   const resultLabel = active.result === "win" ? "won" : active.result === "draw" ? "drew" : "lost";
-  const baselineY = yFor(50);
 
   return (
     <div className="flex flex-col gap-3">
@@ -413,35 +414,41 @@ export function WinRateTimeline({
         {buckets.map((b, i) => {
           const midIdx = Math.floor((b.startIdx + b.endIdx) / 2);
           const cx = xFor(xVal(points[midIdx]));
-          const scoreY = yFor(b.score);
-          const barY = Math.min(baselineY, scoreY);
-          const barH = Math.max(1, Math.abs(scoreY - baselineY));
-          const color = b.score >= 50 ? "var(--good)" : "var(--bad)";
           const selected = selectedBucket === i;
+          const opacity = selected ? 0.95 : 0.4;
+          let y = PAD_T + PLOT_H;
+          const segments: { key: string; n: number; color: string }[] = [
+            { key: "wins", n: b.wins, color: "var(--good)" },
+            { key: "draws", n: b.draws, color: "var(--text-faint)" },
+            { key: "losses", n: b.losses, color: "var(--bad)" },
+          ];
+          const totalH = (b.games.length / maxBucketGames) * maxBarH;
           return (
-            <g
-              key={i}
-              onClick={() => setSelectedBucket(selected ? null : i)}
-              className="cursor-pointer"
-            >
+            <g key={i} onClick={() => setSelectedBucket(selected ? null : i)} className="cursor-pointer">
               <rect x={cx - barW / 2 - 3} y={PAD_T} width={barW + 6} height={PLOT_H} fill="transparent" />
-              <rect
-                x={cx - barW / 2}
-                y={barY}
-                width={barW}
-                height={barH}
-                fill={color}
-                opacity={selected ? 0.85 : 0.3}
-                rx={1.5}
-              />
+              {segments.map((seg) => {
+                const h = (seg.n / b.games.length) * totalH;
+                y -= h;
+                return (
+                  <rect
+                    key={seg.key}
+                    x={cx - barW / 2}
+                    y={y}
+                    width={barW}
+                    height={Math.max(h, 0)}
+                    fill={seg.color}
+                    opacity={opacity}
+                  />
+                );
+              })}
               {selected && (
                 <rect
                   x={cx - barW / 2 - 2}
-                  y={barY - 2}
+                  y={PAD_T + PLOT_H - totalH - 2}
                   width={barW + 4}
-                  height={barH + 4}
+                  height={totalH + 4}
                   fill="none"
-                  stroke={color}
+                  stroke="var(--accent)"
                   strokeWidth={1.5}
                   rx={2}
                 />
@@ -513,8 +520,10 @@ export function WinRateTimeline({
 
       <p className="text-[11px] text-text-faint">
         Line: rolling win rate over your last {WINDOW} games (win 1, draw ½) — hover to
-        inspect a point. Bars: each stretch&apos;s own record (green ≥ 50%, red &lt; 50%) —
-        click one for the games, openings, and (once analyzed) real move accuracy behind it;{" "}
+        inspect a point.
+        Bars: each stretch&apos;s actual win/draw/loss count, so a short bar means fewer
+        games, not just a different rate — click one for the games, openings, and (once
+        analyzed) real move accuracy behind it;{" "}
         {mode === "game"
           ? "spaced by game count."
           : "spaced by when you actually played, so breaks show as gaps."}
