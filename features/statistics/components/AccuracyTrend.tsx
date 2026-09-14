@@ -48,8 +48,8 @@ export function AccuracyTrend({ perGame }: { perGame?: PerGameStats[] }) {
 
   if (points.length < 5) {
     return (
-      <div>
-        <h3 className="mb-2 text-xs font-semibold tracking-wide text-text-faint uppercase">
+      <div className="flex flex-col gap-3">
+        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
           Accuracy trend
         </h3>
         <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
@@ -77,15 +77,17 @@ export function AccuracyTrend({ perGame }: { perGame?: PerGameStats[] }) {
   const first = points[0];
 
   return (
-    <div>
-      <h3 className="mb-1 text-xs font-semibold tracking-wide text-text-faint uppercase">
-        Accuracy trend
-      </h3>
-      <p className="mb-3 text-[11px] text-text-faint">
-        Rolling move-quality over your last {WINDOW} analyzed games — lower is better. Faint
-        dots: blunder rate per game, own scale. Independent of win/loss: a losing stretch can
-        still be an improving one.
-      </p>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
+          Accuracy trend
+        </h3>
+        <p className="text-[11px] text-text-dim">
+          Rolling move-quality over your last {WINDOW} analyzed games — lower is better. Faint
+          dots: blunder rate per game, own scale. Independent of win/loss: a losing stretch can
+          still be an improving one.
+        </p>
+      </div>
       <div className="overflow-x-auto">
         <svg viewBox={`0 0 ${W} ${H}`} style={{ minWidth: 480 }} className="w-full" preserveAspectRatio="xMidYMid meet">
           {[0, maxV / 2, maxV].map((v) => (

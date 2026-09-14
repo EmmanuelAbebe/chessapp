@@ -55,7 +55,7 @@ function CoachingBlock({ coaching }: { coaching?: Coaching }) {
   if (!coaching) return null;
   const lines = [coaching.what, coaching.why, coaching.missed, coaching.principle, coaching.drill].filter(Boolean);
   if (lines.length === 0) return null;
-  return <p className="font-serif text-[13.5px] leading-relaxed text-text">{lines.join(" ")}</p>;
+  return <p className="font-serif text-sm leading-relaxed text-text">{lines.join(" ")}</p>;
 }
 
 // A fixed scale, not one stretched to fit whichever row has the biggest
@@ -99,7 +99,7 @@ function DivergingRow({
           />
         </div>
         {row.estimatedRatingGain !== undefined && (
-          <span className="hidden shrink-0 rounded-full bg-bad-soft px-2 py-0.5 text-[10px] font-semibold text-bad sm:inline">
+          <span className="hidden shrink-0 rounded-full bg-bad-soft px-2 py-0.5 text-[11px] font-semibold text-bad sm:inline">
             ~{Math.round(row.estimatedRatingGain)} pts
           </span>
         )}
@@ -109,7 +109,7 @@ function DivergingRow({
         </span>
       </div>
       {!neutral && (
-        <span className="pl-0 text-[10.5px] text-text-faint sm:pl-[calc(8rem+0.75rem)]">{zGloss(row.z)}</span>
+        <span className="pl-0 text-[11px] text-text-faint sm:pl-[calc(8rem+0.75rem)]">{zGloss(row.z)}</span>
       )}
     </div>
   );
@@ -234,11 +234,11 @@ export function WhereYouDiffer({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="flex flex-col gap-1">
         <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
           Where you differ
         </h3>
-        <p className="mt-1 text-xs text-text-dim">
+        <p className="text-[11px] text-text-dim">
           Skill gaps (green = better, red = worse than players at your level) and style
           signature (how you differ, not graded) — click a row for the detail.
         </p>

@@ -37,16 +37,18 @@ export function PhaseBreakdownChart({
   const gapXFor = (v: number) => GAP_ZERO + (v / maxGap) * (GAP_W / 2);
 
   return (
-    <div>
-      <h3 className="mb-2 text-xs font-semibold tracking-wide text-text-faint uppercase">
-        Phase mix{hasAccuracy ? " & accuracy" : ""}
-      </h3>
-      <p className="mb-3 text-[11px] text-text-faint">
-        Move share: how much of each game you spend in that phase. Accuracy gap vs. peers:{" "}
-        {hasAccuracy
-          ? "your move-quality gap vs. players at your level there — green is better than typical, red is worse."
-          : "analyze your games above to see this axis."}
-      </p>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
+          Phase mix{hasAccuracy ? " & accuracy" : ""}
+        </h3>
+        <p className="text-[11px] text-text-dim">
+          Move share: how much of each game you spend in that phase. Accuracy gap vs. peers:{" "}
+          {hasAccuracy
+            ? "your move-quality gap vs. players at your level there — green is better than typical, red is worse."
+            : "analyze your games above to see this axis."}
+        </p>
+      </div>
       <div className="overflow-x-auto">
       <svg
         viewBox={`0 0 ${W} ${H}`}
@@ -54,10 +56,10 @@ export function PhaseBreakdownChart({
         className="w-full"
         preserveAspectRatio="xMidYMid meet"
       >
-        <text x={SHARE_X} y={PAD_T + 2} fontSize="9" fontWeight={600} fill="var(--text-faint)">
+        <text x={SHARE_X} y={PAD_T + 2} fontSize="10" fontWeight={600} fill="var(--text-faint)">
           move share
         </text>
-        <text x={GAP_X0} y={PAD_T + 2} fontSize="9" fontWeight={600} fill="var(--text-faint)">
+        <text x={GAP_X0} y={PAD_T + 2} fontSize="10" fontWeight={600} fill="var(--text-faint)">
           accuracy gap vs. peers (wp_loss)
         </text>
         <line x1={GAP_ZERO} x2={GAP_ZERO} y1={PAD_T + 10} y2={H - 6} stroke="var(--border)" />

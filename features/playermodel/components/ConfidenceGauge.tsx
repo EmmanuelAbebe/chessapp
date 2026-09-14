@@ -34,7 +34,7 @@ export function ConfidenceGauge({ confidence, gamesAnalyzed }: { confidence: num
         {[0, 0.5, 1].map((t) => {
           const p = arcPoint(angleFor(t), R + 16);
           return (
-            <text key={t} x={p.x} y={p.y + 3} textAnchor="middle" fontSize="9" fill="var(--text-faint)">
+            <text key={t} x={p.x} y={p.y + 3} textAnchor="middle" fontSize="10" fill="var(--text-faint)">
               {Math.round(t * 100)}
             </text>
           );
@@ -47,7 +47,7 @@ export function ConfidenceGauge({ confidence, gamesAnalyzed }: { confidence: num
         </text>
       </svg>
       <p
-        className="text-center text-[10px] text-text-faint"
+        className="text-center text-[11px] text-text-faint"
         title="How many games this estimate rests on: 50+ is treated as fully confident, scaling down linearly below that. It's not a measure of how accurate the number is, just how much data went into it."
       >
         {gamesAnalyzed} games analyzed

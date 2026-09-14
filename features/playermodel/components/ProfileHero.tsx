@@ -5,7 +5,7 @@ import { ConfidenceGauge } from "./ConfidenceGauge";
 export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
   const { skill, cohort, source } = profile;
   return (
-    <div className="rounded-lg border border-border-soft bg-surface p-5">
+    <div className="flex flex-col gap-4 rounded-lg border border-border-soft bg-surface p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <p className="text-xs font-semibold tracking-wide text-text-faint uppercase">
@@ -23,12 +23,12 @@ export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
         </p>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-8">
+      <div className="flex flex-wrap items-center justify-center gap-8">
         <SkillRadar sub={skill.sub} />
         <ConfidenceGauge confidence={skill.confidence} gamesAnalyzed={source.games_analyzed} />
       </div>
 
-      <p className="mt-3 text-xs text-text-faint">
+      <p className="text-xs text-text-faint">
         {source.games_analyzed} {source.time_class} games
         {source.date_range ? ` · ${source.date_range[0]} – ${source.date_range[1]}` : ""}
       </p>

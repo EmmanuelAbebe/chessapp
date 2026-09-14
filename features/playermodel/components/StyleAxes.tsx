@@ -22,10 +22,16 @@ function tickLeft(t: number): number {
 export function StyleAxes({ axes }: { axes: StyleAxis[] }) {
   if (axes.length === 0) return null;
   return (
-    <div className="flex flex-col gap-5 rounded-lg border border-border-soft bg-surface p-5">
-      <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
-        Your style
-      </h3>
+    <div className="flex flex-col gap-3 rounded-lg border border-border-soft bg-surface p-5">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
+          Your style
+        </h3>
+        <p className="text-[11px] text-text-dim">
+          Each axis is a spectrum from −3 to +3 — the number is where you land, not a score;
+          the labels on either end are which direction means what.
+        </p>
+      </div>
       <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
         {axes.map((axis) => {
           const [left, right] = poles(axis.label);
@@ -60,7 +66,7 @@ export function StyleAxes({ axes }: { axes: StyleAxis[] }) {
                         style={{ left: `${tickLeft(t)}%` }}
                       >
                         <div className="h-1 w-px bg-border" />
-                        <span className="font-mono text-[9px] text-text-faint">
+                        <span className="font-mono text-[10px] text-text-faint">
                           {t === 0 ? "0" : t > 0 ? `+${t}` : t}
                         </span>
                       </div>

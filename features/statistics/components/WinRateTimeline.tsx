@@ -210,7 +210,7 @@ function BucketDetail({
 
       {hasQuality ? (
         <div className="flex flex-col gap-1 rounded-md bg-surface-raised/60 p-2.5">
-          <span className="mb-0.5 text-[10px] font-semibold tracking-wide text-text-faint uppercase">
+          <span className="mb-0.5 text-[11px] font-semibold tracking-wide text-text-faint uppercase">
             Real move quality this stretch, vs. your overall average
           </span>
           <QualityRow label="Move accuracy loss" bucketValue={quality.meanWpLoss} overallValue={overall.meanWpLoss} />
@@ -296,9 +296,12 @@ export function WinRateTimeline({
 
   if (points.length < 3) {
     return (
-      <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
-        A few more games will start showing a trend here.
-      </p>
+      <div className="flex flex-col gap-3">
+        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">Win rate</h3>
+        <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
+          A few more games will start showing a trend here.
+        </p>
+      </div>
     );
   }
 
@@ -362,6 +365,14 @@ export function WinRateTimeline({
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">Win rate</h3>
+        <p className="text-[11px] text-text-dim">
+          A rolling trend line over stacked win/draw/loss stretches — click a bar for the
+          games behind it.
+        </p>
+      </div>
+
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-2 font-mono text-xs text-text-faint">
           <span className="text-text">
@@ -500,7 +511,7 @@ export function WinRateTimeline({
               <text x={tooltipLeft ? -108 : 10} y={14} fontSize="11" fontWeight={600} fill="var(--text)">
                 {active.rate.toFixed(0)}% rolling
               </text>
-              <text x={tooltipLeft ? -108 : 10} y={28} fontSize="9.5" fill="var(--text-faint)">
+              <text x={tooltipLeft ? -108 : 10} y={28} fontSize="10" fill="var(--text-faint)">
                 game {active.index + 1} · {formatDay(active.playedAt)} · {resultLabel}
               </text>
             </g>

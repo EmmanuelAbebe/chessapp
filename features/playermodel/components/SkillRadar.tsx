@@ -70,10 +70,10 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
           const v = values[i];
           return (
             <g key={key}>
-              <text x={lp.x} y={lp.y - 4} textAnchor={anchor} fontSize="10.5" fill="var(--text)">
+              <text x={lp.x} y={lp.y - 4} textAnchor={anchor} fontSize="11" fill="var(--text)">
                 {SUB_LABELS[key] ?? key}
               </text>
-              <text x={lp.x} y={lp.y + 9} textAnchor={anchor} fontSize="9" fill="var(--text-faint)">
+              <text x={lp.x} y={lp.y + 9} textAnchor={anchor} fontSize="10" fill="var(--text-faint)">
                 {v.estimated ? `~${v.pct.toFixed(0)}%*` : `${v.pct.toFixed(0)}th pct.`}
               </text>
             </g>
@@ -81,7 +81,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
         })}
       </svg>
       {values.some((v) => v.estimated) && (
-        <p className="text-[10px] text-text-faint">* estimated — not enough same-rating players yet to rank against</p>
+        <p className="text-[11px] text-text-faint">* estimated — not enough same-rating players yet to rank against</p>
       )}
     </div>
   );

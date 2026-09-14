@@ -27,8 +27,8 @@ export function OpeningsBreakdown({
   const maxGames = Math.max(...rows.map((r) => r.games));
 
   return (
-    <div className="w-full">
-      <div className="mb-3 flex items-baseline justify-between">
+    <div className="flex w-full flex-col gap-3">
+      <div className="flex items-baseline justify-between">
         <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">{heading}</h3>
         <span className="font-mono text-xs text-text-faint">{total} games</span>
       </div>
@@ -62,7 +62,7 @@ export function OpeningsBreakdown({
         })}
       </div>
 
-      <p className="mt-3 text-[11px] text-text-faint">
+      <p className="text-[11px] text-text-faint">
         Bar length is share of these games; the % on the right is win-rate (win 1, draw ½).
         Family names come from the PGN&apos;s own opening tag where present.
       </p>
