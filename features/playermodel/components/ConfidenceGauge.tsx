@@ -1,3 +1,5 @@
+import { HintIcon } from "@/components/ui/HintIcon";
+
 const W = 214;
 const H = 122;
 const CX = W / 2;
@@ -30,7 +32,9 @@ export function ConfidenceGauge({ confidence, gamesAnalyzed }: { confidence: num
     <div className="flex flex-col items-center gap-1">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-xs">
         <path d={arcPath(0, 1)} stroke="var(--surface-raised)" strokeWidth={14} fill="none" strokeLinecap="round" />
-        <path d={arcPath(0, value)} stroke="var(--accent)" strokeWidth={14} fill="none" strokeLinecap="round" />
+        <path d={arcPath(0, value)} stroke="var(--accent)" strokeWidth={14} fill="none" strokeLinecap="round">
+          <title>{`${Math.round(value * 100)}% confidence, from ${gamesAnalyzed} games analyzed`}</title>
+        </path>
         {[0, 0.5, 1].map((t) => {
           const p = arcPoint(angleFor(t), R + 16);
           return (
@@ -46,11 +50,9 @@ export function ConfidenceGauge({ confidence, gamesAnalyzed }: { confidence: num
           confidence
         </text>
       </svg>
-      <p
-        className="text-center text-[11px] text-text-faint"
-        title="How many games this estimate rests on: 50+ is treated as fully confident, scaling down linearly below that. It's not a measure of how accurate the number is, just how much data went into it."
-      >
+      <p className="flex items-center gap-1 text-center text-[11px] text-text-faint">
         {gamesAnalyzed} games analyzed
+        <HintIcon text="How many games this rests on: 50+ is treated as fully confident, scaling down linearly below that. Not a measure of how accurate the number is, just how much data went into it." />
       </p>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import type { AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
+import { HintIcon } from "@/components/ui/HintIcon";
 import { AnalyzePanel } from "./AnalyzePanel";
 import { ProfileHero } from "./ProfileHero";
 import { ProfileSkeleton } from "./ProfileSkeleton";
@@ -26,14 +27,14 @@ export function PlayerModelSection({
   onAnalyze: (opts?: { force?: boolean; maxGames?: number }) => void;
 }) {
   return (
-    <section className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-base font-semibold text-text">Your playing style</h2>
-        <p className="mt-0.5 text-xs text-text-faint">
-          Engine-verified, compared against players who share your style - skill estimate,
-          style axes, and where you differ from them.
-        </p>
-      </div>
+    <section className="flex flex-col gap-8">
+      <h2 className="flex items-center gap-1.5 text-base font-semibold text-text">
+        Your playing style
+        <HintIcon
+          text="Engine-verified, compared against players who share your style - skill estimate, style axes, and where you differ from them."
+          width="w-56"
+        />
+      </h2>
 
       <AnalyzePanel profile={profile} status={status} error={error} onAnalyze={onAnalyze} />
 
@@ -45,7 +46,7 @@ export function PlayerModelSection({
               Refreshing…
             </div>
           )}
-          <div className={`flex flex-col gap-6 transition-opacity ${status === "loading" ? "opacity-50" : ""}`}>
+          <div className={`flex flex-col gap-8 transition-opacity ${status === "loading" ? "opacity-50" : ""}`}>
             <ProfileHero profile={profile} />
             <StyleAxes axes={profile.style.axes} />
 

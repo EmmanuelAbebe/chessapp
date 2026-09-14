@@ -1,4 +1,5 @@
 import type { StyleAxis } from "../types";
+import { HintIcon } from "@/components/ui/HintIcon";
 
 function poles(label: string): [string, string] {
   const [a, b] = label.split("↔").map((s) => s.trim());
@@ -12,34 +13,36 @@ function tickLeft(t: number): number {
   return ((t + SCALE) / (SCALE * 2)) * 100;
 }
 
-/** Each PC axis as a filled diverging bar from centre, now with an actual
- * scale (tick marks at -3/0/+3) and the numeric value spelled out - the
- * previous version was just a bare bar: no ticks, no number, and (once
- * this card went full-width) stretched edge to edge for very little
- * information per row. A 2-col grid plus a capped bar width fixes the
- * "too wide" side of that; the ticks/value fix the "not scaled, no
- * labels" side. */
+/** Each PC axis as a filled diverging bar from centre, with tick marks
+ * and the numeric value spelled out. Hover a row for the plain-language
+ * reading (no JS state needed - just a title + CSS hover, so this stays
+ * a server-renderable component). */
 export function StyleAxes({ axes }: { axes: StyleAxis[] }) {
   if (axes.length === 0) return null;
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border-soft bg-surface p-5">
-      <div className="flex flex-col gap-1">
-        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
-          Your style
-        </h3>
-        <p className="text-[11px] text-text-dim">
-          Each axis is a spectrum from −3 to +3 — the number is where you land, not a score;
-          the labels on either end are which direction means what.
-        </p>
-      </div>
-      <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+    <div className="flex flex-col gap-4 rounded-lg border border-border-soft bg-surface p-6">
+      <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
+        Your style
+        <HintIcon
+          text="Each axis is a spectrum from -3 to +3 - the number is where you land, not a score; the labels on either end are which direction means what."
+          width="w-56"
+        />
+      </h3>
+      <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
         {axes.map((axis) => {
           const [left, right] = poles(axis.label);
           const clamped = Math.max(-SCALE, Math.min(SCALE, axis.value));
           const fillPct = (Math.abs(clamped) / SCALE) * 50;
           const fromCenter = clamped >= 0;
+          const pctToward = Math.round((Math.abs(clamped) / SCALE) * 100);
+          const towardPole = fromCenter ? right : left;
+
           return (
-            <div key={axis.id} className="flex max-w-sm flex-col gap-1">
+            <div
+              key={axis.id}
+              title={`${pctToward}% of the way toward "${towardPole}"`}
+              className="group flex max-w-sm cursor-default flex-col gap-1 rounded-md p-1.5 -m-1.5 transition hover:bg-surface-raised/60"
+            >
               <div className="flex justify-between text-[11px] text-text-faint">
                 <span className={!fromCenter ? "font-medium text-text" : undefined}>{left}</span>
                 <span className={fromCenter ? "font-medium text-text" : undefined}>{right}</span>
@@ -50,7 +53,7 @@ export function StyleAxes({ axes }: { axes: StyleAxis[] }) {
                   <div className="relative h-3 overflow-hidden rounded-sm bg-surface-raised">
                     <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
                     <div
-                      className="absolute inset-y-0 rounded-sm bg-accent/80"
+                      className="absolute inset-y-0 rounded-sm bg-accent/80 transition-colors group-hover:bg-accent"
                       style={
                         fromCenter
                           ? { left: "50%", width: `${fillPct}%` }

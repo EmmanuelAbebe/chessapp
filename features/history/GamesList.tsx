@@ -3,8 +3,8 @@
 import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaChessBoard, FaUpRightFromSquare } from "react-icons/fa6";
-import { FiHelpCircle } from "react-icons/fi";
 import { PiGraph } from "react-icons/pi";
+import { HintIcon } from "@/components/ui/HintIcon";
 import { pgnPlayedAt, type GameHistoryEntry } from "./types";
 import { stashExploreGame } from "./exploreGame";
 import { lookupOpeningName } from "@/features/statistics/lib/openings-book";
@@ -60,29 +60,6 @@ function formatTimeOfDay(game: GameHistoryEntry): string | null {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-/** A tiny "?" that reveals a one-line explanation on hover / focus. */
-function HintIcon({ text }: { text: string }) {
-  return (
-    <span className="group/hint relative inline-flex align-middle">
-      <button
-        type="button"
-        tabIndex={0}
-        aria-label={text}
-        className="text-text-faint transition hover:text-text"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <FiHelpCircle className="h-3 w-3" />
-      </button>
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-48 -translate-x-1/2 rounded-md border border-border bg-surface px-2 py-1 text-[11px] leading-snug font-normal text-text-dim opacity-0 shadow-lg transition-opacity duration-150 group-hover/hint:opacity-100 group-focus-within/hint:opacity-100"
-      >
-        {text}
-      </span>
-    </span>
-  );
 }
 
 function DetailField({

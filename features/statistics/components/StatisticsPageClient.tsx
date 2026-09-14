@@ -3,6 +3,7 @@
 import { usePlayerProfile } from "@/features/playermodel/usePlayerProfile";
 import { PlayerModelSection } from "@/features/playermodel/components/PlayerModelSection";
 import type { PlayerProfileData } from "@/features/playermodel/types";
+import { HintIcon } from "@/components/ui/HintIcon";
 import StatisticsSummary from "./StatisticsSummary";
 
 /** Owns the one usePlayerProfile instance for /dashboard/statistics, so
@@ -17,9 +18,9 @@ export function StatisticsPageClient({
   const { profile, status, error, analyze } = usePlayerProfile(initialProfile);
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-16">
       <div>
-        <h1 className="mb-6 text-xl font-bold text-text">Statistics</h1>
+        <h1 className="mb-8 text-xl font-bold text-text">Statistics</h1>
         <PlayerModelSection
           profile={profile}
           status={status}
@@ -28,13 +29,14 @@ export function StatisticsPageClient({
         />
       </div>
 
-      <div className="border-t border-border-soft pt-6">
-        <h2 className="text-base font-semibold text-text">Game history</h2>
-        <p className="mt-0.5 mb-6 text-xs text-text-faint">
-          Plain counts from every game you&apos;ve recorded - no engine, no comparison group.
-          Read alongside &quot;Your playing style&quot; above for what these numbers actually
-          mean.
-        </p>
+      <div className="border-t border-border-soft pt-8">
+        <h2 className="mb-8 flex items-center gap-1.5 text-base font-semibold text-text">
+          Game history
+          <HintIcon
+            text="Plain counts from every game you've recorded - no engine, no comparison group. Read alongside 'Your playing style' above for what these numbers actually mean."
+            width="w-56"
+          />
+        </h2>
         <StatisticsSummary phaseAccuracy={profile?.phase_accuracy} perGame={profile?.per_game} />
       </div>
     </div>

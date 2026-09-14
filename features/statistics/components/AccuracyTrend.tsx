@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { PerGameStats } from "@/features/playermodel/types";
+import { HintIcon } from "@/components/ui/HintIcon";
 
 const WINDOW = 15;
 const W = 640;
@@ -45,6 +46,8 @@ function formatDate(d: string | null): string {
 
 export function AccuracyTrend({ perGame }: { perGame?: PerGameStats[] }) {
   const points = useMemo(() => rollingAccuracy(perGame ?? []), [perGame]);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   if (points.length < 5) {
     return (
@@ -75,21 +78,45 @@ export function AccuracyTrend({ perGame }: { perGame?: PerGameStats[] }) {
 
   const last = points[points.length - 1];
   const first = points[0];
+  const active = hoverIdx !== null ? points[hoverIdx] : last;
+  const activeX = xFor(active.index);
+  const tooltipLeft = activeX > PAD_L + PLOT_W * 0.65;
+
+  function nearestIndex(clientX: number): number {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return points.length - 1;
+    const localX = ((clientX - rect.left) / rect.width) * W;
+    let best = 0;
+    let bestDist = Infinity;
+    points.forEach((p, i) => {
+      const d = Math.abs(xFor(p.index) - localX);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    });
+    return best;
+  }
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
-          Accuracy trend
-        </h3>
-        <p className="text-[11px] text-text-dim">
-          Rolling move-quality over your last {WINDOW} analyzed games — lower is better. Faint
-          dots: blunder rate per game, own scale. Independent of win/loss: a losing stretch can
-          still be an improving one.
-        </p>
-      </div>
+      <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
+        Accuracy trend
+        <HintIcon
+          text="Rolling move-quality over your last 15 analyzed games - lower is better. Faint dots: blunder rate per game. Independent of win/loss: a losing stretch can still be an improving one."
+          width="w-56"
+        />
+      </h3>
       <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ minWidth: 480 }} className="w-full" preserveAspectRatio="xMidYMid meet">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${W} ${H}`}
+          style={{ minWidth: 480 }}
+          className="w-full cursor-crosshair touch-none select-none"
+          preserveAspectRatio="xMidYMid meet"
+          onPointerMove={(e) => setHoverIdx(nearestIndex(e.clientX))}
+          onPointerLeave={() => setHoverIdx(null)}
+        >
           {[0, maxV / 2, maxV].map((v) => (
             <g key={v}>
               <line x1={PAD_L} x2={W - PAD_R} y1={yFor(v)} y2={yFor(v)} stroke="var(--border)" />
@@ -99,24 +126,28 @@ export function AccuracyTrend({ perGame }: { perGame?: PerGameStats[] }) {
             </g>
           ))}
 
-          <path d={areaPath} fill="var(--accent)" fillOpacity={0.1} stroke="none" />
-          <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" />
+          <path d={areaPath} fill="var(--accent)" fillOpacity={0.1} stroke="none" pointerEvents="none" />
+          <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" pointerEvents="none" />
 
           {points.map((p) => (
-            <circle key={p.index} cx={xFor(p.index)} cy={yForBlunder(p.blunderRate)} r={1.8} fill="var(--bad)" opacity={0.5} />
+            <circle key={p.index} cx={xFor(p.index)} cy={yForBlunder(p.blunderRate)} r={1.8} fill="var(--bad)" opacity={0.5} pointerEvents="none" />
           ))}
 
-          <circle cx={xFor(last.index)} cy={yFor(last.wpLoss)} r={4} fill="var(--accent)" />
-          <text
-            x={xFor(last.index)}
-            y={yFor(last.wpLoss) - 8}
-            textAnchor="end"
-            fontSize="11"
-            fontWeight={600}
-            fill="var(--text)"
-          >
-            {last.wpLoss.toFixed(1)}%
-          </text>
+          {hoverIdx === null && (
+            <g pointerEvents="none">
+              <circle cx={xFor(last.index)} cy={yFor(last.wpLoss)} r={4} fill="var(--accent)" />
+              <text
+                x={xFor(last.index)}
+                y={yFor(last.wpLoss) - 8}
+                textAnchor="end"
+                fontSize="11"
+                fontWeight={600}
+                fill="var(--text)"
+              >
+                {last.wpLoss.toFixed(1)}%
+              </text>
+            </g>
+          )}
 
           <text x={xFor(0)} y={H - 6} fontSize="10" fill="var(--text-faint)">
             {formatDate(first.date) || "earliest"}
@@ -124,6 +155,30 @@ export function AccuracyTrend({ perGame }: { perGame?: PerGameStats[] }) {
           <text x={xFor(last.index)} y={H - 6} textAnchor="end" fontSize="10" fill="var(--text-faint)">
             {formatDate(last.date) || "most recent"}
           </text>
+
+          {hoverIdx !== null && (
+            <g pointerEvents="none">
+              <line x1={activeX} x2={activeX} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--text-faint)" strokeDasharray="3 3" />
+              <circle cx={activeX} cy={yFor(active.wpLoss)} r={4.5} fill="var(--accent)" stroke="var(--surface)" strokeWidth={1.5} />
+              <g transform={`translate(${tooltipLeft ? activeX - 8 : activeX + 8}, ${Math.max(PAD_T + 2, yFor(active.wpLoss) - 36)})`}>
+                <rect
+                  x={tooltipLeft ? -108 : 0}
+                  y={0}
+                  width={108}
+                  height={32}
+                  rx={5}
+                  fill="var(--surface-raised)"
+                  stroke="var(--border)"
+                />
+                <text x={tooltipLeft ? -98 : 10} y={13} fontSize="11" fontWeight={600} fill="var(--text)">
+                  {active.wpLoss.toFixed(1)}% loss
+                </text>
+                <text x={tooltipLeft ? -98 : 10} y={25} fontSize="10" fill="var(--text-faint)">
+                  {formatDate(active.date) || `game ${active.index + 1}`}
+                </text>
+              </g>
+            </g>
+          )}
         </svg>
       </div>
     </div>

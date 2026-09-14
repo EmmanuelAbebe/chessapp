@@ -53,7 +53,7 @@ export default function StatisticsSummary({
           Stockfish are recorded automatically; set your usernames below,
           then paste a PGN or a lichess export URL.
         </p>
-        <div className="rounded-lg border border-border-soft bg-surface p-5">
+        <div className="rounded-lg border border-border-soft bg-surface p-6">
           <GameDataCard />
         </div>
       </section>
@@ -61,7 +61,7 @@ export default function StatisticsSummary({
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-8">
       <div className="flex flex-col items-center gap-2">
         <SidePlayedFilter value={side} onChange={setSide} counts={counts} />
         <p className="text-xs text-text-faint">
@@ -76,21 +76,21 @@ export default function StatisticsSummary({
         </p>
       ) : (
         <>
-          <div className="rounded-lg border border-border-soft bg-surface p-5">
+          <div className="rounded-lg border border-border-soft bg-surface p-6">
             <WinRateTimeline games={filteredGames} perGame={perGame} />
           </div>
 
-          <div className="rounded-lg border border-border-soft bg-surface p-5">
+          <div className="rounded-lg border border-border-soft bg-surface p-6">
             <AccuracyTrend perGame={perGame} />
           </div>
 
           {phaseMix && (
-            <div className="rounded-lg border border-border-soft bg-surface p-5">
+            <div className="rounded-lg border border-border-soft bg-surface p-6">
               <PhaseBreakdownChart mix={phaseMix} accuracy={phaseAccuracy} />
             </div>
           )}
-          <div className="rounded-lg border border-border-soft bg-surface p-5">
-            <OpeningsBreakdown breakdown={openings} side={side} />
+          <div className="rounded-lg border border-border-soft bg-surface p-6">
+            <OpeningsBreakdown breakdown={openings} side={side} games={filteredGames} />
           </div>
         </>
       )}

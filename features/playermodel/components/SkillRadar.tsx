@@ -58,9 +58,28 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
           stroke="var(--accent)"
           strokeWidth={2}
         />
-        {dataPts.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3.5} fill="var(--accent)" />
-        ))}
+        {entries.map(([key], i) => {
+          const p = dataPts[i];
+          const v = values[i];
+          const label = SUB_LABELS[key] ?? key;
+          const detail = v.estimated
+            ? `${label}: ~${v.pct.toFixed(0)}% (estimated - not enough same-rating players yet to rank against)`
+            : `${label}: ${v.pct.toFixed(0)}th percentile among players near your rating`;
+          return (
+            <g key={key} className="cursor-default">
+              <circle cx={p.x} cy={p.y} r={10} fill="transparent">
+                <title>{detail}</title>
+              </circle>
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={3.5}
+                fill="var(--accent)"
+                className="pointer-events-none transition-[r]"
+              />
+            </g>
+          );
+        })}
 
         {entries.map(([key], i) => {
           const lp = pointFor(i, count, 1.32);
@@ -69,7 +88,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
           const anchor = cos > 0.3 ? "start" : cos < -0.3 ? "end" : "middle";
           const v = values[i];
           return (
-            <g key={key}>
+            <g key={key} pointerEvents="none">
               <text x={lp.x} y={lp.y - 4} textAnchor={anchor} fontSize="11" fill="var(--text)">
                 {SUB_LABELS[key] ?? key}
               </text>

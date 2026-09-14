@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { stashExploreFen } from "@/features/history/exploreGame";
+import { HintIcon } from "@/components/ui/HintIcon";
 import type { Coaching, Evidence, ExamplePosition, FocusArea, SignatureItem, Strength } from "../types";
 
 const CONFIDENCE_LABEL: Record<FocusArea["confidence"], string> = {
@@ -234,20 +235,13 @@ export function WhereYouDiffer({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
-          Where you differ
-        </h3>
-        <p className="text-[11px] text-text-dim">
-          Two comparisons, side by side. <span className="font-medium text-text">Skill
-          gaps</span> shows where you&apos;re ahead or behind players at your own rating —
-          the same comparison behind your Skill estimate above (green = you&apos;re better,
-          red = worse). <span className="font-medium text-text">Style signature</span> shows
-          habits that differ from typical play at your level — not graded, just different.
-          Click any row to see the underlying numbers; a focus area also expands into
-          concrete coaching and example positions pulled from your own games.
-        </p>
-      </div>
+      <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
+        Where you differ
+        <HintIcon
+          text="Skill gaps: where you're ahead or behind players at your own rating (green = better, red = worse). Style signature: habits that differ from typical play at your level, not graded. Click any row for the detail - a focus area also expands into coaching and example positions."
+          width="w-64"
+        />
+      </h3>
 
       <div className="flex flex-col gap-2">
         <span className="text-[11px] font-semibold tracking-wide text-text-faint uppercase">

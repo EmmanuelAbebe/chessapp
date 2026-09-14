@@ -6,6 +6,7 @@ import type { GameHistoryEntry } from "@/features/history/types";
 import { stashExploreGame } from "@/features/history/exploreGame";
 import { openingFamilyOf } from "@/features/history/gameFacets";
 import type { PerGameStats } from "@/features/playermodel/types";
+import { HintIcon } from "@/components/ui/HintIcon";
 
 const WINDOW = 20;
 const W = 640;
@@ -365,13 +366,13 @@ export function WinRateTimeline({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">Win rate</h3>
-        <p className="text-[11px] text-text-dim">
-          A rolling trend line over stacked win/draw/loss stretches — click a bar for the
-          games behind it.
-        </p>
-      </div>
+      <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
+        Win rate
+        <HintIcon
+          text="A rolling trend line over stacked win/draw/loss stretches - click a bar for the games behind it, hover the line to inspect any point."
+          width="w-56"
+        />
+      </h3>
 
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-2 font-mono text-xs text-text-faint">
@@ -529,16 +530,6 @@ export function WinRateTimeline({
         />
       )}
 
-      <p className="text-[11px] text-text-faint">
-        Line: rolling win rate over your last {WINDOW} games (win 1, draw ½) — hover to
-        inspect a point.
-        Bars: each stretch&apos;s actual win/draw/loss count, so a short bar means fewer
-        games, not just a different rate — click one for the games, openings, and (once
-        analyzed) real move accuracy behind it;{" "}
-        {mode === "game"
-          ? "spaced by game count."
-          : "spaced by when you actually played, so breaks show as gaps."}
-      </p>
     </div>
   );
 }
