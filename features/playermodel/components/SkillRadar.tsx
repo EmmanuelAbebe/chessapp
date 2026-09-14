@@ -34,7 +34,10 @@ const R = 80;
 
 function pointFor(index: number, count: number, frac: number) {
   const angle = -Math.PI / 2 + (2 * Math.PI * index) / count;
-  return { x: CENTER + R * frac * Math.cos(angle), y: CENTER + R * frac * Math.sin(angle) };
+  return {
+    x: CENTER + R * frac * Math.cos(angle),
+    y: CENTER + R * frac * Math.sin(angle),
+  };
 }
 
 /** Percentile of each sub-score among players near your own rating
@@ -49,19 +52,29 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
 
   const values = entries.map(([, s]) => {
     const estimated = s.pct_in_band == null;
-    const pct = s.pct_in_band ?? Math.max(0, Math.min(100, ((s.score - 600) / 1800) * 100));
+    const pct =
+      s.pct_in_band ??
+      Math.max(0, Math.min(100, ((s.score - 600) / 1800) * 100));
     return { pct, estimated };
   });
 
   const dataPts = values.map((v, i) => pointFor(i, count, v.pct / 100));
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <svg viewBox={`-68 -24 ${SIZE + 136} ${SIZE + 71}`} className="w-full max-w-xl">
+    <div className="flex flex-col items-center gap-1 h-100">
+      <svg
+        viewBox={`-68 -24 ${SIZE + 136} ${SIZE + 71}`}
+        className="block w-full max-w-xl min-h-0 flex-1"
+      >
         {[0.25, 0.5, 0.75, 1].map((frac) => (
           <polygon
             key={frac}
-            points={entries.map((_, i) => { const p = pointFor(i, count, frac); return `${p.x},${p.y}`; }).join(" ")}
+            points={entries
+              .map((_, i) => {
+                const p = pointFor(i, count, frac);
+                return `${p.x},${p.y}`;
+              })
+              .join(" ")}
             fill="none"
             stroke="var(--border)"
             strokeWidth={1}
@@ -69,7 +82,16 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
         ))}
         {entries.map((_, i) => {
           const p = pointFor(i, count, 1);
-          return <line key={i} x1={CENTER} y1={CENTER} x2={p.x} y2={p.y} stroke="var(--border)" />;
+          return (
+            <line
+              key={i}
+              x1={CENTER}
+              y1={CENTER}
+              x2={p.x}
+              y2={p.y}
+              stroke="var(--border)"
+            />
+          );
         })}
 
         <polygon
@@ -111,7 +133,13 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
           const v = values[i];
           return (
             <g key={key} pointerEvents="none">
-              <text x={lp.x} y={lp.y - 4} textAnchor={anchor} fontSize="11" fill="var(--text)">
+              <text
+                x={lp.x}
+                y={lp.y - 4}
+                textAnchor={anchor}
+                fontSize="11"
+                fill="var(--text)"
+              >
                 {SUB_LABELS[key] ?? key}
               </text>
               <text
@@ -124,15 +152,26 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
               >
                 {tierFor(v.pct)}
               </text>
-              <text x={lp.x} y={lp.y + 20} textAnchor={anchor} fontSize="9" fontFamily="var(--font-mono)" fill="var(--text-faint)">
-                {v.estimated ? `~${v.pct.toFixed(0)}%*` : `${v.pct.toFixed(0)}th pct.`}
+              <text
+                x={lp.x}
+                y={lp.y + 20}
+                textAnchor={anchor}
+                fontSize="9"
+                fontFamily="var(--font-mono)"
+                fill="var(--text-faint)"
+              >
+                {v.estimated
+                  ? `~${v.pct.toFixed(0)}%*`
+                  : `${v.pct.toFixed(0)}th pct.`}
               </text>
             </g>
           );
         })}
       </svg>
       {values.some((v) => v.estimated) && (
-        <p className="text-[11px] text-text-faint">* estimated — not enough same-rating players yet to rank against</p>
+        <p className="text-[11px] text-text-faint">
+          * estimated — not enough same-rating players yet to rank against
+        </p>
       )}
     </div>
   );
