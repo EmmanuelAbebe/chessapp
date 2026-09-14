@@ -1,6 +1,6 @@
 import type { PlayerProfileData } from "../types";
 import { SkillRadar } from "./SkillRadar";
-import { ConfidenceGauge } from "./ConfidenceGauge";
+import { HintIcon } from "@/components/ui/HintIcon";
 
 export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
   const { skill, cohort, source } = profile;
@@ -11,9 +11,18 @@ export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
           <p className="text-xs font-semibold tracking-wide text-text-faint uppercase">
             Skill estimate
           </p>
-          <p className="font-mono text-3xl font-bold text-text">
-            {Math.round(skill.overall)}
-          </p>
+          <div className="flex items-baseline gap-2">
+            <p className="font-mono text-3xl font-bold text-text">
+              {Math.round(skill.overall)}
+            </p>
+            <span className="flex items-center gap-1 text-[11px] text-text-faint">
+              {Math.round(Math.max(0, Math.min(1, skill.confidence)) * 100)}% confidence
+              <HintIcon
+                text="How many games this rests on: 50+ is treated as fully confident, scaling down linearly below that. Not a measure of how accurate the number is, just how much data went into it."
+                width="w-56"
+              />
+            </span>
+          </div>
         </div>
         <p className="max-w-xs text-right text-xs text-text-dim">
           {cohort.description ||
@@ -23,9 +32,8 @@ export function ProfileHero({ profile }: { profile: PlayerProfileData }) {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-8">
+      <div className="flex justify-center">
         <SkillRadar sub={skill.sub} />
-        <ConfidenceGauge confidence={skill.confidence} gamesAnalyzed={source.games_analyzed} />
       </div>
 
       <p className="text-xs text-text-faint">

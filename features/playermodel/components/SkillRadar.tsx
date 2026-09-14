@@ -123,7 +123,9 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
                 fill={tierColor(v.pct)}
               >
                 {tierFor(v.pct)}
-                {v.estimated ? "*" : ""}
+              </text>
+              <text x={lp.x} y={lp.y + 20} textAnchor={anchor} fontSize="9" fontFamily="var(--font-mono)" fill="var(--text-faint)">
+                {v.estimated ? `~${v.pct.toFixed(0)}%*` : `${v.pct.toFixed(0)}th pct.`}
               </text>
             </g>
           );
