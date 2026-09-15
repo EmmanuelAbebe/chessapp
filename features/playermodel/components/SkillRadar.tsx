@@ -63,13 +63,13 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
 
   return (
     <div className="flex flex-col items-center gap-1 h-100">
-      <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-text-faint uppercase">
+      <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
         Skill breakdown
         <HintIcon
-          text={'"Pct." is short for percentile: the share of players near your own rating that you\'re ahead of in that category, from 0 (bottom) to 100 (top). Hover a point for the exact number.'}
+          text="The % at each point is a percentile: the share of players near your own rating that you're ahead of in that category, from 0 (bottom) to 100 (top). Hover a point for the exact number."
           width="w-60"
         />
-      </span>
+      </h3>
       <svg
         viewBox={`-68 -24 ${SIZE + 136} ${SIZE + 71}`}
         className="block h-full w-full max-w-xl"
@@ -169,9 +169,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
                 fontFamily="var(--font-mono)"
                 fill="var(--text-faint)"
               >
-                {v.estimated
-                  ? `~${v.pct.toFixed(0)}%*`
-                  : `${v.pct.toFixed(0)}th pct.`}
+                {v.estimated ? `~${v.pct.toFixed(0)}%*` : `${v.pct.toFixed(0)}%`}
               </text>
             </g>
           );
