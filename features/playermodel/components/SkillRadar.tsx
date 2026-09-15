@@ -1,5 +1,8 @@
+"use client";
+
 import type { Skill } from "../types";
 import { HintIcon } from "@/components/ui/HintIcon";
+import { useAnimatedNumbers } from "@/components/ui/useAnimatedNumbers";
 
 const SUB_LABELS: Record<string, string> = {
   tactical: "Tactical",
@@ -59,7 +62,11 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
     return { pct, estimated };
   });
 
-  const dataPts = values.map((v, i) => pointFor(i, count, v.pct / 100));
+  // Animate toward the real percentiles instead of snapping - on first
+  // mount this reads as the radar growing into place; after a re-analyze,
+  // as the shape and numbers visibly settling into the new reading.
+  const animatedPcts = useAnimatedNumbers(values.map((v) => v.pct));
+  const dataPts = animatedPcts.map((pct, i) => pointFor(i, count, pct / 100));
 
   return (
     <div className="flex flex-col items-center gap-1 h-100">
@@ -113,6 +120,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
         {entries.map(([key], i) => {
           const p = dataPts[i];
           const v = values[i];
+          const animatedPct = animatedPcts[i];
           const label = SUB_LABELS[key] ?? key;
           const tier = tierFor(v.pct);
           const detail = v.estimated
@@ -127,7 +135,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
                 cx={p.x}
                 cy={p.y}
                 r={3.5}
-                fill={tierColor(v.pct)}
+                fill={tierColor(animatedPct)}
                 className="pointer-events-none transition-[r] group-hover:[r:5.5px]"
               />
             </g>
@@ -140,6 +148,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
           const cos = Math.cos(angle);
           const anchor = cos > 0.3 ? "start" : cos < -0.3 ? "end" : "middle";
           const v = values[i];
+          const animatedPct = animatedPcts[i];
           return (
             <g key={key} pointerEvents="none">
               <text
@@ -157,9 +166,9 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
                 textAnchor={anchor}
                 fontSize="10"
                 fontWeight={600}
-                fill={tierColor(v.pct)}
+                fill={tierColor(animatedPct)}
               >
-                {tierFor(v.pct)}
+                {tierFor(animatedPct)}
               </text>
               <text
                 x={lp.x}
@@ -169,7 +178,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
                 fontFamily="var(--font-mono)"
                 fill="var(--text-faint)"
               >
-                {v.estimated ? `~${v.pct.toFixed(0)}%*` : `${v.pct.toFixed(0)}%`}
+                {v.estimated ? `~${animatedPct.toFixed(0)}%*` : `${animatedPct.toFixed(0)}%`}
               </text>
             </g>
           );
