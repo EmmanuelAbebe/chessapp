@@ -41,7 +41,7 @@ export function StyleAxes({ axes }: { axes: StyleAxis[] }) {
             <div
               key={axis.id}
               title={`${pctToward}% of the way toward "${towardPole}"`}
-              className="group flex max-w-sm cursor-default flex-col gap-1 rounded-md p-1.5 -m-1.5 transition hover:bg-surface-raised/60"
+              className="group flex cursor-default flex-col gap-1 rounded-md p-1.5 -m-1.5 transition hover:bg-surface-raised/60"
             >
               <div className="flex justify-between text-[11px] text-text-faint">
                 <span className={!fromCenter ? "font-medium text-text" : undefined}>{left}</span>
