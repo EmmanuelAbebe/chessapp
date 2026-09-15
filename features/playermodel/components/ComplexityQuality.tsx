@@ -22,7 +22,8 @@ function rangeLabel(b: ComplexityBucket): string {
  * sharper, or is there a threshold where it falls off? Same rolling-line
  * interaction pattern as AccuracyTrend, but the x-axis is a complexity
  * bucket, not time. */
-export function ComplexityQuality({ buckets }: { buckets: ComplexityBucket[] }) {
+export function ComplexityQuality({ buckets: rawBuckets }: { buckets?: ComplexityBucket[] }) {
+  const buckets = rawBuckets ?? [];
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 

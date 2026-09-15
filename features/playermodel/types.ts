@@ -140,7 +140,10 @@ export type PlayerProfileData = {
   strengths: Strength[];
   phase_accuracy: Partial<Record<"opening" | "middlegame" | "endgame", PhaseAccuracy>>;
   per_game: PerGameStats[];
-  complexity_curve: ComplexityBucket[];
+  /** Optional: absent on a profile persisted before this field existed -
+   * only a fresh re-analysis populates it, so treat it as possibly
+   * missing rather than always an array. */
+  complexity_curve?: ComplexityBucket[];
   coach_context: string;
   caveats: string[];
 };
