@@ -19,6 +19,16 @@ function isStale(profile: PlayerProfileData, gamesCount: number, computedAt: Dat
   return daysOld > STALE_AFTER_DAYS || gamesCount - profile.source.games_analyzed >= STALE_AFTER_NEW_GAMES;
 }
 
+// A plain "Refreshing…" reads as stuck once a big request runs into
+// minutes, not seconds - say how many games and set real expectations
+// whenever we actually know the count being requested.
+function loadingCopy(verb: "Analyzing" | "Refreshing", count: number | null): string {
+  if (count && count > REASONABLE_GAMES) {
+    return `${verb} ${count} games… this can take a few minutes`;
+  }
+  return verb === "Analyzing" ? "Analyzing… (this can take a minute)" : "Refreshing…";
+}
+
 export function AnalyzePanel({
   profile,
   status,
@@ -37,6 +47,10 @@ export function AnalyzePanel({
   const [showOptions, setShowOptions] = useState(false);
   const maxGames = maxGamesInput.trim() ? Number(maxGamesInput) : undefined;
   const [pendingOpts, setPendingOpts] = useState<{ force?: boolean; maxGames?: number } | null>(null);
+  // How many games the in-flight request is actually for, so the loading
+  // label can say so - null when unknown (blank input defers to whatever
+  // the server sizes it to).
+  const [activeCount, setActiveCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +72,7 @@ export function AnalyzePanel({
       setPendingOpts(opts);
       return;
     }
+    setActiveCount(opts?.maxGames ?? null);
     onAnalyze(opts);
   }
 
@@ -97,6 +112,7 @@ export function AnalyzePanel({
         <button
           type="button"
           onClick={() => {
+            setActiveCount(pendingOpts.maxGames ?? null);
             onAnalyze(pendingOpts);
             setPendingOpts(null);
           }}
@@ -141,7 +157,7 @@ export function AnalyzePanel({
                 disabled={status === "loading"}
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
               >
-                {status === "loading" ? "Analyzing… (this can take a minute)" : "Analyze my games"}
+                {status === "loading" ? loadingCopy("Analyzing", activeCount) : "Analyze my games"}
               </button>
               <button
                 type="button"
@@ -193,7 +209,7 @@ export function AnalyzePanel({
               stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
             }`}
           >
-            {status === "loading" ? "Refreshing…" : stale ? "Refresh (new games available)" : "Refresh"}
+            {status === "loading" ? loadingCopy("Refreshing", activeCount) : stale ? "Refresh (new games available)" : "Refresh"}
           </button>
         </div>
       </div>
