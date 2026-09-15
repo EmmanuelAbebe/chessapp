@@ -31,8 +31,8 @@ from pipeline.common.project import Artifacts
 from service.labels import label_for
 from service import engine as enginemod
 from service.schemas import (
-    Coaching, Cohort, Evidence, ExamplePosition, FocusArea, PerGameStats, PhaseAccuracy,
-    Profile, SignatureItem, Skill, Source, Strength, Style, StyleAxis, SubScore,
+    Coaching, Cohort, ComplexityBucket, Evidence, ExamplePosition, FocusArea, PerGameStats,
+    PhaseAccuracy, Profile, SignatureItem, Skill, Source, Strength, Style, StyleAxis, SubScore,
 )
 
 _VALID_RESULTS = {"1-0", "0-1", "1/2-1/2"}
@@ -277,6 +277,37 @@ def _example_positions(feature: str, mine: pl.DataFrame, moves_by_game: dict[str
     return out
 
 
+def _complexity_curve(mine: pl.DataFrame, n_buckets: int = 6, min_per_bucket: int = 8) -> list[ComplexityBucket]:
+    """Your move quality (wp_loss) as a function of position complexity -
+    do you hold up as fast as things get sharper, or does accuracy fall
+    off past some threshold? Equal-count (quantile) buckets rather than
+    equal-width, since complexity_pred's own distribution is what decides
+    what "sharp" means for this player's actual games."""
+    rows = mine.filter(pl.col("complexity_pred").is_not_null() & pl.col("wp_loss").is_not_null())
+    if rows.height < n_buckets * min_per_bucket:
+        return []
+    bucketed = rows.with_columns(
+        pl.col("complexity_pred").qcut(n_buckets, allow_duplicates=True, include_breaks=True).alias("_q")
+    ).unnest("_q")
+    curve = (
+        bucketed.group_by("breakpoint")
+        .agg(
+            pl.col("complexity_pred").min().alias("lo"),
+            pl.col("complexity_pred").max().alias("hi"),
+            pl.col("wp_loss").mean().alias("mean_wp_loss"),
+            pl.len().alias("n"),
+        )
+        .sort("breakpoint")
+    )
+    return [
+        ComplexityBucket(
+            complexity_lo=round(row["lo"], 1), complexity_hi=round(row["hi"], 1),
+            mean_wp_loss=round(row["mean_wp_loss"], 2), n=row["n"],
+        )
+        for row in curve.iter_rows(named=True)
+    ]
+
+
 # --- entry point ---------------------------------------------------------------
 
 def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts, cfg: dict) -> Profile:
@@ -324,6 +355,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
 
     vec, mine, ga = _aggregate_me(mf_df, games_meta)
     feat = _fill_nulls(vec, art.spec)
+    complexity_curve = _complexity_curve(mine)
 
     per_game_stats = [
         PerGameStats(
@@ -501,6 +533,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
         strengths=strengths,
         phase_accuracy=phase_accuracy,
         per_game=per_game_stats,
+        complexity_curve=complexity_curve,
         coach_context=coach_context,
         caveats=caveats,
     )

@@ -4,6 +4,7 @@ import type { AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
 import { HintIcon } from "@/components/ui/HintIcon";
 import { AnalyzePanel } from "./AnalyzePanel";
+import { ComplexityQuality } from "./ComplexityQuality";
 import { ProfileHero } from "./ProfileHero";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { StyleAxes } from "./StyleAxes";
@@ -49,6 +50,7 @@ export function PlayerModelSection({
           <div className={`flex flex-col gap-16 transition-opacity ${status === "loading" ? "opacity-50" : ""}`}>
             <ProfileHero profile={profile} />
             <StyleAxes axes={profile.style.axes} />
+            <ComplexityQuality buckets={profile.complexity_curve} />
 
             <WhereYouDiffer
               strengths={profile.strengths}

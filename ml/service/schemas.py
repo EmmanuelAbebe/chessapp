@@ -144,6 +144,19 @@ class PerGameStats(BaseModel):
     wp_loss_endgame: float | None = None
 
 
+class ComplexityBucket(BaseModel):
+    """One bucket of a complexity-vs-quality curve: among your own moves
+    falling in [complexity_lo, complexity_hi) position complexity, how
+    much win probability you lost on average. Buckets are equal-count
+    (quantiles of your own move complexity), not equal-width, so each
+    one rests on a comparable sample size."""
+
+    complexity_lo: float
+    complexity_hi: float
+    mean_wp_loss: float
+    n: int
+
+
 class Profile(BaseModel):
     schema_version: int = 1
     computed_at: str
@@ -155,5 +168,6 @@ class Profile(BaseModel):
     strengths: list[Strength]
     phase_accuracy: dict[str, PhaseAccuracy] = {}
     per_game: list[PerGameStats] = []
+    complexity_curve: list[ComplexityBucket] = []
     coach_context: str
     caveats: list[str] = []

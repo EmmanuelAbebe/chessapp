@@ -101,6 +101,13 @@ export type Strength = {
   z: number;
 };
 
+export type ComplexityBucket = {
+  complexity_lo: number;
+  complexity_hi: number;
+  mean_wp_loss: number;
+  n: number;
+};
+
 export type PerGameStats = {
   game_id: string;
   date?: string | null;
@@ -133,6 +140,7 @@ export type PlayerProfileData = {
   strengths: Strength[];
   phase_accuracy: Partial<Record<"opening" | "middlegame" | "endgame", PhaseAccuracy>>;
   per_game: PerGameStats[];
+  complexity_curve: ComplexityBucket[];
   coach_context: string;
   caveats: string[];
 };
