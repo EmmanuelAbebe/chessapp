@@ -171,3 +171,16 @@ class Profile(BaseModel):
     complexity_curve: list[ComplexityBucket] = []
     coach_context: str
     caveats: list[str] = []
+
+
+class JobStatus(BaseModel):
+    """Progress + latest snapshot for a chunked /profile/jobs run. `profile`
+    is a real, honestly-computed snapshot of however many games have been
+    folded in so far - not a placeholder - so a client can render it right
+    away and just watch it update as more batches complete."""
+
+    status: str  # "running" | "done" | "error"
+    games_processed: int = 0
+    games_total: int = 0
+    profile: Profile | None = None
+    error: str | None = None

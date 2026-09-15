@@ -6,6 +6,18 @@ The heavy lifting — per-ply features, book tagging, feature-model scoring,
 per-game/per-player aggregation, and the skill/style projection — all comes
 from ``pipeline/common/*``, unchanged from what built the reference set.
 This module is the glue: PGN in, ``schemas.Profile`` out.
+
+Processing is chunked (``build_profile_chunks``) rather than one big batch:
+a request for thousands of games would otherwise hold every game's full
+per-move feature dataframe (dozens of scored columns per ply) in memory at
+once, which is the actual bottleneck at scale, not wall-clock time alone.
+Each batch is scored and folded into small running state - accumulated
+per-game rows (``ga``, one row per game), a slim two-column complexity/
+wp_loss frame, and a bounded top-N example-position candidate list per
+feature - then its wide per-move dataframe is dropped before the next
+batch. ``build_profile`` is a thin wrapper that just drains the generator
+and returns its last snapshot, so existing single-shot callers are
+unaffected.
 """
 
 from __future__ import annotations
@@ -13,6 +25,7 @@ from __future__ import annotations
 import io
 import math
 import time
+from collections.abc import Iterator
 
 import chess
 import chess.engine
@@ -37,6 +50,8 @@ from service.schemas import (
 
 _VALID_RESULTS = {"1-0", "0-1", "1/2-1/2"}
 _CASTLE_SIDE = {"O-O": "k", "O-O-O": "q"}
+
+DEFAULT_BATCH_SIZE = 25
 
 
 class NotEnoughGames(Exception):
@@ -240,6 +255,8 @@ def _cohort_and_deviations(
     return peers, betters, deviations
 
 
+# --- 5. example positions (incremental top-N per feature bucket) -------------
+
 _BUCKET_FILTER: dict[str, str] = {
     "endgame_acpl": "pl.col('phase') == 'endgame'",
     "wp_loss_endgame": "pl.col('phase') == 'endgame'",
@@ -250,17 +267,41 @@ _BUCKET_FILTER: dict[str, str] = {
     "choke": "pl.col('mover_wp_before') >= 60",
     "tilt": "pl.col('mover_wp_before') <= 40",
 }
+_EXAMPLE_COLS = ["game_id", "ply", "wp_loss", "phase", "classification"]
 
 
-def _example_positions(feature: str, mine: pl.DataFrame, moves_by_game: dict[str, list[dict]], n: int = 2) -> list[ExamplePosition]:
-    expr = _BUCKET_FILTER.get(feature)
-    bucket = mine.filter(eval(expr, {"pl": pl})) if expr else mine  # noqa: S307 — trusted, module-local
-    bucket = bucket.filter(pl.col("wp_loss").is_not_null())
-    if bucket.height == 0:
-        bucket = mine.filter(pl.col("wp_loss").is_not_null())
-    top = bucket.sort("wp_loss", descending=True).head(n)
+class _ExamplePositionAccumulator:
+    """Keeps a running top-N (by wp_loss) candidate row per named feature
+    bucket, updated one chunk at a time, instead of requiring every
+    chunk's full per-move dataframe to stay in memory until the end. Each
+    bucket only ever holds `n` small dict rows, so this is cheap
+    regardless of how many games/chunks feed into it."""
+
+    def __init__(self, n: int = 5):
+        self.n = n
+        self._buckets: dict[str, list[dict]] = {key: [] for key in (*_BUCKET_FILTER, "_all")}
+
+    def add_chunk(self, mine_chunk: pl.DataFrame) -> None:
+        base = mine_chunk.filter(pl.col("wp_loss").is_not_null())
+        if base.height == 0:
+            return
+        for key, existing in self._buckets.items():
+            expr = _BUCKET_FILTER.get(key)
+            bucket_df = base.filter(eval(expr, {"pl": pl})) if expr else base  # noqa: S307 — trusted, module-local
+            if bucket_df.height == 0:
+                continue
+            candidates = bucket_df.sort("wp_loss", descending=True).head(self.n).select(_EXAMPLE_COLS).to_dicts()
+            merged = sorted(existing + candidates, key=lambda r: -r["wp_loss"])[: self.n]
+            self._buckets[key] = merged
+
+    def top(self, feature: str, n: int) -> list[dict]:
+        rows = self._buckets.get(feature) or self._buckets["_all"]
+        return rows[:n]
+
+
+def _example_positions_from_rows(rows: list[dict], moves_by_game: dict[str, list[dict]]) -> list[ExamplePosition]:
     out = []
-    for row in top.iter_rows(named=True):
+    for row in rows:
         moves = moves_by_game.get(row["game_id"])
         if not moves:
             continue
@@ -282,7 +323,9 @@ def _complexity_curve(mine: pl.DataFrame, n_buckets: int = 6, min_per_bucket: in
     do you hold up as fast as things get sharper, or does accuracy fall
     off past some threshold? Equal-count (quantile) buckets rather than
     equal-width, since complexity_pred's own distribution is what decides
-    what "sharp" means for this player's actual games."""
+    what "sharp" means for this player's actual games. `mine` only needs
+    to carry complexity_pred + wp_loss - the accumulated slim frame across
+    chunks, not the full per-move dataframe."""
     rows = mine.filter(pl.col("complexity_pred").is_not_null() & pl.col("wp_loss").is_not_null())
     if rows.height < n_buckets * min_per_bucket:
         return []
@@ -308,40 +351,21 @@ def _complexity_curve(mine: pl.DataFrame, n_buckets: int = 6, min_per_bucket: in
     ]
 
 
-# --- entry point ---------------------------------------------------------------
+# --- 6. per-chunk processing --------------------------------------------------
 
-def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts, cfg: dict) -> Profile:
-    ing = cfg["ingest"]
+def _process_chunk(
+    games_meta: list[dict], all_moves: list[list[dict]], cfg: dict, art: Artifacts
+) -> tuple[pl.DataFrame, pl.DataFrame] | None:
+    """Move features + book tags + feature-model scoring + per-game
+    aggregation for one batch of already eval-filled games. Returns
+    (ga_chunk, mine_chunk) - the caller keeps ga_chunk (cheap, one row per
+    game) and the two columns it needs from mine_chunk, then drops the
+    rest. None if this batch had no usable moves at all (a bad/short
+    batch shouldn't fail the whole request - see build_profile_chunks)."""
     mf_cfg = cfg["move_features"]
-    el_cfg = cfg["engine_labels"]
-    pv_cfg = cfg["player_vectors"]
-
-    games_meta, all_moves = _parse_games(pgn_text, time_class, ing["min_plies"])
-    games_meta, all_moves = _select_my_recent_games(
-        games_meta, all_moves, username, cfg["service"]["max_games_per_request"]
-    )
-    if len(games_meta) < pv_cfg["min_games"]:
-        raise NotEnoughGames(
-            f"only {len(games_meta)} usable {time_class} games — need at least {pv_cfg['min_games']}"
-        )
-
-    sf_path = cfg["paths"]["stockfish"]
-    sources = _fill_evals(
-        all_moves, str(sf_path) if sf_path.exists() else None,
-        el_cfg["depth"], ing["min_eval_coverage"],
-    )
-    ok = [i for i, s in enumerate(sources) if s != "insufficient"]
-    games_meta = [games_meta[i] for i in ok]
-    all_moves = [all_moves[i] for i in ok]
-    sources = [sources[i] for i in ok]
-    if len(games_meta) < pv_cfg["min_games"]:
-        raise NotEnoughGames("too many games lack evaluation data (no engine configured)")
-
-    moves_by_game = {m["game_id"]: mv for m, mv in zip(games_meta, all_moves)}
-
     mf_df = _move_features(games_meta, all_moves, mf_cfg["book_max_ply"], mf_cfg["classify"])
     if mf_df is None:
-        raise NotEnoughGames("no usable moves after filtering")
+        return None
     mf_df = apply_book_tags(mf_df, art.book_set)
     if art.feature_models is not None:
         mf_df = score_features(mf_df, art.feature_models)
@@ -352,10 +376,34 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
             complexity_pred=pl.lit(0.0).cast(pl.Float32),
             wp_loss_model=pl.col("wp_loss"),
         )
+    _vec_chunk, mine_chunk, ga_chunk = _aggregate_me(mf_df, games_meta)
+    return ga_chunk, mine_chunk
 
-    vec, mine, ga = _aggregate_me(mf_df, games_meta)
+
+# --- 7. finalize: everything downstream of the accumulated per-game rows ----
+
+def _finalize_profile(
+    *,
+    ga_accum: pl.DataFrame,
+    complexity_accum: pl.DataFrame,
+    example_acc: _ExamplePositionAccumulator,
+    moves_by_game: dict[str, list[dict]],
+    games_meta_all: list[dict],
+    sources_all: list[str],
+    username: str,
+    time_class: str,
+    art: Artifacts,
+    cfg: dict,
+) -> Profile:
+    """Everything that only ever needed the small accumulated state, not
+    any single chunk's wide per-move dataframe - skill/style projection,
+    cohort comparison, focus areas/strengths/signature, phase accuracy,
+    and the complexity curve. Called after every chunk (on whatever has
+    accumulated so far) to produce a partial snapshot, and once more at
+    the end for the final one - same function either way."""
+    vec = aggregate_players(ga_accum, ["player_hash"])
     feat = _fill_nulls(vec, art.spec)
-    complexity_curve = _complexity_curve(mine)
+    complexity_curve = _complexity_curve(complexity_accum)
 
     per_game_stats = [
         PerGameStats(
@@ -369,7 +417,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
             wp_loss_middlegame=round(row["wp_loss_middlegame"], 2) if row["wp_loss_middlegame"] is not None else None,
             wp_loss_endgame=round(row["wp_loss_endgame"], 2) if row["wp_loss_endgame"] is not None else None,
         )
-        for row in ga.iter_rows(named=True)
+        for row in ga_accum.iter_rows(named=True)
         if row["mean_wp_loss"] is not None and row["blunder_rate"] is not None
     ]
 
@@ -378,7 +426,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
     xy = art.umap_xy(pca_vec)
     peers, betters, deviations = _cohort_and_deviations(art, feat, pca_vec, cfg["cohort"])
 
-    confidence = min(1.0, len(games_meta) / 50.0)
+    confidence = min(1.0, len(games_meta_all) / 50.0)
 
     # sub-score percentile within your rating band (not style-filtered —
     # a plain "how does this sub-score compare to players near your Elo"
@@ -413,7 +461,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
                 id=d["feature"], rank=i + 1, title=label_for(d["feature"]),
                 evidence=[Evidence(feature=d["feature"], label=label_for(d["feature"]), you=round(d["you"], 2), cohort=round(d["cohort"], 2))],
                 estimated_rating_gain=round(d["leverage"], 0), confidence=focus_conf,
-                example_positions=_example_positions(d["feature"], mine, moves_by_game),
+                example_positions=_example_positions_from_rows(example_acc.top(d["feature"], 2), moves_by_game),
                 z=round(z, 2), graded=graded,
             )
         )
@@ -494,9 +542,9 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
                     you=round(feat[key], 2), peers=round(float(np.median(vals)), 2)
                 )
 
-    dates = [g["utc_date"] for g in games_meta if g["utc_date"]]
-    eval_sources = set(sources)
-    caveats = [f"Based on {len(games_meta)} {time_class} games."]
+    dates = [g["utc_date"] for g in games_meta_all if g["utc_date"]]
+    eval_sources = set(sources_all)
+    caveats = [f"Based on {len(games_meta_all)} {time_class} games."]
     if betters.height < 40:
         caveats.append("Not many stronger players share your style yet — focus areas are lower-confidence.")
     if peers.height >= 20 and len(strengths) < 2:
@@ -512,7 +560,7 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
     return Profile(
         computed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         source=Source(
-            username=username, games_analyzed=len(games_meta), time_class=time_class,
+            username=username, games_analyzed=len(games_meta_all), time_class=time_class,
             date_range=(min(dates), max(dates)) if dates else None,
             eval_source="mixed" if len(eval_sources) > 1 else next(iter(eval_sources), "lichess"),
         ),
@@ -537,3 +585,122 @@ def build_profile(pgn_text: str, username: str, time_class: str, art: Artifacts,
         coach_context=coach_context,
         caveats=caveats,
     )
+
+
+# --- entry points --------------------------------------------------------------
+
+def build_profile_chunks(
+    pgn_text: str, username: str, time_class: str, art: Artifacts, cfg: dict,
+    batch_size: int = DEFAULT_BATCH_SIZE, max_snapshots: int = 40,
+) -> Iterator[tuple[int, int, Profile | None]]:
+    """Same computation as build_profile, but yields (games_processed,
+    games_total, profile) after every batch instead of returning once at
+    the end. `profile` is None for a batch that didn't yet produce enough
+    accumulated games for a snapshot, or that fell between snapshots -
+    callers that just want the final result can skip Nones and take the
+    last non-None profile, which is exactly what build_profile does.
+
+    Memory stays bounded in game count: only the per-game aggregate rows
+    (`ga`, ~50 scalar columns but one row per game), a 2-column complexity/
+    wp_loss frame, a handful of example-position candidates per feature,
+    and each game's own move list are kept across batches. The wide,
+    scored per-move dataframe - the actual heavy structure, dozens of
+    float columns per ply - is built and discarded one batch at a time.
+
+    Snapshotting (calling _finalize_profile - skill/style projection,
+    cohort neighbour search, deviation scan over ~30 features) is real
+    work, independent of batch_size, so it isn't done every batch once a
+    request gets large: the stride between snapshots grows with
+    games_total, capped at `max_snapshots` total snapshots for the whole
+    job regardless of how many games it covers. At today's scale
+    (hundreds of games) this still means a snapshot every batch; a
+    30,000-game request gets ~40 evenly-spaced snapshots instead of
+    1,200 expensive ones. The last batch always snapshots, so the job
+    still ends with a real, complete final profile either way.
+    """
+    ing = cfg["ingest"]
+    el_cfg = cfg["engine_labels"]
+    pv_cfg = cfg["player_vectors"]
+
+    games_meta, all_moves = _parse_games(pgn_text, time_class, ing["min_plies"])
+    games_meta, all_moves = _select_my_recent_games(
+        games_meta, all_moves, username, cfg["service"]["max_games_per_request"]
+    )
+    if len(games_meta) < pv_cfg["min_games"]:
+        raise NotEnoughGames(
+            f"only {len(games_meta)} usable {time_class} games — need at least {pv_cfg['min_games']}"
+        )
+
+    sf_path = cfg["paths"]["stockfish"]
+    sf_path_str = str(sf_path) if sf_path.exists() else None
+    games_total = len(games_meta)
+    snapshot_stride = max(batch_size, -(-games_total // max_snapshots))  # ceil div
+
+    ga_accum: pl.DataFrame | None = None
+    complexity_accum: pl.DataFrame | None = None
+    example_acc = _ExamplePositionAccumulator()
+    moves_by_game: dict[str, list[dict]] = {}
+    games_meta_all: list[dict] = []
+    sources_all: list[str] = []
+    games_since_snapshot = 0
+
+    for start in range(0, games_total, batch_size):
+        meta_batch = games_meta[start : start + batch_size]
+        moves_batch = all_moves[start : start + batch_size]
+        is_last_batch = start + batch_size >= games_total
+
+        sources_batch = _fill_evals(moves_batch, sf_path_str, el_cfg["depth"], ing["min_eval_coverage"])
+        ok = [i for i, s in enumerate(sources_batch) if s != "insufficient"]
+        meta_batch = [meta_batch[i] for i in ok]
+        moves_batch = [moves_batch[i] for i in ok]
+        sources_batch = [sources_batch[i] for i in ok]
+
+        if meta_batch:
+            moves_by_game.update({m["game_id"]: mv for m, mv in zip(meta_batch, moves_batch)})
+            games_meta_all.extend(meta_batch)
+            sources_all.extend(sources_batch)
+            games_since_snapshot += len(meta_batch)
+
+            chunk = _process_chunk(meta_batch, moves_batch, cfg, art)
+            if chunk is not None:
+                ga_chunk, mine_chunk = chunk
+                ga_accum = ga_chunk if ga_accum is None else pl.concat([ga_accum, ga_chunk])
+                slim = mine_chunk.select("complexity_pred", "wp_loss")
+                complexity_accum = slim if complexity_accum is None else pl.concat([complexity_accum, slim])
+                example_acc.add_chunk(mine_chunk)
+                del mine_chunk  # the wide per-move frame - drop before the next batch
+
+        games_processed = len(games_meta_all)
+        should_snapshot = is_last_batch or games_since_snapshot >= snapshot_stride
+        if ga_accum is None or ga_accum.height < pv_cfg["min_games"] or not should_snapshot:
+            yield games_processed, games_total, None
+            continue
+
+        games_since_snapshot = 0
+        profile = _finalize_profile(
+            ga_accum=ga_accum, complexity_accum=complexity_accum, example_acc=example_acc,
+            moves_by_game=moves_by_game, games_meta_all=games_meta_all, sources_all=sources_all,
+            username=username, time_class=time_class, art=art, cfg=cfg,
+        )
+        yield games_processed, games_total, profile
+
+    if ga_accum is None or ga_accum.height < pv_cfg["min_games"]:
+        raise NotEnoughGames("too few usable games after evaluation/move filtering")
+
+
+def build_profile(
+    pgn_text: str, username: str, time_class: str, art: Artifacts, cfg: dict,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> Profile:
+    """Single-shot convenience wrapper over build_profile_chunks, for
+    callers (existing tests, anything not showing progress) that just
+    want the final result."""
+    last: Profile | None = None
+    for _processed, _total, profile in build_profile_chunks(
+        pgn_text, username, time_class, art, cfg, batch_size=batch_size
+    ):
+        if profile is not None:
+            last = profile
+    if last is None:
+        raise NotEnoughGames("no usable games produced a profile")
+    return last

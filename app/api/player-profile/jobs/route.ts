@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { LichessNotConnectedError, requireLichessLink } from "@/features/lichess/api";
-import { fetchUserPgn, fillCoaching, resolveMaxGames, saveProfile } from "@/features/playermodel/server/shared";
+import { fetchUserPgn, resolveMaxGames } from "@/features/playermodel/server/shared";
+import { registerJob } from "@/features/playermodel/server/jobStore";
 import type { AiProvider } from "@/features/settings/ai-provider-types";
 
 export const dynamic = "force-dynamic";
@@ -10,33 +11,17 @@ export const dynamic = "force-dynamic";
 type PostBody = {
   timeClass?: string;
   force?: boolean;
-  /** How many games to fetch/analyze. Omit to default to the size of the
-   * user's own imported game history (features/history) - if they imported
-   * 100 games, the profile analyzes ~100 too, instead of a fixed number
-   * unrelated to what they actually brought in. */
   maxGames?: number;
-  // Same BYO-key pattern as /api/coach - used only in-memory, for this one
-  // request, to phrase each focus area's coaching text. Never persisted;
-  // the stored PlayerProfile.data keeps whatever coaching text (or null)
-  // resulted, same as any other field.
   provider?: AiProvider;
   apiKey?: string;
   model?: string;
 };
 
-export async function GET() {
-  const userId = (await auth())?.user?.id;
-  if (!userId) return new Response("Not signed in", { status: 401 });
-
-  const row = await prisma.playerProfile.findUnique({ where: { userId } });
-  if (!row) return new Response("No profile yet", { status: 404 });
-  return Response.json(row.data);
-}
-
-/** Single-shot analysis - blocks until the whole request is done. Fine
- * for the common case (tens to a couple hundred games, done in seconds
- * to low minutes). For anything large enough to want progress or partial
- * results, the client uses /api/player-profile/jobs instead. */
+/** Starts a chunked analysis and returns immediately - the client then
+ * polls /api/player-profile/jobs/[id] for progress and, as batches
+ * complete, real partial profiles it can already render. Use this
+ * instead of the single-shot POST /api/player-profile for anything large
+ * enough that showing progress matters. */
 export async function POST(request: Request) {
   const userId = (await auth())?.user?.id;
   if (!userId) return new Response("Not signed in", { status: 401 });
@@ -72,9 +57,13 @@ export async function POST(request: Request) {
 
   const gamesHash = createHash("sha1").update(pgn).digest("hex");
 
-  const existing = await prisma.playerProfile.findUnique({ where: { userId } });
-  if (existing && existing.gamesHash === gamesHash && !body.force) {
-    return Response.json(existing.data);
+  // Same short-circuit as the single-shot route: nothing changed since
+  // the last analysis, so there's no job to run at all.
+  if (!body.force) {
+    const existing = await prisma.playerProfile.findUnique({ where: { userId } });
+    if (existing && existing.gamesHash === gamesHash) {
+      return Response.json({ done: true, profile: existing.data });
+    }
   }
 
   const serviceUrl = process.env.PLAYERMODEL_SERVICE_URL;
@@ -85,7 +74,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const serviceRes = await fetch(`${serviceUrl.replace(/\/$/, "")}/profile`, {
+  const serviceRes = await fetch(`${serviceUrl.replace(/\/$/, "")}/profile/jobs`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -95,21 +84,16 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({ games_pgn: pgn, username: link.username, time_class: timeClass }),
   });
-
   if (!serviceRes.ok) {
     const detail = await serviceRes.text().catch(() => "");
     return new Response(detail || "Player-model service error", { status: serviceRes.status });
   }
+  const { job_id: jobId } = (await serviceRes.json()) as { job_id: string };
 
-  const profile = await serviceRes.json();
-  profile.focus_areas = await fillCoaching(
-    profile.focus_areas ?? [],
-    body.provider,
-    body.apiKey,
-    body.model,
-  );
+  registerJob(jobId, {
+    userId, username: link.username, timeClass, gamesHash,
+    provider: body.provider, apiKey: body.apiKey, model: body.model,
+  });
 
-  await saveProfile(userId, profile, gamesHash);
-
-  return Response.json(profile);
+  return Response.json({ done: false, jobId });
 }

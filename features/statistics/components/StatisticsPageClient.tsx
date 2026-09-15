@@ -15,7 +15,7 @@ export function StatisticsPageClient({
 }: {
   initialProfile: PlayerProfileData | null;
 }) {
-  const { profile, status, error, analyze } = usePlayerProfile(initialProfile);
+  const { profile, status, error, progress, analyze } = usePlayerProfile(initialProfile);
 
   return (
     <div className="flex flex-col gap-16">
@@ -25,6 +25,7 @@ export function StatisticsPageClient({
           profile={profile}
           status={status}
           error={error}
+          progress={progress}
           onAnalyze={analyze}
         />
       </div>

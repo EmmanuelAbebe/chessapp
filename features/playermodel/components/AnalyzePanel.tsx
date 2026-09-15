@@ -20,9 +20,18 @@ function isStale(profile: PlayerProfileData, gamesCount: number, computedAt: Dat
 }
 
 // A plain "Refreshing…" reads as stuck once a big request runs into
-// minutes, not seconds - say how many games and set real expectations
-// whenever we actually know the count being requested.
-function loadingCopy(verb: "Analyzing" | "Refreshing", count: number | null): string {
+// minutes, not seconds - say how many games and set real expectations.
+// Real progress (games actually processed so far) beats a static guess
+// once the job has reported any, since chunked analysis means the
+// number keeps moving instead of sitting at 0% the whole time.
+function loadingCopy(
+  verb: "Analyzing" | "Refreshing",
+  count: number | null,
+  progress?: { processed: number; total: number } | null,
+): string {
+  if (progress && progress.total > 0) {
+    return `${verb} ${progress.processed}/${progress.total} games…`;
+  }
   if (count && count > REASONABLE_GAMES) {
     return `${verb} ${count} games… this can take a few minutes`;
   }
@@ -33,11 +42,13 @@ export function AnalyzePanel({
   profile,
   status,
   error,
+  progress,
   onAnalyze,
 }: {
   profile: PlayerProfileData | null;
   status: AnalyzeStatus;
   error: string | null;
+  progress?: { processed: number; total: number } | null;
   onAnalyze: (opts?: { force?: boolean; maxGames?: number }) => void;
 }) {
   const [lichessConnected, setLichessConnected] = useState<boolean | null>(null);
@@ -157,7 +168,7 @@ export function AnalyzePanel({
                 disabled={status === "loading"}
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
               >
-                {status === "loading" ? loadingCopy("Analyzing", activeCount) : "Analyze my games"}
+                {status === "loading" ? loadingCopy("Analyzing", activeCount, progress) : "Analyze my games"}
               </button>
               <button
                 type="button"
@@ -209,7 +220,7 @@ export function AnalyzePanel({
               stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
             }`}
           >
-            {status === "loading" ? loadingCopy("Refreshing", activeCount) : stale ? "Refresh (new games available)" : "Refresh"}
+            {status === "loading" ? loadingCopy("Refreshing", activeCount, progress) : stale ? "Refresh (new games available)" : "Refresh"}
           </button>
         </div>
       </div>

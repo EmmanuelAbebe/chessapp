@@ -20,11 +20,13 @@ export function PlayerModelSection({
   profile,
   status,
   error,
+  progress,
   onAnalyze,
 }: {
   profile: PlayerProfileData | null;
   status: AnalyzeStatus;
   error: string | null;
+  progress?: { processed: number; total: number } | null;
   onAnalyze: (opts?: { force?: boolean; maxGames?: number }) => void;
 }) {
   return (
@@ -37,17 +39,21 @@ export function PlayerModelSection({
         />
       </h2>
 
-      <AnalyzePanel profile={profile} status={status} error={error} onAnalyze={onAnalyze} />
+      <AnalyzePanel profile={profile} status={status} error={error} progress={progress} onAnalyze={onAnalyze} />
 
       {profile ? (
         <div className={status === "loading" ? "relative" : undefined}>
           {status === "loading" && (
             <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 rounded-full border border-border-soft bg-surface px-2.5 py-1 text-[11px] text-text-dim shadow-sm">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-              Refreshing…
+              {progress ? `Updating… ${progress.processed}/${progress.total} games` : "Refreshing…"}
             </div>
           )}
-          <div className={`flex flex-col gap-16 transition-opacity ${status === "loading" ? "opacity-50" : ""}`}>
+          {/* Content stays at full opacity while loading - the whole point
+              of chunked analysis is watching these numbers/charts update
+              live as more games are folded in, not staring at a dimmed
+              placeholder until it's all done. */}
+          <div className="flex flex-col gap-16">
             <ProfileHero profile={profile} />
             <StyleAxes axes={profile.style.axes} />
             <ComplexityQuality buckets={profile.complexity_curve} />
