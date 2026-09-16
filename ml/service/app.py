@@ -80,7 +80,8 @@ def create_app(art_by_format: dict[str, Artifacts], cfg: dict, default_format: s
         try:
             art, reference_speed = _resolve(req.time_class)
             for processed, total, profile in build_profile_chunks(
-                req.games_pgn, req.username, req.time_class, art, cfg, reference_speed=reference_speed
+                req.games_pgn, req.username, req.time_class, art, cfg,
+                reference_speed=reference_speed, provider=req.provider,
             ):
                 with jobs_lock:
                     job = jobs[job_id]
@@ -118,7 +119,10 @@ def create_app(art_by_format: dict[str, Artifacts], cfg: dict, default_format: s
         _check_token(x_service_token)
         art, reference_speed = _resolve(req.time_class)
         try:
-            return build_profile(req.games_pgn, req.username, req.time_class, art, cfg, reference_speed=reference_speed)
+            return build_profile(
+                req.games_pgn, req.username, req.time_class, art, cfg,
+                reference_speed=reference_speed, provider=req.provider,
+            )
         except NotEnoughGames as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
         except ValidationError as e:

@@ -9,12 +9,20 @@ _VALID_TERMINATION = {"Normal", "Time forfeit"}
 
 
 def parse_time_control(tc: str | None) -> tuple[int, int] | None:
-    """``"300+2"`` -> (300, 2). ``"-"`` (correspondence) / missing -> None."""
-    if not tc or "+" not in tc:
+    """``"300+2"`` -> (300, 2). Chess.com's PGN export omits the increment
+    entirely when there isn't one - a bare ``"180"`` -> (180, 0), not the
+    "unparseable" None a Lichess-shaped parser would give it. ``"-"``
+    (correspondence) / missing / non-numeric -> None."""
+    if not tc:
         return None
-    base, _, inc = tc.partition("+")
+    if "+" in tc:
+        base, _, inc = tc.partition("+")
+        try:
+            return int(base), int(inc)
+        except ValueError:
+            return None
     try:
-        return int(base), int(inc)
+        return int(tc), 0
     except ValueError:
         return None
 

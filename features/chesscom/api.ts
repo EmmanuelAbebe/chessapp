@@ -80,3 +80,50 @@ export async function fetchChessComProfile(username: string): Promise<ChessComPr
     avatar: (p.avatar as string | undefined) ?? null,
   };
 }
+
+type ChessComGame = {
+  pgn?: string;
+  time_class?: string;
+  rated?: boolean;
+};
+
+export type FetchChessComPgnOptions = {
+  max?: number;
+  /** chess.com's time_class: "bullet" | "blitz" | "rapid" | "daily" */
+  perfType?: string;
+  rated?: boolean;
+};
+
+/** Concatenated PGN text for `username`'s most recent games, newest month
+ * first. Chess.com has no single filterable export like Lichess's
+ * /api/games/user/{name} - its public API is per-month archives
+ * (/player/{name}/games/archives lists them) - so this walks them backwards
+ * until `max` games are collected or archives run out. Shared by the
+ * /api/chesscom/games route (the user pulling their own games to inspect)
+ * and the player-profile jobs route (analysis), so both fetch identically. */
+export async function fetchChessComPgn(username: string, opts: FetchChessComPgnOptions = {}): Promise<string> {
+  const max = opts.max ?? 100;
+
+  const archivesRes = await chessComFetch(`/player/${encodeURIComponent(username)}/games/archives`);
+  if (!archivesRes.ok) {
+    throw new Error(`chess.com archive list failed: ${archivesRes.status}`);
+  }
+  const { archives } = (await archivesRes.json()) as { archives: string[] };
+
+  const pgns: string[] = [];
+  for (let i = archives.length - 1; i >= 0 && pgns.length < max; i--) {
+    const monthRes = await fetch(archives[i], { headers: { "User-Agent": USER_AGENT } });
+    if (!monthRes.ok) continue; // skip a bad month rather than fail the whole request
+    const { games } = (await monthRes.json()) as { games: ChessComGame[] };
+
+    for (const g of games) {
+      if (pgns.length >= max) break;
+      if (!g.pgn) continue;
+      if (opts.perfType && g.time_class !== opts.perfType) continue;
+      if (opts.rated !== undefined && g.rated !== opts.rated) continue;
+      pgns.push(g.pgn);
+    }
+  }
+
+  return pgns.join("\n\n");
+}

@@ -12,6 +12,12 @@ class ProfileRequest(BaseModel):
     games_pgn: str
     username: str
     time_class: str = "blitz"
+    # Which site these games came from - "lichess" | "chesscom". Not just
+    # metadata: the reference population/skill+style/cohort machinery is
+    # built entirely from Lichess data, so a non-"lichess" provider skips
+    # all of that (see build_profile's provider param) rather than compare
+    # a chess.com player against Lichess-calibrated ratings.
+    provider: str = "lichess"
 
 
 class Source(BaseModel):

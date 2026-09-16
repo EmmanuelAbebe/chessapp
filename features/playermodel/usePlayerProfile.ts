@@ -17,6 +17,12 @@ export type AnalyzeOptions = {
    * blitz players - see the caveat the server adds when this isn't
    * "blitz". */
   timeClass?: string;
+  /** Which connected account to pull games from - "lichess" (default) or
+   * "chesscom". The reference population/skill+style/cohort machinery is
+   * built entirely from Lichess data, so a chesscom analysis only ever
+   * returns per-game charts (accuracy, complexity, win rate, openings) -
+   * see the caveat the server adds for a non-lichess source. */
+  source?: "lichess" | "chesscom";
 };
 
 const POLL_INTERVAL_MS = 1500;
@@ -64,6 +70,7 @@ export function usePlayerProfile(initial: PlayerProfileData | null) {
             force: opts?.force,
             maxGames: opts?.maxGames,
             timeClass: opts?.timeClass,
+            source: opts?.source,
             provider: config.provider,
             apiKey: config.apiKey,
             model: config.model,

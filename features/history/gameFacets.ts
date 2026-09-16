@@ -53,8 +53,10 @@ export const TIME_CATEGORIES: TimeCategory[] = [
 const byKey = (key: string) =>
   TIME_CATEGORIES.find((c) => c.key === key) ?? null;
 
-/** Lichess-style speed category from a PGN `TimeControl` ("60+0",
- * "180+2", "1/259200", "-"). Estimate = base + 40*increment seconds. */
+/** Speed category from a PGN `TimeControl` - Lichess-shaped ("60+0",
+ * "180+2", "1/259200", "-") or chess.com-shaped (a bare "180", no
+ * increment - their export omits it entirely rather than writing "+0").
+ * Estimate = base + 40*increment seconds. */
 export function timeControlCategory(
   tc: string | undefined,
   source?: GameHistoryEntry["source"],
@@ -62,9 +64,9 @@ export function timeControlCategory(
   if (source === "live") return byKey("engine");
   if (!tc || tc === "-") return null;
   if (tc.includes("/")) return byKey("correspondence");
-  const m = tc.match(/^(\d+)\+(\d+)/);
+  const m = tc.match(/^(\d+)(?:\+(\d+))?$/);
   if (!m) return null;
-  const est = Number(m[1]) + 40 * Number(m[2]);
+  const est = Number(m[1]) + 40 * Number(m[2] ?? 0);
   if (est < 30) return byKey("ultrabullet");
   if (est < 180) return byKey("bullet");
   if (est < 480) return byKey("blitz");

@@ -107,7 +107,13 @@ def parse_full_game(headers_text: str, movetext: str):
         return None
 
     h = game.headers
-    game_id = h.get("Site", "").rstrip("/").rsplit("/", 1)[-1]
+    # Lichess's Site header IS the per-game URL ("https://lichess.org/abcd1234").
+    # Chess.com's Site header is the *literal string* "Chess.com" on every
+    # single game - useless as an id - the real per-game URL lives in Link
+    # ("https://www.chess.com/game/live/173888192082") instead. Without this,
+    # every chess.com game gets the same game_id, silently corrupting every
+    # game_id-keyed join/lookup downstream (moves_by_game, per-game stats).
+    game_id = (h.get("Link") or h.get("Site", "")).rstrip("/").rsplit("/", 1)[-1]
     if not game_id:
         return None
 

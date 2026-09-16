@@ -2,6 +2,8 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveModel } from "@/lib/ai/resolveModel";
+import { requireLichessLink } from "@/features/lichess/api";
+import { fetchChessComPgn, requireChessComUsername } from "@/features/chesscom/api";
 import type { AiProvider } from "@/features/settings/ai-provider-types";
 
 // Shared between the single-shot /api/player-profile route and the
@@ -47,6 +49,29 @@ export async function fetchUserPgn(
   });
   if (!res.ok) throw new Error(`Lichess export failed: ${res.status}`);
   return res.text();
+}
+
+export type GamesSource = "lichess" | "chesscom";
+
+/** Resolves which connected account `source` names and fetches its recent
+ * games as PGN - both player-profile routes (single-shot and jobs) share
+ * this so "lichess" vs "chesscom" branches identically either way. Throws
+ * LichessNotConnectedError / ChessComNotConnectedError (from each
+ * account's own api.ts) when that account isn't linked - callers catch
+ * those by instanceof to pick the right status code. */
+export async function fetchGamesForSource(
+  source: GamesSource,
+  timeClass: string,
+  maxGames: number,
+): Promise<{ pgn: string; username: string }> {
+  if (source === "chesscom") {
+    const username = await requireChessComUsername();
+    const pgn = await fetchChessComPgn(username, { max: maxGames, perfType: timeClass, rated: true });
+    return { pgn, username };
+  }
+  const link = await requireLichessLink();
+  const pgn = await fetchUserPgn(link.token, link.username, timeClass, maxGames);
+  return { pgn, username: link.username };
 }
 
 const CoachingSchema = z.object({

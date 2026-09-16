@@ -9,14 +9,25 @@ import { PERF_TYPES } from "@/features/lichess/useLichessFetchOptions";
 import type { AnalyzeOptions, AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
 
-// Only blitz has its own reference population/skill+style models today
-// (ml/config.yaml's ingest.speed) - picking another speed still runs
-// real per-game analysis, but the skill/style/cohort sections end up
-// compared against blitz players, not same-speed ones. The server
-// already adds a caveat for this; this is just for a clear inline note
-// next to the picker itself, before someone runs the analysis.
-const BLITZ_ONLY_REFERENCE_NOTE =
-  "Only blitz has its own reference population - other speeds still get real per-game charts, but skill/style comparisons are made against blitz players.";
+// Speeds with their own real reference population/skill+style models today
+// (ml/config.yaml's `formats`) - picking another speed still runs real
+// per-game analysis, but the skill/style/cohort sections end up compared
+// against one of these instead of same-speed peers. The server already
+// adds a caveat for this; this is just for a clear inline note next to the
+// picker itself, before someone runs the analysis.
+const SPEEDS_WITH_REFERENCE = ["blitz", "bullet"];
+const REFERENCE_NOTE =
+  "Only blitz and bullet have their own reference population - other speeds still get real per-game charts, but skill/style comparisons are made against one of those.";
+
+// Chess.com's own per-game time_class values (its API has no "classical" -
+// that's a Lichess-only bucket, and Lichess has no "daily").
+const CHESSCOM_PERF_TYPES = ["bullet", "blitz", "rapid", "daily"] as const;
+
+// The reference population is built entirely from Lichess data (see
+// ml/service/profile.py's provider branch), so a chess.com analysis only
+// ever gets its own per-game charts - never skill/style/cohort.
+const CHESSCOM_SELF_ONLY_NOTE =
+  "Chess.com games only get your own per-game charts (accuracy, complexity, win rate, openings) - skill, style, and cohort comparisons aren't available since the reference population is built from Lichess data.";
 
 const STALE_AFTER_DAYS = 30;
 const STALE_AFTER_NEW_GAMES = 20;
@@ -63,10 +74,13 @@ export function AnalyzePanel({
   onAnalyze: (opts?: AnalyzeOptions) => void;
 }) {
   const [lichessConnected, setLichessConnected] = useState<boolean | null>(null);
+  const [chessComConnected, setChessComConnected] = useState<boolean | null>(null);
   // Blank = let the server default to the size of the user's imported game
   // history; typing a number here overrides that for this analysis only.
   const [maxGamesInput, setMaxGamesInput] = useState("");
   const [timeClass, setTimeClass] = useState<string>("blitz");
+  const [source, setSource] = useState<"lichess" | "chesscom">("lichess");
+  const [sourceInitialized, setSourceInitialized] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const maxGames = maxGamesInput.trim() ? Number(maxGamesInput) : undefined;
   const [pendingOpts, setPendingOpts] = useState<AnalyzeOptions | null>(null);
@@ -85,10 +99,33 @@ export function AnalyzePanel({
       .catch(() => {
         if (!cancelled) setLichessConnected(false);
       });
+    fetch("/api/chesscom/account")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) setChessComConnected(Boolean(d?.username));
+      })
+      .catch(() => {
+        if (!cancelled) setChessComConnected(false);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Default to whichever account is actually connected - Lichess first if
+  // both are - but only once, right after both checks resolve, so it
+  // never clobbers a source the user picked by hand.
+  useEffect(() => {
+    if (sourceInitialized || lichessConnected === null || chessComConnected === null) return;
+    setSource(lichessConnected ? "lichess" : "chesscom");
+    setSourceInitialized(true);
+  }, [sourceInitialized, lichessConnected, chessComConnected]);
+
+  const accountsLoaded = lichessConnected !== null && chessComConnected !== null;
+  const anyConnected = Boolean(lichessConnected || chessComConnected);
+  const bothConnected = Boolean(lichessConnected && chessComConnected);
+  const perfTypes = source === "chesscom" ? CHESSCOM_PERF_TYPES : PERF_TYPES;
+  const referenceNote = source === "chesscom" ? CHESSCOM_SELF_ONLY_NOTE : REFERENCE_NOTE;
 
   function requestAnalyze(opts?: AnalyzeOptions) {
     if (opts?.maxGames && opts.maxGames > REASONABLE_GAMES) {
@@ -101,16 +138,40 @@ export function AnalyzePanel({
 
   const optionsRow = showOptions && (
     <div className="flex flex-col items-end gap-1.5 text-xs text-text-dim">
+      {bothConnected && (
+        <div className="flex items-center gap-2">
+          <label htmlFor="source-select">Source</label>
+          <select
+            id="source-select"
+            value={source}
+            onChange={(e) => {
+              const next = e.target.value as "lichess" | "chesscom";
+              setSource(next);
+              if (!CHESSCOM_PERF_TYPES.includes(timeClass as (typeof CHESSCOM_PERF_TYPES)[number]) && next === "chesscom") {
+                setTimeClass("blitz");
+              }
+            }}
+            className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-text"
+          >
+            <option value="lichess" className="bg-surface">
+              Lichess
+            </option>
+            <option value="chesscom" className="bg-surface">
+              Chess.com
+            </option>
+          </select>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <label htmlFor="time-class-select">Speed</label>
-        <Tooltip text={BLITZ_ONLY_REFERENCE_NOTE} width="w-64">
+        <Tooltip text={referenceNote} width="w-64">
           <select
             id="time-class-select"
             value={timeClass}
             onChange={(e) => setTimeClass(e.target.value)}
             className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-text"
           >
-            {PERF_TYPES.map((p) => (
+            {perfTypes.map((p) => (
               <option key={p} value={p} className="bg-surface">
                 {p}
               </option>
@@ -133,7 +194,13 @@ export function AnalyzePanel({
         </Tooltip>
         <span className="text-text-faint">leave blank to match your imported history</span>
       </div>
-      {timeClass !== "blitz" && <span className="max-w-64 text-right text-text-faint">{BLITZ_ONLY_REFERENCE_NOTE}</span>}
+      {source === "chesscom" ? (
+        <span className="max-w-64 text-right text-text-faint">{CHESSCOM_SELF_ONLY_NOTE}</span>
+      ) : (
+        !SPEEDS_WITH_REFERENCE.includes(timeClass) && (
+          <span className="max-w-64 text-right text-text-faint">{REFERENCE_NOTE}</span>
+        )
+      )}
     </div>
   );
 
@@ -168,17 +235,17 @@ export function AnalyzePanel({
     </Modal>
   );
 
-  if (lichessConnected === false) {
+  if (accountsLoaded && !anyConnected) {
     return (
       <div className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center">
         <p className="text-sm text-text-dim">
-          Connect Lichess to see how your style and skill compare to players like you.
+          Connect Lichess or chess.com to see how your style and skill compare to players like you.
         </p>
         <Link
           href="/dashboard/profile"
           className="mt-3 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
         >
-          Connect Lichess
+          Connect an account
         </Link>
       </div>
     );
@@ -188,16 +255,16 @@ export function AnalyzePanel({
     return (
       <div className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center">
         <p className="text-sm text-text-dim">
-          {lichessConnected === null
+          {!accountsLoaded
             ? "Checking your account…"
             : `Analyze your recent ${timeClass} games to see your style, skill, and what to train next.`}
         </p>
-        {lichessConnected && (
+        {anyConnected && (
           <div className="mt-3 flex flex-col items-center gap-2">
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => requestAnalyze({ maxGames, timeClass })}
+                onClick={() => requestAnalyze({ maxGames, timeClass, source })}
                 disabled={status === "loading"}
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
               >
@@ -247,7 +314,7 @@ export function AnalyzePanel({
           </button>
           <button
             type="button"
-            onClick={() => requestAnalyze({ force: true, maxGames, timeClass })}
+            onClick={() => requestAnalyze({ force: true, maxGames, timeClass, source })}
             disabled={status === "loading"}
             className={`rounded-md border px-2.5 py-1 font-medium transition disabled:opacity-50 ${
               stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"

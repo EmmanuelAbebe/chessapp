@@ -54,15 +54,30 @@ export function PlayerModelSection({
               live as more games are folded in, not staring at a dimmed
               placeholder until it's all done. */}
           <div className="flex flex-col gap-16">
-            <ProfileHero profile={profile} />
-            <StyleAxes axes={profile.style.axes} />
+            {profile.source.provider === "lichess" ? (
+              <>
+                <ProfileHero profile={profile} />
+                <StyleAxes axes={profile.style.axes} />
+              </>
+            ) : (
+              // Skill estimate, style axes, and "where you differ" all
+              // compare against the Lichess-built reference population -
+              // not meaningful for a chess.com profile (see the caveat
+              // below), so only the per-game charts render.
+              <p className="text-xs text-text-faint">
+                {profile.source.games_analyzed} {profile.source.time_class} games
+                {profile.source.date_range ? ` · ${profile.source.date_range[0]} – ${profile.source.date_range[1]}` : ""}
+              </p>
+            )}
             <ComplexityByMove buckets={profile.complexity_by_move} />
 
-            <WhereYouDiffer
-              strengths={profile.strengths}
-              focusAreas={profile.focus_areas}
-              signature={profile.style.signature}
-            />
+            {profile.source.provider === "lichess" && (
+              <WhereYouDiffer
+                strengths={profile.strengths}
+                focusAreas={profile.focus_areas}
+                signature={profile.style.signature}
+              />
+            )}
 
             {profile.caveats.length > 0 && (
               <ul className="flex flex-col gap-1 text-xs text-text-faint">

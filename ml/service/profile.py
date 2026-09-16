@@ -407,6 +407,7 @@ def _finalize_profile(
     username: str,
     time_class: str,
     reference_speed: str,
+    provider: str,
     art: Artifacts,
     cfg: dict,
 ) -> Profile:
@@ -435,6 +436,42 @@ def _finalize_profile(
         for row in ga_accum.iter_rows(named=True)
         if row["mean_wp_loss"] is not None and row["blunder_rate"] is not None
     ]
+
+    if provider != "lichess":
+        # Self-only: the reference population, skill/style models, and
+        # cohort matching are all built entirely from Lichess data.
+        # Running a chess.com player's rating through Lichess-calibrated
+        # bands isn't a rough approximation, it's a different scale -
+        # closer to meaningless than "slightly off". Per-game charts
+        # (accuracy, complexity, win rate, openings) are this player's
+        # own numbers, no comparison group involved, so they're
+        # unaffected and still fully computed above.
+        dates = [g["utc_date"] for g in games_meta_all if g["utc_date"]]
+        eval_sources = set(sources_all)
+        return Profile(
+            computed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            source=Source(
+                provider=provider, username=username, games_analyzed=len(games_meta_all), time_class=time_class,
+                date_range=(min(dates), max(dates)) if dates else None,
+                eval_source="mixed" if len(eval_sources) > 1 else next(iter(eval_sources), provider),
+            ),
+            skill=Skill(overall=0, confidence=0, sub={}),
+            style=Style(vector=[], umap_xy=(0.0, 0.0), axes=[], signature=[]),
+            cohort=Cohort(size=0, your_band=(0.0, 0.0), stronger_band=(0.0, 0.0)),
+            focus_areas=[],
+            strengths=[],
+            phase_accuracy={},
+            per_game=per_game_stats,
+            complexity_by_move=complexity_by_move,
+            coach_context=f"{len(games_meta_all)} {provider} {time_class} games analyzed",
+            caveats=[
+                f"Based on {len(games_meta_all)} {time_class} games from {provider}.",
+                f"Skill estimate, style, and 'where you differ' aren't available for {provider} games - "
+                f"the reference population is built entirely from Lichess data, and {provider} ratings "
+                f"aren't on the same scale. Accuracy, complexity, win rate, and openings below are your "
+                f"own numbers and unaffected.",
+            ],
+        )
 
     skill = art.skill(feat)
     pca_vec = art.style_pca(feat, skill["overall"])
@@ -582,7 +619,7 @@ def _finalize_profile(
     return Profile(
         computed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         source=Source(
-            username=username, games_analyzed=len(games_meta_all), time_class=time_class,
+            provider=provider, username=username, games_analyzed=len(games_meta_all), time_class=time_class,
             date_range=(min(dates), max(dates)) if dates else None,
             eval_source="mixed" if len(eval_sources) > 1 else next(iter(eval_sources), "lichess"),
         ),
@@ -614,7 +651,7 @@ def _finalize_profile(
 def build_profile_chunks(
     pgn_text: str, username: str, time_class: str, art: Artifacts, cfg: dict,
     batch_size: int = DEFAULT_BATCH_SIZE, max_snapshots: int = 40,
-    reference_speed: str | None = None,
+    reference_speed: str | None = None, provider: str = "lichess",
 ) -> Iterator[tuple[int, int, Profile | None]]:
     """Same computation as build_profile, but yields (games_processed,
     games_total, profile) after every batch instead of returning once at
@@ -726,7 +763,8 @@ def build_profile_chunks(
             profile = _finalize_profile(
                 ga_accum=ga_accum, complexity_accum=complexity_accum, example_acc=example_acc,
                 moves_by_game=moves_by_game, games_meta_all=games_meta_all, sources_all=sources_all,
-                username=username, time_class=time_class, reference_speed=reference_speed, art=art, cfg=cfg,
+                username=username, time_class=time_class, reference_speed=reference_speed,
+                provider=provider, art=art, cfg=cfg,
             )
             yield games_processed, games_total, profile
     finally:
@@ -739,14 +777,15 @@ def build_profile_chunks(
 
 def build_profile(
     pgn_text: str, username: str, time_class: str, art: Artifacts, cfg: dict,
-    batch_size: int = DEFAULT_BATCH_SIZE, reference_speed: str | None = None,
+    batch_size: int = DEFAULT_BATCH_SIZE, reference_speed: str | None = None, provider: str = "lichess",
 ) -> Profile:
     """Single-shot convenience wrapper over build_profile_chunks, for
     callers (existing tests, anything not showing progress) that just
     want the final result."""
     last: Profile | None = None
     for _processed, _total, profile in build_profile_chunks(
-        pgn_text, username, time_class, art, cfg, batch_size=batch_size, reference_speed=reference_speed
+        pgn_text, username, time_class, art, cfg, batch_size=batch_size,
+        reference_speed=reference_speed, provider=provider,
     ):
         if profile is not None:
             last = profile
