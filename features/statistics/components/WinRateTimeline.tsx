@@ -397,11 +397,9 @@ export function WinRateTimeline({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        style={{ minWidth: 480 }}
         className="w-full cursor-crosshair touch-none select-none"
         preserveAspectRatio="xMidYMid meet"
         onPointerMove={(e) => setHoverIdx(nearestIndex(e.clientX))}
@@ -519,7 +517,6 @@ export function WinRateTimeline({
           </g>
         )}
       </svg>
-      </div>
 
       {selectedBucket !== null && buckets[selectedBucket] && (
         <BucketDetail

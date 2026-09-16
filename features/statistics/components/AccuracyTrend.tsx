@@ -107,11 +107,9 @@ export function AccuracyTrend({ perGame }: { perGame?: PerGameStats[] }) {
           width="w-56"
         />
       </h3>
-      <div className="overflow-x-auto">
-        <svg
+      <svg
           ref={svgRef}
           viewBox={`0 0 ${W} ${H}`}
-          style={{ minWidth: 480 }}
           className="w-full cursor-crosshair touch-none select-none"
           preserveAspectRatio="xMidYMid meet"
           onPointerMove={(e) => setHoverIdx(nearestIndex(e.clientX))}
@@ -180,7 +178,6 @@ export function AccuracyTrend({ perGame }: { perGame?: PerGameStats[] }) {
             </g>
           )}
         </svg>
-      </div>
     </div>
   );
 }

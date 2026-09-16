@@ -54,10 +54,8 @@ export function PhaseBreakdownChart({
           width="w-64"
         />
       </h3>
-      <div className="overflow-x-auto">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        style={{ minWidth: 480 }}
         className="w-full"
         preserveAspectRatio="xMidYMid meet"
       >
@@ -143,7 +141,6 @@ export function PhaseBreakdownChart({
           );
         })}
       </svg>
-      </div>
     </div>
   );
 }

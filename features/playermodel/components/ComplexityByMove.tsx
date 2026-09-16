@@ -81,10 +81,8 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
           width="w-64"
         />
       </h3>
-      <div className="overflow-x-auto">
-        <svg
+      <svg
           viewBox={`0 0 ${W} ${H}`}
-          style={{ minWidth: 480 }}
           className="w-full touch-none select-none"
           preserveAspectRatio="xMidYMid meet"
         >
@@ -170,7 +168,6 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
             </g>
           )}
         </svg>
-      </div>
     </div>
   );
 }
