@@ -136,3 +136,37 @@ export async function myLichessGamesToHistory(
   if (!res.ok) throw new Error(`Lichess request failed: ${res.status}`);
   return pgnTextToHistory(await res.text(), usernames);
 }
+
+export type ChessComImportQuery = {
+  max?: number;
+  /** chess.com's own time_class: "bullet" | "blitz" | "rapid" | "daily" -
+   * a single value, unlike Lichess's comma-joined multi-select, since
+   * chess.com's archives are walked and filtered client-route-side rather
+   * than queried natively. Omitted means every speed. */
+  perfType?: string;
+  rated?: boolean;
+};
+
+/** Fetch the signed-in user's own recent chess.com games via the internal
+ * route (walks their public archives server-side) into history entries -
+ * same shape as `myLichessGamesToHistory`, just a different source. */
+export async function myChessComGamesToHistory(
+  usernames: string[],
+  query: ChessComImportQuery = {},
+  signal?: AbortSignal,
+): Promise<HistoryImportResult> {
+  const { max = 100, perfType, rated } = query;
+  const params = new URLSearchParams({ max: String(max) });
+  if (perfType) params.set("perfType", perfType);
+  if (rated !== undefined) params.set("rated", String(rated));
+
+  const res = await fetch(`/api/chesscom/games?${params.toString()}`, {
+    headers: { Accept: "application/x-chess-pgn" },
+    signal,
+  });
+  if (res.status === 401) {
+    throw new Error("Connect chess.com (Profile page) to import your own games.");
+  }
+  if (!res.ok) throw new Error(`Chess.com request failed: ${res.status}`);
+  return pgnTextToHistory(await res.text(), usernames);
+}

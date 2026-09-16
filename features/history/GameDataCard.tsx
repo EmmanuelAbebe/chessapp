@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FaUserCheck } from "react-icons/fa6";
+import Checkbox from "@/components/ui/Checkbox";
 import { usePlayerIdentity } from "@/features/settings/usePlayerIdentity";
 import { LichessFetchOptionsFields } from "@/features/lichess/LichessFetchOptionsFields";
 import { useLichessFetchOptions } from "@/features/lichess/useLichessFetchOptions";
@@ -10,8 +11,11 @@ import {
   pgnTextToHistory,
   lichessUrlToHistory,
   myLichessGamesToHistory,
+  myChessComGamesToHistory,
   isLichessExportUrl,
 } from "./importToHistory";
+
+const CHESSCOM_PERF_TYPES = ["bullet", "blitz", "rapid", "daily"] as const;
 
 // One place to manage recorded games - the usernames that attribute
 // them, importing more, and clearing the lot. Reused on the Statistics
@@ -28,6 +32,10 @@ export function GameDataCard({ compact = false }: { compact?: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [lichessConnected, setLichessConnected] = useState(false);
+  const [chessComConnected, setChessComConnected] = useState(false);
+  const [chessComMax, setChessComMax] = useState(100);
+  const [chessComPerf, setChessComPerf] = useState<(typeof CHESSCOM_PERF_TYPES)[number] | "">("");
+  const [chessComRated, setChessComRated] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const fetchOptions = useLichessFetchOptions(200);
 
@@ -37,6 +45,12 @@ export function GameDataCard({ compact = false }: { compact?: boolean }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!cancelled && d?.username) setLichessConnected(true);
+      })
+      .catch(() => {});
+    fetch("/api/chesscom/account")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d?.username) setChessComConnected(true);
       })
       .catch(() => {});
     return () => {
@@ -87,6 +101,18 @@ export function GameDataCard({ compact = false }: { compact?: boolean }) {
     abortRef.current = controller;
     void run(() =>
       myLichessGamesToHistory(usernameList, fetchOptions.query, controller.signal),
+    );
+  }
+
+  function importMineChessCom() {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    void run(() =>
+      myChessComGamesToHistory(
+        usernameList,
+        { max: chessComMax, perfType: chessComPerf || undefined, rated: chessComRated ? true : undefined },
+        controller.signal,
+      ),
     );
   }
 
@@ -150,6 +176,16 @@ export function GameDataCard({ compact = false }: { compact?: boolean }) {
               Import my Lichess games
             </button>
           )}
+          {chessComConnected && (
+            <button
+              type="button"
+              onClick={importMineChessCom}
+              disabled={busy}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text-dim transition hover:border-accent hover:text-text disabled:opacity-50"
+            >
+              Import my chess.com games
+            </button>
+          )}
         </div>
         {lichessConnected && (
           <LichessFetchOptionsFields
@@ -157,6 +193,61 @@ export function GameDataCard({ compact = false }: { compact?: boolean }) {
             idPrefix="game-data"
             disabled={busy}
           />
+        )}
+        {chessComConnected && (
+          <details className="group rounded-lg border border-border-soft">
+            <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-text-dim marker:content-none [&::-webkit-details-marker]:hidden">
+              Chess.com options: time control, count
+            </summary>
+            <div className="grid grid-cols-2 gap-3 border-t border-border-soft p-3">
+              <div>
+                <label htmlFor="game-data-chesscom-perf" className="mb-1 block text-xs font-medium text-text">
+                  Time control
+                </label>
+                <select
+                  id="game-data-chesscom-perf"
+                  value={chessComPerf}
+                  onChange={(e) => setChessComPerf(e.target.value as typeof chessComPerf)}
+                  disabled={busy}
+                  className="w-full rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-xs text-text focus:border-accent focus:outline-none disabled:opacity-50"
+                >
+                  <option value="">Every speed</option>
+                  {CHESSCOM_PERF_TYPES.map((pt) => (
+                    <option key={pt} value={pt}>
+                      {pt[0].toUpperCase() + pt.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="game-data-chesscom-max" className="mb-1 block text-xs font-medium text-text">
+                  Max games
+                </label>
+                <input
+                  id="game-data-chesscom-max"
+                  type="number"
+                  min={1}
+                  max={2000}
+                  value={chessComMax}
+                  onChange={(e) => setChessComMax(Math.max(1, Number(e.target.value) || 1))}
+                  disabled={busy}
+                  className="w-full rounded-lg border border-border bg-surface-raised px-3 py-1.5 font-mono text-xs text-text focus:border-accent focus:outline-none disabled:opacity-50"
+                />
+              </div>
+              <Checkbox
+                id="game-data-chesscom-rated"
+                label="Rated only"
+                checked={chessComRated}
+                onChange={(e) => setChessComRated(e.target.checked)}
+                disabled={busy}
+              />
+              <p className="col-span-2 text-[11px] text-text-faint">
+                Chess.com has no bulk export - this walks your public monthly
+                archives newest-first, so "Max games" is a hard cap, not a
+                date range.
+              </p>
+            </div>
+          </details>
         )}
         {status && <p className="text-xs text-text-dim">{status}</p>}
         {error && <p className="text-xs text-red-400">{error}</p>}

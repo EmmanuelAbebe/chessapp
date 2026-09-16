@@ -438,14 +438,29 @@ def _finalize_profile(
     ]
 
     if provider != "lichess":
-        # Self-only: the reference population, skill/style models, and
-        # cohort matching are all built entirely from Lichess data.
-        # Running a chess.com player's rating through Lichess-calibrated
-        # bands isn't a rough approximation, it's a different scale -
-        # closer to meaningless than "slightly off". Per-game charts
-        # (accuracy, complexity, win rate, openings) are this player's
-        # own numbers, no comparison group involved, so they're
-        # unaffected and still fully computed above.
+        # Cohort matching ("where you differ", stronger-peer bands) needs a
+        # real population of individually-identified peers - impossible to
+        # build for a non-Lichess provider (chess.com's API is per-player,
+        # no bulk dump), so that stays suppressed. Skill also stays
+        # suppressed: the model was trained to predict *Lichess* Elo, and a
+        # non-Lichess rating isn't a rough approximation of that, it's a
+        # different scale entirely.
+        #
+        # Style is different: `art.style_pca` is a fixed transform (scaler
+        # + PCA + skill-residualization coefficients, all fitted once and
+        # baked into the artifacts) applied to this player's own aggregated
+        # features - it never touches the reference population at request
+        # time. It's exactly as "your games only" as the per-game charts
+        # below, just needing `skill["overall"]` internally to residualize
+        # style away from skill (not exposed - skill itself stays hidden).
+        skill = art.skill(feat)
+        pca_vec = art.style_pca(feat, skill["overall"])
+        xy = art.umap_xy(pca_vec)
+        axes = [
+            StyleAxis(id=f"pc{i}", label=art.spec["pc_axis_labels"][i], value=round(float(pca_vec[i]), 2))
+            for i in range(min(4, len(pca_vec)))
+        ]
+
         dates = [g["utc_date"] for g in games_meta_all if g["utc_date"]]
         eval_sources = set(sources_all)
         return Profile(
@@ -456,7 +471,7 @@ def _finalize_profile(
                 eval_source="mixed" if len(eval_sources) > 1 else next(iter(eval_sources), provider),
             ),
             skill=Skill(overall=0, confidence=0, sub={}),
-            style=Style(vector=[], umap_xy=(0.0, 0.0), axes=[], signature=[]),
+            style=Style(vector=[round(float(v), 3) for v in pca_vec], umap_xy=xy, axes=axes, signature=[]),
             cohort=Cohort(size=0, your_band=(0.0, 0.0), stronger_band=(0.0, 0.0)),
             focus_areas=[],
             strengths=[],
@@ -466,10 +481,12 @@ def _finalize_profile(
             coach_context=f"{len(games_meta_all)} {provider} {time_class} games analyzed",
             caveats=[
                 f"Based on {len(games_meta_all)} {time_class} games from {provider}.",
-                f"Skill estimate, style, and 'where you differ' aren't available for {provider} games - "
-                f"the reference population is built entirely from Lichess data, and {provider} ratings "
-                f"aren't on the same scale. Accuracy, complexity, win rate, and openings below are your "
-                f"own numbers and unaffected.",
+                f"Skill estimate and 'where you differ' aren't available for {provider} games - the "
+                f"reference population and cohort matching are built entirely from Lichess data, and "
+                f"{provider} ratings aren't on the same scale. Style axes below are computed from your "
+                f"own games only, through a model calibrated on Lichess players, so exact positioning "
+                f"may be slightly off. Accuracy, complexity, win rate, and openings are your own "
+                f"numbers, unaffected either way.",
             ],
         )
 

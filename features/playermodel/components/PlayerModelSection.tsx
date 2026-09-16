@@ -55,20 +55,20 @@ export function PlayerModelSection({
               placeholder until it's all done. */}
           <div className="flex flex-col gap-16">
             {profile.source.provider === "lichess" ? (
-              <>
-                <ProfileHero profile={profile} />
-                <StyleAxes axes={profile.style.axes} />
-              </>
+              <ProfileHero profile={profile} />
             ) : (
-              // Skill estimate, style axes, and "where you differ" all
-              // compare against the Lichess-built reference population -
-              // not meaningful for a chess.com profile (see the caveat
-              // below), so only the per-game charts render.
+              // Skill estimate and "where you differ" both need the
+              // Lichess-built reference population/cohort matching - not
+              // meaningful for a chess.com profile (see the caveat below).
+              // Style axes ARE shown below regardless: they're computed
+              // from this player's own games only, no comparison group
+              // involved, same as the per-game charts.
               <p className="text-xs text-text-faint">
                 {profile.source.games_analyzed} {profile.source.time_class} games
                 {profile.source.date_range ? ` · ${profile.source.date_range[0]} – ${profile.source.date_range[1]}` : ""}
               </p>
             )}
+            <StyleAxes axes={profile.style.axes} />
             <ComplexityByMove buckets={profile.complexity_by_move} />
 
             {profile.source.provider === "lichess" && (
