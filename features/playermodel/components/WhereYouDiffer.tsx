@@ -85,9 +85,14 @@ function DivergingRow({
   );
 
   const summary = (
-    <div className="flex cursor-pointer flex-col gap-0.5 px-3 py-2.5 transition hover:bg-surface-raised/60">
+    <div className="flex cursor-pointer flex-col gap-1 px-3 py-2.5 transition hover:bg-surface-raised/60">
+      {/* Full title on its own line on narrow screens - a fixed-width
+          truncated label (needed at sm+ to keep every row's bar aligned)
+          was clipping longer feature names like "Accuracy in quiet
+          positions" down to unreadable fragments on mobile. */}
+      <span className="text-xs text-text sm:hidden">{row.title}</span>
       <div className="flex items-center gap-3">
-        <span className="w-32 shrink-0 truncate text-xs text-text sm:w-40">{row.title}</span>
+        <span className="hidden shrink-0 truncate text-xs text-text sm:inline sm:w-40">{row.title}</span>
         <div className="relative h-3 flex-1 overflow-hidden rounded-sm bg-surface-raised">
           <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
           <div
@@ -110,7 +115,7 @@ function DivergingRow({
         </span>
       </div>
       {!neutral && (
-        <span className="pl-0 text-[11px] text-text-faint sm:pl-[calc(8rem+0.75rem)]">{zGloss(row.z)}</span>
+        <span className="pl-0 text-[11px] text-text-faint sm:pl-[calc(10rem+0.75rem)]">{zGloss(row.z)}</span>
       )}
     </div>
   );
