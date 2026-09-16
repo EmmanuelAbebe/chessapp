@@ -127,10 +127,7 @@ export function PhaseBreakdownChart({
                 className="transition-[stroke-width]"
               />
               <circle cx={gx} cy={y + 11} r={isHovered ? 6.5 : 5.5} fill={color} opacity={delta === null ? 0.5 : 1} className="transition-all">
-                <title>
-                  {label}: {share.toFixed(0)}% of your moves
-                  {delta !== null ? `, ${delta > 0 ? "+" : ""}${delta.toFixed(1)} wp_loss vs. peers` : ""}
-                </title>
+                <title>{`${label}: ${share.toFixed(0)}% of your moves${delta !== null ? `, ${delta > 0 ? "+" : ""}${delta.toFixed(1)} wp_loss vs. peers` : ""}`}</title>
               </circle>
               <text
                 x={lx}

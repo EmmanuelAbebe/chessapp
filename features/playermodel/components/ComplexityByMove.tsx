@@ -96,10 +96,7 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
                   opacity={isHovered ? 1 : 0.85}
                   className="transition-opacity"
                 />
-                <title>
-                  Move {b.move_number}
-                  {b.move_number >= 40 ? "+" : ""}: complexity {b.mean_complexity.toFixed(1)} ({b.n} moves)
-                </title>
+                <title>{`Move ${b.move_number}${b.move_number >= 40 ? "+" : ""}: complexity ${b.mean_complexity.toFixed(1)} (${b.n} moves)`}</title>
               </g>
             );
           })}
