@@ -8,11 +8,15 @@ import { GameDataCard } from "@/features/history/GameDataCard";
 
 export default async function ProfilePage() {
   const session = await auth(); // non-null: DashboardLayout already redirected otherwise
-  const [dbUser, lichessAccount] = await Promise.all([
+  const [dbUser, lichessAccount, userSettings] = await Promise.all([
     prisma.user.findUnique({ where: { id: session!.user.id } }),
     prisma.account.findFirst({
       where: { userId: session!.user.id, provider: "lichess" },
       select: { providerAccountId: true },
+    }),
+    prisma.userSettings.findUnique({
+      where: { userId: session!.user.id },
+      select: { chessComUsername: true },
     }),
   ]);
 
@@ -36,6 +40,7 @@ export default async function ProfilePage() {
         />
         <ConnectedAccounts
           lichessUsername={lichessAccount?.providerAccountId ?? null}
+          chessComUsername={userSettings?.chessComUsername ?? null}
         />
 
         <details className="rounded-lg border border-border-soft bg-surface">
