@@ -124,17 +124,32 @@ def _select_my_recent_games(
 # --- 2. fill missing evals -----------------------------------------------------
 
 def _fill_evals(
-    all_moves: list[list[dict]], sf_path: str | None, depth: int, min_coverage: float
+    all_moves: list[list[dict]], sf_path: str | None, depth: int, min_coverage: float,
+    eng: chess.engine.SimpleEngine | None = None,
 ) -> list[str]:
-    """Mutates ``all_moves`` in place; returns each game's eval source."""
+    """Mutates ``all_moves`` in place; returns each game's eval source.
+
+    IMPORTANT: Stockfish's hash table persists for the life of one engine
+    process and measurably changes search results (move ordering/pruning,
+    not just speed) between "cold" and "warmed up" - two engine processes
+    analysing the exact same position at the exact same depth can and do
+    return different centipawn scores (verified: ~49% of plies differed
+    by a meaningful margin across a same-vs-split-session comparison on
+    real games). A chunked caller MUST pass one shared, already-open
+    `eng` across every batch of the same request - reopening a fresh
+    engine per batch silently makes evaluation, and everything downstream
+    of it (wp_loss, skill sub-scores...), depend on how the request
+    happened to be split into batches, not just what games it covers.
+    Only opens/closes its own engine (the old, single-shot behaviour)
+    when the caller doesn't supply one."""
     sources = []
-    eng: chess.engine.SimpleEngine | None = None
+    owns_engine = eng is None
     try:
         for i, moves in enumerate(all_moves):
             if not enginemod.needs_engine(moves, min_coverage):
                 sources.append("lichess")
                 continue
-            if sf_path is None:
+            if sf_path is None and eng is None:
                 sources.append("insufficient")
                 continue
             if eng is None:
@@ -143,7 +158,7 @@ def _fill_evals(
             all_moves[i] = enginemod.fill_evals(moves, eng, depth)
             sources.append("internal_depth16")
     finally:
-        if eng is not None:
+        if owns_engine and eng is not None:
             eng.quit()
     return sources
 
@@ -644,45 +659,64 @@ def build_profile_chunks(
     sources_all: list[str] = []
     games_since_snapshot = 0
 
-    for start in range(0, games_total, batch_size):
-        meta_batch = games_meta[start : start + batch_size]
-        moves_batch = all_moves[start : start + batch_size]
-        is_last_batch = start + batch_size >= games_total
+    # One engine, shared across every batch of this request - not one per
+    # batch. Stockfish's hash table persists for an engine process's whole
+    # life and measurably changes search results between a cold and a
+    # warmed-up table, so reopening a fresh engine per batch would make a
+    # game's own evaluation - and everything downstream of it - depend on
+    # which batch it landed in, not just what game it is. This is the
+    # same one-engine-per-request behaviour the old single-shot path
+    # always had; chunking games must never mean chunking the engine too.
+    eng: chess.engine.SimpleEngine | None = None
+    if sf_path_str is not None:
+        eng = chess.engine.SimpleEngine.popen_uci(sf_path_str)
+        eng.configure({"Threads": 1, "Hash": 32})
 
-        sources_batch = _fill_evals(moves_batch, sf_path_str, el_cfg["depth"], ing["min_eval_coverage"])
-        ok = [i for i, s in enumerate(sources_batch) if s != "insufficient"]
-        meta_batch = [meta_batch[i] for i in ok]
-        moves_batch = [moves_batch[i] for i in ok]
-        sources_batch = [sources_batch[i] for i in ok]
+    try:
+        for start in range(0, games_total, batch_size):
+            meta_batch = games_meta[start : start + batch_size]
+            moves_batch = all_moves[start : start + batch_size]
+            is_last_batch = start + batch_size >= games_total
 
-        if meta_batch:
-            moves_by_game.update({m["game_id"]: mv for m, mv in zip(meta_batch, moves_batch)})
-            games_meta_all.extend(meta_batch)
-            sources_all.extend(sources_batch)
-            games_since_snapshot += len(meta_batch)
+            sources_batch = _fill_evals(
+                moves_batch, sf_path_str, el_cfg["depth"], ing["min_eval_coverage"], eng=eng
+            )
+            ok = [i for i, s in enumerate(sources_batch) if s != "insufficient"]
+            meta_batch = [meta_batch[i] for i in ok]
+            moves_batch = [moves_batch[i] for i in ok]
+            sources_batch = [sources_batch[i] for i in ok]
 
-            chunk = _process_chunk(meta_batch, moves_batch, cfg, art)
-            if chunk is not None:
-                ga_chunk, mine_chunk = chunk
-                ga_accum = ga_chunk if ga_accum is None else pl.concat([ga_accum, ga_chunk])
-                slim = mine_chunk.select("complexity_pred", "wp_loss")
-                complexity_accum = slim if complexity_accum is None else pl.concat([complexity_accum, slim])
-                example_acc.add_chunk(mine_chunk)
-                del mine_chunk  # the wide per-move frame - drop before the next batch
+            if meta_batch:
+                moves_by_game.update({m["game_id"]: mv for m, mv in zip(meta_batch, moves_batch)})
+                games_meta_all.extend(meta_batch)
+                sources_all.extend(sources_batch)
+                games_since_snapshot += len(meta_batch)
 
-        games_processed = len(games_meta_all)
-        should_snapshot = is_last_batch or games_since_snapshot >= snapshot_stride
-        if ga_accum is None or ga_accum.height < pv_cfg["min_games"] or not should_snapshot:
-            yield games_processed, games_total, None
-            continue
+                chunk = _process_chunk(meta_batch, moves_batch, cfg, art)
+                if chunk is not None:
+                    ga_chunk, mine_chunk = chunk
+                    ga_accum = ga_chunk if ga_accum is None else pl.concat([ga_accum, ga_chunk])
+                    slim = mine_chunk.select("complexity_pred", "wp_loss")
+                    complexity_accum = slim if complexity_accum is None else pl.concat([complexity_accum, slim])
+                    example_acc.add_chunk(mine_chunk)
+                    del mine_chunk  # the wide per-move frame - drop before the next batch
 
-        games_since_snapshot = 0
-        profile = _finalize_profile(
-            ga_accum=ga_accum, complexity_accum=complexity_accum, example_acc=example_acc,
-            moves_by_game=moves_by_game, games_meta_all=games_meta_all, sources_all=sources_all,
-            username=username, time_class=time_class, art=art, cfg=cfg,
-        )
-        yield games_processed, games_total, profile
+            games_processed = len(games_meta_all)
+            should_snapshot = is_last_batch or games_since_snapshot >= snapshot_stride
+            if ga_accum is None or ga_accum.height < pv_cfg["min_games"] or not should_snapshot:
+                yield games_processed, games_total, None
+                continue
+
+            games_since_snapshot = 0
+            profile = _finalize_profile(
+                ga_accum=ga_accum, complexity_accum=complexity_accum, example_acc=example_acc,
+                moves_by_game=moves_by_game, games_meta_all=games_meta_all, sources_all=sources_all,
+                username=username, time_class=time_class, art=art, cfg=cfg,
+            )
+            yield games_processed, games_total, profile
+    finally:
+        if eng is not None:
+            eng.quit()
 
     if ga_accum is None or ga_accum.height < pv_cfg["min_games"]:
         raise NotEnoughGames("too few usable games after evaluation/move filtering")
