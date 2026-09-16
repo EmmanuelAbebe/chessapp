@@ -13,7 +13,7 @@ per-move feature dataframe (dozens of scored columns per ply) in memory at
 once, which is the actual bottleneck at scale, not wall-clock time alone.
 Each batch is scored and folded into small running state - accumulated
 per-game rows (``ga``, one row per game), a slim two-column complexity/
-wp_loss frame, and a bounded top-N example-position candidate list per
+ply frame, and a bounded top-N example-position candidate list per
 feature - then its wide per-move dataframe is dropped before the next
 batch. ``build_profile`` is a thin wrapper that just drains the generator
 and returns its last snapshot, so existing single-shot callers are
@@ -44,7 +44,7 @@ from pipeline.common.project import Artifacts
 from service.labels import label_for
 from service import engine as enginemod
 from service.schemas import (
-    Coaching, Cohort, ComplexityBucket, Evidence, ExamplePosition, FocusArea, PerGameStats,
+    Coaching, Cohort, ComplexityByMoveBucket, Evidence, ExamplePosition, FocusArea, PerGameStats,
     PhaseAccuracy, Profile, SignatureItem, Skill, Source, Strength, Style, StyleAxis, SubScore,
 )
 
@@ -333,34 +333,33 @@ def _example_positions_from_rows(rows: list[dict], moves_by_game: dict[str, list
     return out
 
 
-def _complexity_curve(mine: pl.DataFrame, n_buckets: int = 6, min_per_bucket: int = 8) -> list[ComplexityBucket]:
-    """Your move quality (wp_loss) as a function of position complexity -
-    do you hold up as fast as things get sharper, or does accuracy fall
-    off past some threshold? Equal-count (quantile) buckets rather than
-    equal-width, since complexity_pred's own distribution is what decides
-    what "sharp" means for this player's actual games. `mine` only needs
-    to carry complexity_pred + wp_loss - the accumulated slim frame across
-    chunks, not the full per-move dataframe."""
-    rows = mine.filter(pl.col("complexity_pred").is_not_null() & pl.col("wp_loss").is_not_null())
-    if rows.height < n_buckets * min_per_bucket:
+MAX_MOVE_NUMBER = 40  # moves at/after this are folded into one final bucket
+
+
+def _complexity_by_move(mine: pl.DataFrame, min_per_bucket: int = 5) -> list[ComplexityByMoveBucket]:
+    """Average position complexity at each move number, across all of your
+    analyzed games - the "arc" of a typical game, showing where it turns
+    from known/quiet opening play to real fighting chess. `mine` only
+    needs to carry complexity_pred + ply - the accumulated slim frame
+    across chunks, not the full per-move dataframe."""
+    rows = mine.filter(pl.col("complexity_pred").is_not_null() & pl.col("ply").is_not_null())
+    if rows.height == 0:
         return []
     bucketed = rows.with_columns(
-        pl.col("complexity_pred").qcut(n_buckets, allow_duplicates=True, include_breaks=True).alias("_q")
-    ).unnest("_q")
+        move_number=((pl.col("ply") + 1) // 2).clip(1, MAX_MOVE_NUMBER)
+    )
     curve = (
-        bucketed.group_by("breakpoint")
+        bucketed.group_by("move_number")
         .agg(
-            pl.col("complexity_pred").min().alias("lo"),
-            pl.col("complexity_pred").max().alias("hi"),
-            pl.col("wp_loss").mean().alias("mean_wp_loss"),
+            pl.col("complexity_pred").mean().alias("mean_complexity"),
             pl.len().alias("n"),
         )
-        .sort("breakpoint")
+        .filter(pl.col("n") >= min_per_bucket)
+        .sort("move_number")
     )
     return [
-        ComplexityBucket(
-            complexity_lo=round(row["lo"], 1), complexity_hi=round(row["hi"], 1),
-            mean_wp_loss=round(row["mean_wp_loss"], 2), n=row["n"],
+        ComplexityByMoveBucket(
+            move_number=int(row["move_number"]), mean_complexity=round(row["mean_complexity"], 1), n=row["n"],
         )
         for row in curve.iter_rows(named=True)
     ]
@@ -418,7 +417,7 @@ def _finalize_profile(
     the end for the final one - same function either way."""
     vec = aggregate_players(ga_accum, ["player_hash"])
     feat = _fill_nulls(vec, art.spec)
-    complexity_curve = _complexity_curve(complexity_accum)
+    complexity_by_move = _complexity_by_move(complexity_accum)
 
     per_game_stats = [
         PerGameStats(
@@ -596,7 +595,7 @@ def _finalize_profile(
         strengths=strengths,
         phase_accuracy=phase_accuracy,
         per_game=per_game_stats,
-        complexity_curve=complexity_curve,
+        complexity_by_move=complexity_by_move,
         coach_context=coach_context,
         caveats=caveats,
     )
@@ -617,10 +616,10 @@ def build_profile_chunks(
 
     Memory stays bounded in game count: only the per-game aggregate rows
     (`ga`, ~50 scalar columns but one row per game), a 2-column complexity/
-    wp_loss frame, a handful of example-position candidates per feature,
-    and each game's own move list are kept across batches. The wide,
-    scored per-move dataframe - the actual heavy structure, dozens of
-    float columns per ply - is built and discarded one batch at a time.
+    ply frame, a handful of example-position candidates per feature, and
+    each game's own move list are kept across batches. The wide, scored
+    per-move dataframe - the actual heavy structure, dozens of float
+    columns per ply - is built and discarded one batch at a time.
 
     Snapshotting (calling _finalize_profile - skill/style projection,
     cohort neighbour search, deviation scan over ~30 features) is real
@@ -696,7 +695,7 @@ def build_profile_chunks(
                 if chunk is not None:
                     ga_chunk, mine_chunk = chunk
                     ga_accum = ga_chunk if ga_accum is None else pl.concat([ga_accum, ga_chunk])
-                    slim = mine_chunk.select("complexity_pred", "wp_loss")
+                    slim = mine_chunk.select("complexity_pred", "ply")
                     complexity_accum = slim if complexity_accum is None else pl.concat([complexity_accum, slim])
                     example_acc.add_chunk(mine_chunk)
                     del mine_chunk  # the wide per-move frame - drop before the next batch

@@ -101,10 +101,9 @@ export type Strength = {
   z: number;
 };
 
-export type ComplexityBucket = {
-  complexity_lo: number;
-  complexity_hi: number;
-  mean_wp_loss: number;
+export type ComplexityByMoveBucket = {
+  move_number: number;
+  mean_complexity: number;
   n: number;
 };
 
@@ -143,7 +142,7 @@ export type PlayerProfileData = {
   /** Optional: absent on a profile persisted before this field existed -
    * only a fresh re-analysis populates it, so treat it as possibly
    * missing rather than always an array. */
-  complexity_curve?: ComplexityBucket[];
+  complexity_by_move?: ComplexityByMoveBucket[];
   coach_context: string;
   caveats: string[];
 };

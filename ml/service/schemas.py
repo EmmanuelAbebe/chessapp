@@ -144,16 +144,16 @@ class PerGameStats(BaseModel):
     wp_loss_endgame: float | None = None
 
 
-class ComplexityBucket(BaseModel):
-    """One bucket of a complexity-vs-quality curve: among your own moves
-    falling in [complexity_lo, complexity_hi) position complexity, how
-    much win probability you lost on average. Buckets are equal-count
-    (quantiles of your own move complexity), not equal-width, so each
-    one rests on a comparable sample size."""
+class ComplexityByMoveBucket(BaseModel):
+    """Average position complexity at one move number, across all of your
+    analyzed games - the "arc" of a typical game: where it's still known/
+    quiet opening play, and where it turns sharp. `move_number` is the
+    standard chess move count (ceil(ply/2)), capped at a max so a few very
+    long games don't produce a long, sparse tail - moves at/after the cap
+    are folded into one final bucket."""
 
-    complexity_lo: float
-    complexity_hi: float
-    mean_wp_loss: float
+    move_number: int
+    mean_complexity: float
     n: int
 
 
@@ -168,7 +168,7 @@ class Profile(BaseModel):
     strengths: list[Strength]
     phase_accuracy: dict[str, PhaseAccuracy] = {}
     per_game: list[PerGameStats] = []
-    complexity_curve: list[ComplexityBucket] = []
+    complexity_by_move: list[ComplexityByMoveBucket] = []
     coach_context: str
     caveats: list[str] = []
 

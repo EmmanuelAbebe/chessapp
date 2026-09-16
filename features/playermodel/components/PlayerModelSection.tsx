@@ -4,7 +4,7 @@ import type { AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
 import { HintIcon } from "@/components/ui/HintIcon";
 import { AnalyzePanel } from "./AnalyzePanel";
-import { ComplexityQuality } from "./ComplexityQuality";
+import { ComplexityByMove } from "./ComplexityByMove";
 import { ProfileHero } from "./ProfileHero";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { StyleAxes } from "./StyleAxes";
@@ -56,7 +56,7 @@ export function PlayerModelSection({
           <div className="flex flex-col gap-16">
             <ProfileHero profile={profile} />
             <StyleAxes axes={profile.style.axes} />
-            <ComplexityQuality buckets={profile.complexity_curve} />
+            <ComplexityByMove buckets={profile.complexity_by_move} />
 
             <WhereYouDiffer
               strengths={profile.strengths}
