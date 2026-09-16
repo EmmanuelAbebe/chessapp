@@ -73,7 +73,7 @@ def _stylometry(art: Artifacts, split: pl.DataFrame) -> dict:
 def run() -> None:
     cfg = cfgmod.load()
     month_dir = cfgmod.month_dir(cfg)
-    art_dir = cfg["paths"]["artifacts_dir"]
+    art_dir = cfgmod.artifacts_dir(cfg)
     art = Artifacts(art_dir)
 
     split = pl.read_parquet(month_dir / "player_vectors_split.parquet")

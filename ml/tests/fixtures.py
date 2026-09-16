@@ -151,7 +151,8 @@ def build_reference(month_dir: pathlib.Path, art_dir: pathlib.Path, cfg: dict, s
     from pipeline.common import config as cfgmod
 
     cfgmod.load = lambda: cfg  # noqa: E731
-    cfgmod.month_dir = lambda _c=None: month_dir  # noqa: E731
+    cfgmod.month_dir = lambda _c=None, fmt=None: month_dir  # noqa: E731
+    cfgmod.artifacts_dir = lambda _c=None, fmt=None: art_dir  # noqa: E731
 
     s02 = load_stage("s02_fx", "02_move_features.py")
     s02.run()

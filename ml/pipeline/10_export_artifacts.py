@@ -37,7 +37,7 @@ from pipeline.common.features import (  # noqa: E402
 def run() -> None:
     cfg = cfgmod.load()
     month_dir = cfgmod.month_dir(cfg)
-    art = cfg["paths"]["artifacts_dir"]
+    art = cfgmod.artifacts_dir(cfg)
     art.mkdir(parents=True, exist_ok=True)
 
     for sub in ("feature_models", "skill", "style", "trait"):

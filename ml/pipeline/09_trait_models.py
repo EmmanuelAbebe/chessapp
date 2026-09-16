@@ -54,7 +54,7 @@ SAMPLE_PER_PLAYER = 60
 def run() -> None:
     cfg = cfgmod.load()
     month_dir = cfgmod.month_dir(cfg)
-    out = cfg["paths"]["artifacts_dir"] / "trait"
+    out = cfgmod.artifacts_dir(cfg) / "trait"
     out.mkdir(parents=True, exist_ok=True)
 
     games = pl.read_parquet(month_dir / "games" / "*.parquet").select(

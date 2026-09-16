@@ -10,10 +10,25 @@ lichess:
   # Which monthly dump to ingest. Run one month, then change this and run
   # again to append a second month (players overlap -> more games each).
   month: "2024-06"
+  # Verified for variant "standard" only - a different variant needs its
+  # own real URL confirmed before use, see pipeline/common/config.py's
+  # dump_url().
   url_template: "https://database.lichess.org/standard/lichess_db_standard_rated_{month}.pgn.zst"
 
+# One reference population per (variant, speed) pair, kept in isolated
+# data/artifacts subdirectories (pipeline/common/config.py's month_dir/
+# artifacts_dir) so building a new one never touches another's. `format:`
+# picks which one a pipeline run/service instance targets by default -
+# override with the PLAYERMODEL_FORMAT env var instead of editing this.
+# Add a new entry here (and, for a non-"standard" variant, a confirmed
+# dump URL) before building it - book/opening-family logic downstream
+# still assumes a standard starting position either way.
+format: standard_blitz
+formats:
+  standard_blitz: { variant: standard, speed: blitz }
+  standard_bullet: { variant: standard, speed: bullet }
+
 ingest:
-  speed: blitz # bullet | blitz | rapid | classical (Lichess's own bucketing)
   # First real run, scaled to this hardware (2 cores, no cloud VM) rather
   # than the ~500-800k production target - checkpointed, so raising this
   # and re-running later resumes and grows the set instead of restarting.

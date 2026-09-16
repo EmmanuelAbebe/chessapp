@@ -49,7 +49,7 @@ def _log_transform(mat: np.ndarray) -> np.ndarray:
 def run() -> None:
     cfg = cfgmod.load()
     month_dir = cfgmod.month_dir(cfg)
-    out = cfg["paths"]["artifacts_dir"] / "style"
+    out = cfgmod.artifacts_dir(cfg) / "style"
     out.mkdir(parents=True, exist_ok=True)
 
     pv = pl.read_parquet(month_dir / "player_vectors_skill.parquet")

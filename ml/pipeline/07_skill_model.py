@@ -48,7 +48,7 @@ def _oof_calibrated(X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, lgb.LGBMR
 def run() -> None:
     cfg = cfgmod.load()
     month_dir = cfgmod.month_dir(cfg)
-    out = cfg["paths"]["artifacts_dir"] / "skill"
+    out = cfgmod.artifacts_dir(cfg) / "skill"
     out.mkdir(parents=True, exist_ok=True)
 
     pv = pl.read_parquet(month_dir / "player_vectors.parquet")

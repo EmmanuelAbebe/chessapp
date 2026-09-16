@@ -103,6 +103,7 @@ def main() -> None:
     real_cfg["paths"]["artifacts_dir"] = art
     cfgmod.load = lambda: real_cfg  # noqa: E731
     cfgmod.month_dir = lambda _cfg: tmp  # noqa: E731
+    cfgmod.artifacts_dir = lambda _cfg: art  # noqa: E731
 
     s04.run()
 

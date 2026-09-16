@@ -134,7 +134,8 @@ def main() -> None:
     cfg["paths"]["artifacts_dir"] = art
     cfg["player_vectors"].update(min_games=8, min_games_with_clocks=0, max_games_per_player=100)
     cfgmod.load = lambda: cfg  # noqa: E731
-    cfgmod.month_dir = lambda _c=None: tmp  # noqa: E731
+    cfgmod.month_dir = lambda _c=None, fmt=None: tmp  # noqa: E731
+    cfgmod.artifacts_dir = lambda _c=None, fmt=None: art  # noqa: E731
 
     s05 = _load("s05", "05_game_agg.py")
     s06 = _load("s06", "06_player_vectors.py")

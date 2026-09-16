@@ -406,6 +406,7 @@ def _finalize_profile(
     sources_all: list[str],
     username: str,
     time_class: str,
+    reference_speed: str,
     art: Artifacts,
     cfg: dict,
 ) -> Profile:
@@ -559,12 +560,12 @@ def _finalize_profile(
     dates = [g["utc_date"] for g in games_meta_all if g["utc_date"]]
     eval_sources = set(sources_all)
     caveats = [f"Based on {len(games_meta_all)} {time_class} games."]
-    if time_class != "blitz":
+    if time_class != reference_speed:
         caveats.append(
-            f"The reference population is blitz players only - your skill estimate, style axes, "
-            f"and 'where you differ' are comparing your {time_class} play against blitz players, "
-            f"not other {time_class} players. Per-game charts (accuracy, complexity, win rate) are "
-            f"unaffected - those are your own numbers, no comparison group involved."
+            f"No {time_class} reference population exists yet - your skill estimate, style axes, "
+            f"and 'where you differ' are comparing your {time_class} play against {reference_speed} "
+            f"players, not other {time_class} players. Per-game charts (accuracy, complexity, win "
+            f"rate) are unaffected - those are your own numbers, no comparison group involved."
         )
     if betters.height < 40:
         caveats.append("Not many stronger players share your style yet — focus areas are lower-confidence.")
@@ -613,6 +614,7 @@ def _finalize_profile(
 def build_profile_chunks(
     pgn_text: str, username: str, time_class: str, art: Artifacts, cfg: dict,
     batch_size: int = DEFAULT_BATCH_SIZE, max_snapshots: int = 40,
+    reference_speed: str | None = None,
 ) -> Iterator[tuple[int, int, Profile | None]]:
     """Same computation as build_profile, but yields (games_processed,
     games_total, profile) after every batch instead of returning once at
@@ -642,6 +644,13 @@ def build_profile_chunks(
     ing = cfg["ingest"]
     el_cfg = cfg["engine_labels"]
     pv_cfg = cfg["player_vectors"]
+    # Which speed `art`'s reference population actually represents - the
+    # caller (the service, which decides which Artifacts to load for this
+    # request) may pass this explicitly when it had to fall back to a
+    # different population than the one requested; defaulting to
+    # time_class means "no mismatch" for any caller that doesn't care
+    # (single-population tests, the old single-shot behaviour).
+    reference_speed = reference_speed or time_class
 
     games_meta, all_moves = _parse_games(pgn_text, time_class, ing["min_plies"])
     games_meta, all_moves = _select_my_recent_games(
@@ -717,7 +726,7 @@ def build_profile_chunks(
             profile = _finalize_profile(
                 ga_accum=ga_accum, complexity_accum=complexity_accum, example_acc=example_acc,
                 moves_by_game=moves_by_game, games_meta_all=games_meta_all, sources_all=sources_all,
-                username=username, time_class=time_class, art=art, cfg=cfg,
+                username=username, time_class=time_class, reference_speed=reference_speed, art=art, cfg=cfg,
             )
             yield games_processed, games_total, profile
     finally:
@@ -730,14 +739,14 @@ def build_profile_chunks(
 
 def build_profile(
     pgn_text: str, username: str, time_class: str, art: Artifacts, cfg: dict,
-    batch_size: int = DEFAULT_BATCH_SIZE,
+    batch_size: int = DEFAULT_BATCH_SIZE, reference_speed: str | None = None,
 ) -> Profile:
     """Single-shot convenience wrapper over build_profile_chunks, for
     callers (existing tests, anything not showing progress) that just
     want the final result."""
     last: Profile | None = None
     for _processed, _total, profile in build_profile_chunks(
-        pgn_text, username, time_class, art, cfg, batch_size=batch_size
+        pgn_text, username, time_class, art, cfg, batch_size=batch_size, reference_speed=reference_speed
     ):
         if profile is not None:
             last = profile

@@ -87,9 +87,10 @@ def main() -> None:
     from fastapi.testclient import TestClient
     from service.app import create_app
 
-    client = TestClient(create_app(art, cfg))
+    fmt = cfgmod.current_format(cfg)
+    client = TestClient(create_app({fmt: art}, cfg, fmt))
     health = client.get("/health").json()
-    assert health["status"] == "ok" and health["reference_players"] == art.reference.height
+    assert health["status"] == "ok" and health["formats"][fmt]["reference_players"] == art.reference.height
 
     resp = client.post("/profile", json={"games_pgn": user_pgn, "username": "hero", "time_class": "blitz"})
     assert resp.status_code == 200, resp.text

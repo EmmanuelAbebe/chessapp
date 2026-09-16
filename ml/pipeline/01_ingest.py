@@ -86,7 +86,11 @@ class Checkpoint:
 
 def run() -> None:
     cfg = cfgmod.load()
-    ing = cfg["ingest"]
+    # header_ok/the metadata "speed" column read this from `ing["speed"]` -
+    # synthesize it from the active format's spec rather than expecting it
+    # directly in the ingest: block, so one ingest: tuning applies to every
+    # format's speed filter uniformly.
+    ing = {**cfg["ingest"], "speed": cfgmod.format_spec(cfg)["speed"]}
     out_dir = cfgmod.month_dir(cfg)
     (out_dir / "games").mkdir(exist_ok=True)
     (out_dir / "moves").mkdir(exist_ok=True)

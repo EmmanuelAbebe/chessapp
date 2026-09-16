@@ -62,7 +62,7 @@ PGN = BLITZ_GAME + "\n" + BULLET_GAME + "\n"
 
 def main() -> None:
     cfg = cfgmod.load()
-    ing = cfg["ingest"]
+    ing = {**cfg["ingest"], "speed": cfgmod.format_spec(cfg)["speed"]}
     mf = cfg["move_features"]
 
     stream = io.StringIO(PGN)

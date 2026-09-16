@@ -136,7 +136,7 @@ def _train(cfg, month_dir, out_dir) -> dict[str, object]:
 def run() -> None:
     cfg = cfgmod.load()
     month_dir = cfgmod.month_dir(cfg)
-    out_dir = cfg["paths"]["artifacts_dir"] / "feature_models"
+    out_dir = cfgmod.artifacts_dir(cfg) / "feature_models"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Skip retraining on a retry once models are already on disk - a killed
