@@ -36,9 +36,11 @@ from pipeline.common.features import (  # noqa: E402
 
 def run() -> None:
     cfg = cfgmod.load()
+    fmt = cfgmod.current_format(cfg)
     month_dir = cfgmod.month_dir(cfg)
     art = cfgmod.artifacts_dir(cfg)
     art.mkdir(parents=True, exist_ok=True)
+    axis_labels = cfg.get("style_axis_labels", {}).get(fmt, {})
 
     for sub in ("feature_models", "skill", "style", "trait"):
         if not (art / sub).is_dir():
@@ -82,9 +84,12 @@ def run() -> None:
         "traits": TRAITS,
         "elo_band_fill": fill,
         "global_fill": {f: pv[f].median() for f in MODELLED},
-        "pc_axis_labels": [
-            cfg.get("style_axis_labels", {}).get(i, f"PC{i}") for i in range(10)
-        ],
+        "pc_axis_labels": [axis_labels.get(i, f"PC{i}") for i in range(10)],
+        # How many leading PCA axes have a real, hand-derived label for
+        # THIS format - the service shows only these as the identity
+        # chart (service/profile.py), rather than a hardcoded count that
+        # silently drifts from what's actually labeled per format.
+        "n_identity_axes": len(axis_labels),
         "cohort": cfg["cohort"],
     }
     (art / "feature_spec.json").write_text(json.dumps(spec, indent=2))

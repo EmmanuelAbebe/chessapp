@@ -458,7 +458,7 @@ def _finalize_profile(
         xy = art.umap_xy(pca_vec)
         axes = [
             StyleAxis(id=f"pc{i}", label=art.spec["pc_axis_labels"][i], value=round(float(pca_vec[i]), 2))
-            for i in range(min(4, len(pca_vec)))
+            for i in range(min(art.spec.get("n_identity_axes", 4), len(pca_vec)))
         ]
 
         dates = [g["utc_date"] for g in games_meta_all if g["utc_date"]]
@@ -590,7 +590,7 @@ def _finalize_profile(
 
     axes = [
         StyleAxis(id=f"pc{i}", label=art.spec["pc_axis_labels"][i], value=round(float(pca_vec[i]), 2))
-        for i in range(min(4, len(pca_vec)))
+        for i in range(min(art.spec.get("n_identity_axes", 4), len(pca_vec)))
     ]
 
     # phase accuracy — you vs. same-skill peers' median wp_loss (lower is
