@@ -4,8 +4,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FiSettings } from "react-icons/fi";
 import Modal from "@/components/ui/Modal";
-import type { AnalyzeStatus } from "../usePlayerProfile";
+import { PERF_TYPES } from "@/features/lichess/useLichessFetchOptions";
+import type { AnalyzeOptions, AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
+
+// Only blitz has its own reference population/skill+style models today
+// (ml/config.yaml's ingest.speed) - picking another speed still runs
+// real per-game analysis, but the skill/style/cohort sections end up
+// compared against blitz players, not same-speed ones. The server
+// already adds a caveat for this; this is just for a clear inline note
+// next to the picker itself, before someone runs the analysis.
+const BLITZ_ONLY_REFERENCE_NOTE =
+  "Only blitz has its own reference population - other speeds still get real per-game charts, but skill/style comparisons are made against blitz players.";
 
 const STALE_AFTER_DAYS = 30;
 const STALE_AFTER_NEW_GAMES = 20;
@@ -49,15 +59,16 @@ export function AnalyzePanel({
   status: AnalyzeStatus;
   error: string | null;
   progress?: { processed: number; total: number } | null;
-  onAnalyze: (opts?: { force?: boolean; maxGames?: number }) => void;
+  onAnalyze: (opts?: AnalyzeOptions) => void;
 }) {
   const [lichessConnected, setLichessConnected] = useState<boolean | null>(null);
   // Blank = let the server default to the size of the user's imported game
   // history; typing a number here overrides that for this analysis only.
   const [maxGamesInput, setMaxGamesInput] = useState("");
+  const [timeClass, setTimeClass] = useState<string>("blitz");
   const [showOptions, setShowOptions] = useState(false);
   const maxGames = maxGamesInput.trim() ? Number(maxGamesInput) : undefined;
-  const [pendingOpts, setPendingOpts] = useState<{ force?: boolean; maxGames?: number } | null>(null);
+  const [pendingOpts, setPendingOpts] = useState<AnalyzeOptions | null>(null);
   // How many games the in-flight request is actually for, so the loading
   // label can say so - null when unknown (blank input defers to whatever
   // the server sizes it to).
@@ -78,7 +89,7 @@ export function AnalyzePanel({
     };
   }, []);
 
-  function requestAnalyze(opts?: { force?: boolean; maxGames?: number }) {
+  function requestAnalyze(opts?: AnalyzeOptions) {
     if (opts?.maxGames && opts.maxGames > REASONABLE_GAMES) {
       setPendingOpts(opts);
       return;
@@ -88,19 +99,38 @@ export function AnalyzePanel({
   }
 
   const optionsRow = showOptions && (
-    <div className="flex items-center gap-2 text-xs text-text-dim">
-      <label htmlFor="max-games-input">Games to analyze</label>
-      <input
-        id="max-games-input"
-        type="number"
-        min={10}
-        value={maxGamesInput}
-        onChange={(e) => setMaxGamesInput(e.target.value)}
-        placeholder="auto"
-        title="How many recent games to analyze. Leave blank to match the size of your imported game history."
-        className="w-16 rounded-md border border-border bg-transparent px-2 py-1 text-center text-xs text-text placeholder:text-text-faint"
-      />
-      <span className="text-text-faint">leave blank to match your imported history</span>
+    <div className="flex flex-col items-end gap-1.5 text-xs text-text-dim">
+      <div className="flex items-center gap-2">
+        <label htmlFor="time-class-select">Speed</label>
+        <select
+          id="time-class-select"
+          value={timeClass}
+          onChange={(e) => setTimeClass(e.target.value)}
+          title={BLITZ_ONLY_REFERENCE_NOTE}
+          className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-text"
+        >
+          {PERF_TYPES.map((p) => (
+            <option key={p} value={p} className="bg-surface">
+              {p}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <label htmlFor="max-games-input">Games to analyze</label>
+        <input
+          id="max-games-input"
+          type="number"
+          min={10}
+          value={maxGamesInput}
+          onChange={(e) => setMaxGamesInput(e.target.value)}
+          placeholder="auto"
+          title="How many recent games to analyze. Leave blank to match the size of your imported game history."
+          className="w-16 rounded-md border border-border bg-transparent px-2 py-1 text-center text-xs text-text placeholder:text-text-faint"
+        />
+        <span className="text-text-faint">leave blank to match your imported history</span>
+      </div>
+      {timeClass !== "blitz" && <span className="max-w-64 text-right text-text-faint">{BLITZ_ONLY_REFERENCE_NOTE}</span>}
     </div>
   );
 
@@ -157,14 +187,14 @@ export function AnalyzePanel({
         <p className="text-sm text-text-dim">
           {lichessConnected === null
             ? "Checking your account…"
-            : "Analyze your recent blitz games to see your style, skill, and what to train next."}
+            : `Analyze your recent ${timeClass} games to see your style, skill, and what to train next.`}
         </p>
         {lichessConnected && (
           <div className="mt-3 flex flex-col items-center gap-2">
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => requestAnalyze({ maxGames })}
+                onClick={() => requestAnalyze({ maxGames, timeClass })}
                 disabled={status === "loading"}
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
               >
@@ -214,7 +244,7 @@ export function AnalyzePanel({
           </button>
           <button
             type="button"
-            onClick={() => requestAnalyze({ force: true, maxGames })}
+            onClick={() => requestAnalyze({ force: true, maxGames, timeClass })}
             disabled={status === "loading"}
             className={`rounded-md border px-2.5 py-1 font-medium transition disabled:opacity-50 ${
               stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"

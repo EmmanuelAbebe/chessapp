@@ -6,6 +6,19 @@ import type { PlayerProfileData } from "./types";
 
 export type AnalyzeStatus = "idle" | "loading" | "error";
 
+export type AnalyzeOptions = {
+  force?: boolean;
+  maxGames?: number;
+  /** Lichess perf type - "blitz" | "bullet" | "rapid" | "classical".
+   * Defaults server-side to "blitz" when omitted. Only blitz has its own
+   * reference population/skill+style models today, so requesting another
+   * speed still runs real per-game analysis (accuracy, complexity, etc.)
+   * but the skill-estimate/style/cohort comparisons are made against
+   * blitz players - see the caveat the server adds when this isn't
+   * "blitz". */
+  timeClass?: string;
+};
+
 const POLL_INTERVAL_MS = 1500;
 
 /** Drives the Analyze/Refresh flow on top of whatever the server already
@@ -38,7 +51,7 @@ export function usePlayerProfile(initial: PlayerProfileData | null) {
   useEffect(() => stopPolling, [stopPolling]);
 
   const analyze = useCallback(
-    async (opts?: { force?: boolean; maxGames?: number }) => {
+    async (opts?: AnalyzeOptions) => {
       stopPolling();
       setStatus("loading");
       setError(null);
@@ -50,6 +63,7 @@ export function usePlayerProfile(initial: PlayerProfileData | null) {
           body: JSON.stringify({
             force: opts?.force,
             maxGames: opts?.maxGames,
+            timeClass: opts?.timeClass,
             provider: config.provider,
             apiKey: config.apiKey,
             model: config.model,

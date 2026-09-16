@@ -1,6 +1,6 @@
 "use client";
 
-import type { AnalyzeStatus } from "../usePlayerProfile";
+import type { AnalyzeOptions, AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
 import { HintIcon } from "@/components/ui/HintIcon";
 import { AnalyzePanel } from "./AnalyzePanel";
@@ -27,7 +27,7 @@ export function PlayerModelSection({
   status: AnalyzeStatus;
   error: string | null;
   progress?: { processed: number; total: number } | null;
-  onAnalyze: (opts?: { force?: boolean; maxGames?: number }) => void;
+  onAnalyze: (opts?: AnalyzeOptions) => void;
 }) {
   return (
     <section className="flex flex-col gap-8">

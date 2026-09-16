@@ -559,6 +559,13 @@ def _finalize_profile(
     dates = [g["utc_date"] for g in games_meta_all if g["utc_date"]]
     eval_sources = set(sources_all)
     caveats = [f"Based on {len(games_meta_all)} {time_class} games."]
+    if time_class != "blitz":
+        caveats.append(
+            f"The reference population is blitz players only - your skill estimate, style axes, "
+            f"and 'where you differ' are comparing your {time_class} play against blitz players, "
+            f"not other {time_class} players. Per-game charts (accuracy, complexity, win rate) are "
+            f"unaffected - those are your own numbers, no comparison group involved."
+        )
     if betters.height < 40:
         caveats.append("Not many stronger players share your style yet — focus areas are lower-confidence.")
     if peers.height >= 20 and len(strengths) < 2:
