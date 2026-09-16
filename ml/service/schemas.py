@@ -70,14 +70,15 @@ class Cohort(BaseModel):
 
 
 class PhaseAccuracy(BaseModel):
-    """Win-probability loss (lower is better) in one game phase, you vs. the
-    median of same-skill peers - unconditional (unlike Evidence, which only
-    appears when a feature happens to qualify as a focus area/strength), so
-    the dashboard can always pair this against its own phase move-share
-    chart even when neither phase cleared either threshold."""
+    """Win-probability loss (lower is better) in one game phase, vs. your
+    own overall average across all phases - self-referential (previously
+    compared against a peer population's median; that needed a reference
+    population this doesn't). Unconditional - always populated for every
+    phase, so the dashboard can pair this against its own phase move-share
+    chart regardless of anything else."""
 
     you: float
-    peers: float
+    your_overall: float
 
 
 class Evidence(BaseModel):
@@ -163,15 +164,43 @@ class ComplexityByMoveBucket(BaseModel):
     n: int
 
 
+class SituationalGap(BaseModel):
+    """One situation (tactical positions, low on the clock, defending, ...)
+    bucketed from a player's own moves, scored purely against Stockfish's
+    own best move in each position - no peer/reference population
+    involved. `your_wp_loss` is the mean win-probability lost in this
+    situation, `share_of_moves` how often it comes up, and `impact` is
+    their product - how much of this player's *total* lost win-probability
+    this situation accounts for, which is what critical_lessons/
+    strong_situations are ranked by."""
+
+    id: str
+    label: str
+    your_wp_loss: float
+    share_of_moves: float
+    impact: float
+    example_positions: list[ExamplePosition] = []
+    coaching: Coaching = Coaching()
+
+
 class Profile(BaseModel):
     schema_version: int = 1
     computed_at: str
     source: Source
+    # Peer/reference-population-based - kept for a future pass, left at
+    # empty/zero defaults for now (see critical_lessons/strong_situations
+    # below for what replaced them as the leading coaching narrative).
     skill: Skill
     style: Style
     cohort: Cohort
     focus_areas: list[FocusArea]
     strengths: list[Strength]
+    # Self-referential - Stockfish's own best move is the only standard,
+    # ranked by how much of a player's own total lost win-probability each
+    # situation accounts for. Works identically for every provider/format,
+    # no reference population needed.
+    critical_lessons: list[SituationalGap] = []
+    strong_situations: list[SituationalGap] = []
     phase_accuracy: dict[str, PhaseAccuracy] = {}
     per_game: list[PerGameStats] = []
     complexity_by_move: list[ComplexityByMoveBucket] = []

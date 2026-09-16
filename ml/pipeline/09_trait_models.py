@@ -27,7 +27,7 @@ import polars as pl
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from pipeline.common import config as cfgmod  # noqa: E402
-from pipeline.common.features import TRAITS  # noqa: E402
+from pipeline.common.features import SITUATION_BUCKETS, TRAITS  # noqa: E402
 from pipeline.common.filters import parse_time_control  # noqa: E402
 
 CONTEXT = [
@@ -36,15 +36,19 @@ CONTEXT = [
     "st_material_imbalance", "ply",
 ]
 
-# bucket filter (polars expr) per trait — mean residual over these moves
-BUCKETS = {
-    "trait_attention": "(pl.col('has_tactic_pred') < 0.2) & (pl.col('complexity_pred') < 15) & (pl.col('clock_frac').fill_null(1) > 0.3)",
-    "trait_tactical": "pl.col('has_tactic_pred') >= 0.5",
-    "trait_calculation": "pl.col('complexity_pred') >= 25",
-    "trait_time_pressure": "pl.col('clock_frac') < 0.15",
-    "trait_opening_transition": "pl.col('plies_since_book_exit').is_between(1, 6)",
-    "trait_defense": "pl.col('is_defending')",
+# bucket filter (polars expr) per trait — mean residual over these moves.
+# The bucket conditions themselves live in common/features.py's
+# SITUATION_BUCKETS (shared with the service's self-referential use of the
+# same buckets) - BUCKETS just renames each to its "trait_*" key here.
+_SITUATION_TO_TRAIT = {
+    "calm": "trait_attention",
+    "tactical": "trait_tactical",
+    "calculation": "trait_calculation",
+    "time_pressure": "trait_time_pressure",
+    "opening_transition": "trait_opening_transition",
+    "defending": "trait_defense",
 }
+BUCKETS = {_SITUATION_TO_TRAIT[name]: expr for name, expr in SITUATION_BUCKETS.items()}
 assert list(BUCKETS) == TRAITS, "BUCKETS keys must match common.features.TRAITS"
 PHASE_CODE = {"opening": 0, "middlegame": 1, "endgame": 2}
 SAMPLE_TRAIN = 2_000_000

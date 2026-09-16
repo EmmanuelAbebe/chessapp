@@ -36,7 +36,7 @@ export function PhaseBreakdownChart({
   const hasAccuracy = Boolean(accuracy && Object.keys(accuracy).length > 0);
   const deltas = PHASES.map(({ key }) => {
     const acc = accuracy?.[key];
-    return acc ? acc.you - acc.peers : null;
+    return acc ? acc.you - acc.your_overall : null;
   });
   const maxGap = Math.max(1, ...deltas.filter((d): d is number => d !== null).map((d) => Math.abs(d)));
   const gapXFor = (v: number) => GAP_ZERO + (v / maxGap) * (GAP_W / 2);
@@ -48,7 +48,7 @@ export function PhaseBreakdownChart({
         <HintIcon
           text={
             hasAccuracy
-              ? "Move share: how much of each game you spend in that phase. Accuracy gap: your move-quality gap vs. players at your level there - green is better than typical, red is worse."
+              ? "Move share: how much of each game you spend in that phase. Accuracy gap: this phase's move-quality vs. your own overall average - green is better than your average, red is worse."
               : "Move share: how much of each game you spend in that phase. Analyze your games above to also see your accuracy gap there."
           }
           width="w-64"
@@ -63,7 +63,7 @@ export function PhaseBreakdownChart({
           move share
         </text>
         <text x={GAP_X0} y={PAD_T + 2} fontSize="10" fontWeight={600} fill="var(--text-faint)">
-          accuracy gap vs. peers (wp_loss)
+          gap vs. your own average (wp_loss)
         </text>
         <line x1={GAP_ZERO} x2={GAP_ZERO} y1={PAD_T + 10} y2={H - 6} stroke="var(--border)" />
 

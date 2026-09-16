@@ -101,8 +101,8 @@ export async function POST(request: Request) {
   }
 
   const profile = await serviceRes.json();
-  profile.focus_areas = await fillCoaching(
-    profile.focus_areas ?? [],
+  profile.critical_lessons = await fillCoaching(
+    profile.critical_lessons ?? [],
     body.provider,
     body.apiKey,
     body.model,

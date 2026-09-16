@@ -42,8 +42,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const status = (await serviceRes.json()) as Record<string, any>;
 
   if (status.status === "done" && status.profile && !meta.savedFinal) {
-    status.profile.focus_areas = await fillCoaching(
-      status.profile.focus_areas ?? [],
+    status.profile.critical_lessons = await fillCoaching(
+      status.profile.critical_lessons ?? [],
       meta.provider, meta.apiKey, meta.model,
     );
     await saveProfile(meta.userId, status.profile, meta.gamesHash);

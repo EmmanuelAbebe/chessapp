@@ -5,17 +5,22 @@ import type { PlayerProfileData } from "../types";
 import { HintIcon } from "@/components/ui/HintIcon";
 import { AnalyzePanel } from "./AnalyzePanel";
 import { ComplexityByMove } from "./ComplexityByMove";
-import { ProfileHero } from "./ProfileHero";
+import { CriticalLessons } from "./CriticalLessons";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { StyleAxes } from "./StyleAxes";
-import { WhereYouDiffer } from "./WhereYouDiffer";
 
 /** The player-behaviour model, composed onto /dashboard/statistics above
  * the existing (notation-only) StatisticsSummary, which stays as "Game
  * history." Profile state is lifted to StatisticsPageClient (rather than
  * owned here via usePlayerProfile directly) so StatisticsSummary's phase
  * comparison chart can read the same `phase_accuracy` without a second,
- * independent fetch. */
+ * independent fetch.
+ *
+ * Everything below is self-referential - style axes are a fixed transform
+ * of this player's own games, and critical lessons rank purely against
+ * Stockfish's own evaluation of their own moves. No peer/reference
+ * population involved, so this renders identically for every provider
+ * and format. */
 export function PlayerModelSection({
   profile,
   status,
@@ -34,7 +39,7 @@ export function PlayerModelSection({
       <h2 className="flex items-center gap-1.5 text-base font-semibold text-text">
         Your playing style
         <HintIcon
-          text="Engine-verified, compared against players who share your style - skill estimate, style axes, and where you differ from them."
+          text="Engine-verified, from your own games only: what kind of player you are (style axes) and where you lose the most win-probability vs. Stockfish's best move (critical lessons)."
           width="w-56"
         />
       </h2>
@@ -54,30 +59,13 @@ export function PlayerModelSection({
               live as more games are folded in, not staring at a dimmed
               placeholder until it's all done. */}
           <div className="flex flex-col gap-16">
-            {profile.source.provider === "lichess" ? (
-              <ProfileHero profile={profile} />
-            ) : (
-              // Skill estimate and "where you differ" both need the
-              // Lichess-built reference population/cohort matching - not
-              // meaningful for a chess.com profile (see the caveat below).
-              // Style axes ARE shown below regardless: they're computed
-              // from this player's own games only, no comparison group
-              // involved, same as the per-game charts.
-              <p className="text-xs text-text-faint">
-                {profile.source.games_analyzed} {profile.source.time_class} games
-                {profile.source.date_range ? ` · ${profile.source.date_range[0]} – ${profile.source.date_range[1]}` : ""}
-              </p>
-            )}
+            <p className="text-xs text-text-faint">
+              {profile.source.games_analyzed} {profile.source.time_class} games
+              {profile.source.date_range ? ` · ${profile.source.date_range[0]} – ${profile.source.date_range[1]}` : ""}
+            </p>
             <StyleAxes axes={profile.style.axes} />
             <ComplexityByMove buckets={profile.complexity_by_move} />
-
-            {profile.source.provider === "lichess" && (
-              <WhereYouDiffer
-                strengths={profile.strengths}
-                focusAreas={profile.focus_areas}
-                signature={profile.style.signature}
-              />
-            )}
+            <CriticalLessons lessons={profile.critical_lessons} strong={profile.strong_situations} />
 
             {profile.caveats.length > 0 && (
               <ul className="flex flex-col gap-1 text-xs text-text-faint">

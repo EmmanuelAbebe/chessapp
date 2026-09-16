@@ -75,44 +75,48 @@ export async function fetchGamesForSource(
 }
 
 const CoachingSchema = z.object({
-  what: z.string().describe("What happened, one sentence."),
-  why: z.string().describe("Why it matters, one sentence."),
-  missed: z.string().describe("What the player missed or does differently than stronger peers."),
+  what: z.string().describe("What happens in this situation, one sentence."),
+  why: z.string().describe("Why it costs win-probability, one sentence."),
+  missed: z.string().describe("What the player misses relative to Stockfish's own best move here."),
   principle: z.string().describe("The general principle behind it."),
   drill: z.string().describe("One concrete next action or practice habit."),
 });
 
 const SYSTEM_PROMPT = `You are a chess coach writing the explanation for one
-"focus area" in a player's profile - a pattern where players who share this
-player's style, but are rated higher, consistently do something differently.
-You're given the feature name and the player's value vs. that stronger
-group's typical value. Write a short, concrete explanation in exactly this
-shape: what happened -> why it matters -> what they missed (framed as "the
-stronger players in your style group tend to...") -> the general principle
--> one specific action to train next. Each field is one plain sentence, no
-jargon, no hedging, no restating the raw numbers verbatim.`;
+"critical lesson" in a player's profile - a situation (tactical positions,
+low on the clock, defending a worse position, etc.) where this player loses
+the most win-probability, measured only against Stockfish's own best move
+in that situation - never against other players. You're given the
+situation, how much win-probability they lose there on average, and how
+often that situation comes up in their games. Write a short, concrete
+explanation in exactly this shape: what happens -> why it costs them wins
+-> what they're missing relative to the engine's best line -> the general
+principle -> one specific action to train next. Each field is one plain
+sentence, no jargon, no hedging, no restating the raw numbers verbatim, and
+never compare them to other players - the standard here is Stockfish's own
+evaluation, not anyone else's play.`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function fillCoaching(focusAreas: any[], provider?: AiProvider, apiKey?: string, model?: string) {
-  if (!provider || !apiKey) return focusAreas; // no client key supplied - leave coaching null
+export async function fillCoaching(situations: any[], provider?: AiProvider, apiKey?: string, model?: string) {
+  if (!provider || !apiKey) return situations; // no client key supplied - leave coaching null
   const languageModel = resolveModel(provider, apiKey, model ?? "");
-  if (!languageModel) return focusAreas;
+  if (!languageModel) return situations;
 
   return Promise.all(
-    focusAreas.map(async (area) => {
+    situations.map(async (situation) => {
       try {
-        const evidence = (area.evidence ?? [])
-          .map((e: { feature: string; you: number; cohort: number }) => `${e.feature}: you ${e.you}, stronger-peers ${e.cohort}`)
-          .join("; ");
         const { object } = await generateObject({
           model: languageModel,
           schema: CoachingSchema,
           system: SYSTEM_PROMPT,
-          prompt: `Focus area: ${area.title}\nEvidence: ${evidence}\nEstimated rating value of closing this gap: ~${area.estimated_rating_gain}.`,
+          prompt:
+            `Situation: ${situation.label}\n` +
+            `You lose an average of ${situation.your_wp_loss}% win-probability here.\n` +
+            `This situation comes up in ${Math.round(situation.share_of_moves * 100)}% of your analyzed moves.`,
         });
-        return { ...area, coaching: object };
+        return { ...situation, coaching: object };
       } catch {
-        return area; // leave coaching null on any LLM failure - never fail the whole request
+        return situation; // leave coaching null on any LLM failure - never fail the whole request
       }
     }),
   );

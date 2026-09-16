@@ -35,17 +35,16 @@ from sklearn.linear_model import LinearRegression
 
 from pipeline.common import pgn as pgnmod
 from pipeline.common.featuremodels import score as score_features
-from pipeline.common.features import LOWER_IS_BETTER, MODELLED, SKILL_SUBSCORES, TRAITS
+from pipeline.common.features import MODELLED, SITUATION_BUCKETS
 from pipeline.common.filters import parse_time_control, speed_bucket
 from pipeline.common.gameagg import enrich_plies, game_level_agg, moves_agg
 from pipeline.common.movefeatures import FEATURE_SCHEMA, apply_book_tags, features_for_game
 from pipeline.common.playeragg import aggregate_players
 from pipeline.common.project import Artifacts
-from service.labels import label_for
 from service import engine as enginemod
 from service.schemas import (
-    Coaching, Cohort, ComplexityByMoveBucket, Evidence, ExamplePosition, FocusArea, PerGameStats,
-    PhaseAccuracy, Profile, SignatureItem, Skill, Source, Strength, Style, StyleAxis, SubScore,
+    Coaching, Cohort, ComplexityByMoveBucket, ExamplePosition, PerGameStats,
+    PhaseAccuracy, Profile, SituationalGap, Skill, Source, Style, StyleAxis,
 )
 
 _VALID_RESULTS = {"1-0", "0-1", "1/2-1/2"}
@@ -286,22 +285,26 @@ _EXAMPLE_COLS = ["game_id", "ply", "wp_loss", "phase", "classification"]
 
 
 class _ExamplePositionAccumulator:
-    """Keeps a running top-N (by wp_loss) candidate row per named feature
-    bucket, updated one chunk at a time, instead of requiring every
-    chunk's full per-move dataframe to stay in memory until the end. Each
-    bucket only ever holds `n` small dict rows, so this is cheap
-    regardless of how many games/chunks feed into it."""
+    """Keeps a running top-N (by wp_loss) candidate row per named bucket,
+    updated one chunk at a time, instead of requiring every chunk's full
+    per-move dataframe to stay in memory until the end. Each bucket only
+    ever holds `n` small dict rows, so this is cheap regardless of how
+    many games/chunks feed into it. `filters` is a {name: polars-expr-
+    string} dict - the caller decides what a "bucket" means (the old
+    cohort-feature buckets in `_BUCKET_FILTER`, or the new self-referential
+    `SITUATION_BUCKETS`), so the same class serves both."""
 
-    def __init__(self, n: int = 5):
+    def __init__(self, filters: dict[str, str], n: int = 5):
+        self.filters = filters
         self.n = n
-        self._buckets: dict[str, list[dict]] = {key: [] for key in (*_BUCKET_FILTER, "_all")}
+        self._buckets: dict[str, list[dict]] = {key: [] for key in (*filters, "_all")}
 
     def add_chunk(self, mine_chunk: pl.DataFrame) -> None:
         base = mine_chunk.filter(pl.col("wp_loss").is_not_null())
         if base.height == 0:
             return
         for key, existing in self._buckets.items():
-            expr = _BUCKET_FILTER.get(key)
+            expr = self.filters.get(key)
             bucket_df = base.filter(eval(expr, {"pl": pl})) if expr else base  # noqa: S307 — trusted, module-local
             if bucket_df.height == 0:
                 continue
@@ -312,6 +315,68 @@ class _ExamplePositionAccumulator:
     def top(self, feature: str, n: int) -> list[dict]:
         rows = self._buckets.get(feature) or self._buckets["_all"]
         return rows[:n]
+
+
+_SITUATION_LABELS: dict[str, str] = {
+    "calm": "Calm, unforced positions",
+    "tactical": "Tactical positions",
+    "calculation": "Complex, calculation-heavy positions",
+    "time_pressure": "Low on the clock",
+    "opening_transition": "Just out of known theory",
+    "defending": "Defending a worse position",
+}
+# Below this many of a player's own moves in a bucket, its average wp_loss
+# is too noisy to rank or show - matches the ">= 10"/">= 20" sample-size
+# guards already used elsewhere in this file (peer cohort, sub-score
+# percentile) for the same reason: small samples, not systematic signal.
+_MIN_SITUATION_MOVES = 15
+
+
+class _SituationAccumulator:
+    """Running (sum(wp_loss), count) per SITUATION_BUCKETS key, across
+    chunks - the self-referential twin of _ExamplePositionAccumulator's
+    example rows. No population/reference data involved: every number
+    here comes only from this one player's own analyzed moves, scored only
+    against Stockfish's own best move (wp_loss itself)."""
+
+    def __init__(self) -> None:
+        self._sum: dict[str, float] = dict.fromkeys(SITUATION_BUCKETS, 0.0)
+        self._count: dict[str, int] = dict.fromkeys(SITUATION_BUCKETS, 0)
+        self.total_moves = 0
+
+    def add_chunk(self, mine_chunk: pl.DataFrame) -> None:
+        base = mine_chunk.filter(pl.col("wp_loss").is_not_null())
+        if base.height == 0:
+            return
+        self.total_moves += base.height
+        for key, expr in SITUATION_BUCKETS.items():
+            bucket_df = base.filter(eval(expr, {"pl": pl}))  # noqa: S307 — trusted, module-local
+            if bucket_df.height == 0:
+                continue
+            self._sum[key] += float(bucket_df["wp_loss"].sum())
+            self._count[key] += bucket_df.height
+
+    def gaps(self) -> list[dict]:
+        """One row per bucket with enough moves: your_wp_loss (mean),
+        share_of_moves (of all analyzed moves), impact (their product -
+        how much of this player's total lost win-probability this
+        situation accounts for)."""
+        out = []
+        if self.total_moves == 0:
+            return out
+        for key, count in self._count.items():
+            if count < _MIN_SITUATION_MOVES:
+                continue
+            your_wp_loss = self._sum[key] / count
+            share = count / self.total_moves
+            out.append(
+                {
+                    "id": key, "label": _SITUATION_LABELS[key],
+                    "your_wp_loss": your_wp_loss, "share_of_moves": share,
+                    "impact": your_wp_loss * share,
+                }
+            )
+        return out
 
 
 def _example_positions_from_rows(rows: list[dict], moves_by_game: dict[str, list[dict]]) -> list[ExamplePosition]:
@@ -396,11 +461,54 @@ def _process_chunk(
 
 # --- 7. finalize: everything downstream of the accumulated per-game rows ----
 
+def _situational_gaps(
+    situation_acc: "_SituationAccumulator",
+    situation_example_acc: _ExamplePositionAccumulator,
+    moves_by_game: dict[str, list[dict]],
+    your_overall_wp_loss: float,
+) -> tuple[list[SituationalGap], list[SituationalGap]]:
+    """(critical_lessons, strong_situations) - self-referential, no
+    population involved: `impact` ranks by how much of this player's own
+    total lost win-probability a situation accounts for (critical_lessons,
+    top 3). strong_situations is NOT just "whatever's left over" - a
+    situation only counts as a strength if its own wp_loss is at or below
+    this player's own overall average (`your_overall_wp_loss`); a
+    situation that's actually worse than their average, but simply rare
+    enough to miss the impact cutoff, is not a strength just because it
+    isn't a critical lesson either. Mutually exclusive either way - the
+    same situation never appears in both lists."""
+    gaps = situation_acc.gaps()
+    if not gaps:
+        return [], []
+
+    def to_gap(g: dict, with_examples: bool) -> SituationalGap:
+        examples = (
+            _example_positions_from_rows(situation_example_acc.top(g["id"], 2), moves_by_game)
+            if with_examples else []
+        )
+        return SituationalGap(
+            id=g["id"], label=g["label"], your_wp_loss=round(g["your_wp_loss"], 2),
+            share_of_moves=round(g["share_of_moves"], 3), impact=round(g["impact"], 3),
+            example_positions=examples,
+        )
+
+    by_impact = sorted(gaps, key=lambda g: -g["impact"])
+    lessons = [to_gap(g, with_examples=True) for g in by_impact[:3]]
+    lesson_ids = {g["id"] for g in by_impact[:3]}
+    candidates = [
+        g for g in gaps if g["id"] not in lesson_ids and g["your_wp_loss"] <= your_overall_wp_loss
+    ]
+    strong = [to_gap(g, with_examples=False) for g in sorted(candidates, key=lambda g: g["your_wp_loss"])[:3]]
+    return lessons, strong
+
+
 def _finalize_profile(
     *,
     ga_accum: pl.DataFrame,
     complexity_accum: pl.DataFrame,
     example_acc: _ExamplePositionAccumulator,
+    situation_acc: "_SituationAccumulator",
+    situation_example_acc: _ExamplePositionAccumulator,
     moves_by_game: dict[str, list[dict]],
     games_meta_all: list[dict],
     sources_all: list[str],
@@ -412,11 +520,22 @@ def _finalize_profile(
     cfg: dict,
 ) -> Profile:
     """Everything that only ever needed the small accumulated state, not
-    any single chunk's wide per-move dataframe - skill/style projection,
-    cohort comparison, focus areas/strengths/signature, phase accuracy,
-    and the complexity curve. Called after every chunk (on whatever has
-    accumulated so far) to produce a partial snapshot, and once more at
-    the end for the final one - same function either way."""
+    any single chunk's wide per-move dataframe - style projection,
+    situational-gap ranking, phase accuracy, and the complexity curve.
+    Called after every chunk (on whatever has accumulated so far) to
+    produce a partial snapshot, and once more at the end for the final one
+    - same function either way.
+
+    Nothing here compares against a peer/reference population - style is a
+    fixed pre-fitted transform applied to this player's own features
+    (`art.style_pca`, no live population lookup), and critical_lessons/
+    strong_situations are ranked purely against Stockfish's own evaluation
+    of this player's own moves. That means this function no longer
+    branches on `provider`: the same computation applies to every source.
+    skill/cohort/focus_areas/strengths/style.signature are peer-comparison
+    concepts that need a real reference population - not deleted (kept as
+    valid, empty/zero schema fields) so they can be reintroduced later,
+    just not computed here today."""
     vec = aggregate_players(ga_accum, ["player_hash"])
     feat = _fill_nulls(vec, art.spec)
     complexity_by_move = _complexity_by_move(complexity_accum)
@@ -437,224 +556,73 @@ def _finalize_profile(
         if row["mean_wp_loss"] is not None and row["blunder_rate"] is not None
     ]
 
-    if provider != "lichess":
-        # Cohort matching ("where you differ", stronger-peer bands) needs a
-        # real population of individually-identified peers - impossible to
-        # build for a non-Lichess provider (chess.com's API is per-player,
-        # no bulk dump), so that stays suppressed. Skill also stays
-        # suppressed: the model was trained to predict *Lichess* Elo, and a
-        # non-Lichess rating isn't a rough approximation of that, it's a
-        # different scale entirely.
-        #
-        # Style is different: `art.style_pca` is a fixed transform (scaler
-        # + PCA + skill-residualization coefficients, all fitted once and
-        # baked into the artifacts) applied to this player's own aggregated
-        # features - it never touches the reference population at request
-        # time. It's exactly as "your games only" as the per-game charts
-        # below, just needing `skill["overall"]` internally to residualize
-        # style away from skill (not exposed - skill itself stays hidden).
-        skill = art.skill(feat)
-        pca_vec = art.style_pca(feat, skill["overall"])
-        xy = art.umap_xy(pca_vec)
-        axes = [
-            StyleAxis(id=f"pc{i}", label=art.spec["pc_axis_labels"][i], value=round(float(pca_vec[i]), 2))
-            for i in range(min(art.spec.get("n_identity_axes", 4), len(pca_vec)))
-        ]
-
-        dates = [g["utc_date"] for g in games_meta_all if g["utc_date"]]
-        eval_sources = set(sources_all)
-        return Profile(
-            computed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            source=Source(
-                provider=provider, username=username, games_analyzed=len(games_meta_all), time_class=time_class,
-                date_range=(min(dates), max(dates)) if dates else None,
-                eval_source="mixed" if len(eval_sources) > 1 else next(iter(eval_sources), provider),
-            ),
-            skill=Skill(overall=0, confidence=0, sub={}),
-            style=Style(vector=[round(float(v), 3) for v in pca_vec], umap_xy=xy, axes=axes, signature=[]),
-            cohort=Cohort(size=0, your_band=(0.0, 0.0), stronger_band=(0.0, 0.0)),
-            focus_areas=[],
-            strengths=[],
-            phase_accuracy={},
-            per_game=per_game_stats,
-            complexity_by_move=complexity_by_move,
-            coach_context=f"{len(games_meta_all)} {provider} {time_class} games analyzed",
-            caveats=[
-                f"Based on {len(games_meta_all)} {time_class} games from {provider}.",
-                f"Skill estimate and 'where you differ' aren't available for {provider} games - the "
-                f"reference population and cohort matching are built entirely from Lichess data, and "
-                f"{provider} ratings aren't on the same scale. Style axes below are computed from your "
-                f"own games only, through a model calibrated on Lichess players, so exact positioning "
-                f"may be slightly off. Accuracy, complexity, win rate, and openings are your own "
-                f"numbers, unaffected either way.",
-            ],
-        )
-
+    # Style: a fixed transform (scaler + PCA + skill-residualization
+    # coefficients, all fitted once and baked into the artifacts) applied
+    # to this player's own aggregated features - never touches the
+    # reference population at request time. `skill["overall"]` is needed
+    # internally only to residualize style away from skill; not exposed.
     skill = art.skill(feat)
     pca_vec = art.style_pca(feat, skill["overall"])
     xy = art.umap_xy(pca_vec)
-    peers, betters, deviations = _cohort_and_deviations(art, feat, pca_vec, cfg["cohort"])
-
-    confidence = min(1.0, len(games_meta_all) / 50.0)
-
-    # sub-score percentile within your rating band (not style-filtered —
-    # a plain "how does this sub-score compare to players near your Elo"
-    # read, independent of the style-neighbourhood cohort used elsewhere).
-    band_pop = art.reference.filter(
-        (pl.col("player_elo") - feat["player_elo"]).abs() <= cfg["cohort"]["peer_band_glicko"]
-    )
-    sub_pct: dict[str, float] = {}
-    if band_pop.height >= 10:
-        for name in SKILL_SUBSCORES:
-            vals = band_pop[f"skill_{name}"].drop_nulls().to_numpy().astype(float)
-            if len(vals) >= 10:
-                sub_pct[name] = round(float((vals < skill[name]).mean() * 100), 1)
-
-    # focus areas — improvement leverage vs stronger style-neighbours
-    positive = sorted(
-        (d for d in deviations if d["leverage"] > 2.0 and abs(d["gap"]) >= 1.0),
-        key=lambda d: -d["leverage"],
-    )[:5]
-    focus_conf = "high" if betters.height >= 150 else "medium" if betters.height >= 40 else "low"
-    def _focus_z(d: dict) -> tuple[float, bool]:
-        lower_better = LOWER_IS_BETTER.get(d["feature"])
-        if lower_better is None:
-            return d["gap"], False  # style feature - no known good/bad direction
-        return (-d["gap"] if lower_better else d["gap"]), True
-
-    focus_areas = []
-    for i, d in enumerate(positive):
-        z, graded = _focus_z(d)
-        focus_areas.append(
-            FocusArea(
-                id=d["feature"], rank=i + 1, title=label_for(d["feature"]),
-                evidence=[Evidence(feature=d["feature"], label=label_for(d["feature"]), you=round(d["you"], 2), cohort=round(d["cohort"], 2))],
-                estimated_rating_gain=round(d["leverage"], 0), confidence=focus_conf,
-                example_positions=_example_positions_from_rows(example_acc.top(d["feature"], 2), moves_by_game),
-                z=round(z, 2), graded=graded,
-            )
-        )
-
-    # strengths — favourable vs same-skill peers, on skill features with a known direction.
-    # Threshold is deliberately looser than focus areas (0.75 MAD vs 1.0): with peer cohorts
-    # this small (~20-150 players), a strict bar leaves strengths empty far more often than
-    # it should — most players clear a lower bar on at least a couple of skill features.
-    # Capped at 5, same as focus areas, so a player who qualifies for several isn't
-    # truncated to 3 while focus areas show all 5 - that was a structural bias toward
-    # red (focus areas compare you to *stronger* players - almost everyone has gaps
-    # there - while strengths compare you to same-skill peers, a fairer, harder bar).
-    strength_rows = []
-    if peers.height >= 20:
-        for f, lower_better in LOWER_IS_BETTER.items():
-            vals = peers[f].drop_nulls().to_numpy().astype(float)
-            if len(vals) < 10:
-                continue
-            median = float(np.median(vals))
-            mad = float(np.median(np.abs(vals - median)))
-            raw = _robust_z(feat[f], median, mad)
-            z = -raw if lower_better else raw
-            if z >= 0.75:
-                strength_rows.append((f, z, feat[f], median))
-    strength_rows.sort(key=lambda r: -r[1])
-    strengths = [
-        Strength(
-            id=f, title=label_for(f),
-            evidence=[Evidence(feature=f, label=label_for(f), you=round(you, 2), cohort=round(cohort, 2))],
-            text=f"You're stronger than {min(99, int(50 + z * 15))}% of players with your style on this.",
-            z=round(z, 2),
-        )
-        for f, z, you, cohort in strength_rows[:5]
-    ]
-
-    # signature — biggest deviations from same-skill peers, any feature (style-flavoured framing)
-    signature = []
-    if peers.height >= 20:
-        sig_rows = []
-        for f in MODELLED:
-            vals = peers[f].drop_nulls().to_numpy().astype(float)
-            if len(vals) < 10 or np.std(vals) < 1e-9:
-                continue
-            median = float(np.median(vals))
-            mad = float(np.median(np.abs(vals - median)))
-            z = _robust_z(feat[f], median, mad)
-            sig_rows.append((f, z))
-        sig_rows.sort(key=lambda r: -abs(r[1]))
-        for f, z in sig_rows[:3]:
-            signature.append(
-                SignatureItem(
-                    feature=f, you=round(feat[f], 2),
-                    peers=round(float(np.median(peers[f].drop_nulls())), 2), z=round(z, 2),
-                    text=f"Your {label_for(f).lower()} stands out from players at your level.",
-                )
-            )
-
     axes = [
         StyleAxis(id=f"pc{i}", label=art.spec["pc_axis_labels"][i], value=round(float(pca_vec[i]), 2))
         for i in range(min(art.spec.get("n_identity_axes", 4), len(pca_vec)))
     ]
 
-    # phase accuracy — you vs. same-skill peers' median wp_loss (lower is
-    # better) in each phase. Unconditional, unlike strengths/focus_areas/
-    # signature: the dashboard pairs this against its own notation-only
-    # phase move-share chart, so it needs a value for every phase that has
-    # peer data, not just the ones that happen to clear a deviation bar.
-    phase_accuracy: dict[str, PhaseAccuracy] = {}
-    if peers.height >= 20:
+    critical_lessons, strong_situations = _situational_gaps(
+        situation_acc, situation_example_acc, moves_by_game, your_overall_wp_loss=feat["mean_wp_loss"]
+    )
+
+    # phase accuracy — each phase's own wp_loss vs. this player's overall
+    # average across all phases (not a peer median - no population
+    # involved). Unconditional: `feat` is always filled (elo-band/global
+    # medians), so every phase always has a value, pairing with the
+    # dashboard's phase move-share chart regardless of anything else.
+    phase_accuracy: dict[str, PhaseAccuracy] = {
+        phase: PhaseAccuracy(you=round(feat[key], 2), your_overall=round(feat["mean_wp_loss"], 2))
         for phase, key in (
             ("opening", "wp_loss_opening"),
             ("middlegame", "wp_loss_middlegame"),
             ("endgame", "wp_loss_endgame"),
-        ):
-            vals = peers[key].drop_nulls().to_numpy().astype(float)
-            if len(vals) >= 10:
-                phase_accuracy[phase] = PhaseAccuracy(
-                    you=round(feat[key], 2), peers=round(float(np.median(vals)), 2)
-                )
+        )
+    }
 
     dates = [g["utc_date"] for g in games_meta_all if g["utc_date"]]
     eval_sources = set(sources_all)
-    caveats = [f"Based on {len(games_meta_all)} {time_class} games."]
-    if time_class != reference_speed:
+    caveats = [f"Based on {len(games_meta_all)} {time_class} games" + (f" from {provider}." if provider != "lichess" else ".")]
+    if reference_speed != time_class:
         caveats.append(
-            f"No {time_class} reference population exists yet - your skill estimate, style axes, "
-            f"and 'where you differ' are comparing your {time_class} play against {reference_speed} "
-            f"players, not other {time_class} players. Per-game charts (accuracy, complexity, win "
-            f"rate) are unaffected - those are your own numbers, no comparison group involved."
+            f"No {time_class} reference population exists yet, so style axes are computed using a model "
+            f"calibrated on {reference_speed} players instead - exact positioning may be slightly off. "
+            f"Critical lessons and per-game charts are unaffected: those come only from your own moves, "
+            f"scored only against Stockfish, no population involved."
         )
-    if betters.height < 40:
-        caveats.append("Not many stronger players share your style yet — focus areas are lower-confidence.")
-    if peers.height >= 20 and len(strengths) < 2:
-        caveats.append("Your peer cohort is still small, so only your clearest strengths show up here — more games (yours and the reference pool's) will surface more.")
+    elif provider != "lichess":
+        caveats.append(
+            f"Style axes are computed using a model calibrated on Lichess players, so exact positioning may "
+            f"be slightly off for {provider} games. Critical lessons and per-game charts are unaffected: "
+            f"those come only from your own moves, scored only against Stockfish, no population involved."
+        )
     if len(eval_sources) > 1:
         caveats.append("Some games were analysed locally (no pre-existing evaluation).")
 
-    top_focus = ", ".join(f.title.lower() for f in focus_areas[:2]) or "no clear recurring pattern yet"
-    coach_context = (
-        f"rated ~{int(feat['player_elo'])} {time_class}; recurring: {top_focus}"
-    )
+    top_lesson = critical_lessons[0].label.lower() if critical_lessons else "no clear recurring pattern yet"
+    coach_context = f"{len(games_meta_all)} {time_class} games analyzed; biggest lever: {top_lesson}"
 
     return Profile(
         computed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         source=Source(
             provider=provider, username=username, games_analyzed=len(games_meta_all), time_class=time_class,
             date_range=(min(dates), max(dates)) if dates else None,
-            eval_source="mixed" if len(eval_sources) > 1 else next(iter(eval_sources), "lichess"),
+            eval_source="mixed" if len(eval_sources) > 1 else next(iter(eval_sources), provider),
         ),
-        skill=Skill(
-            overall=round(skill["overall"], 0), confidence=round(confidence, 2),
-            sub={
-                k: SubScore(score=round(v, 0), pct_in_band=sub_pct.get(k))
-                for k, v in skill.items() if k != "overall"
-            },
-        ),
-        style=Style(vector=[round(float(v), 3) for v in pca_vec], umap_xy=xy, axes=axes, signature=signature),
-        cohort=Cohort(
-            size=betters.height,
-            your_band=(feat["player_elo"] - cfg["cohort"]["peer_band_glicko"], feat["player_elo"] + cfg["cohort"]["peer_band_glicko"]),
-            stronger_band=(feat["player_elo"] + cfg["cohort"]["stronger_band_glicko"][0], feat["player_elo"] + cfg["cohort"]["stronger_band_glicko"][1]),
-        ),
-        focus_areas=focus_areas,
-        strengths=strengths,
+        skill=Skill(overall=0, confidence=0, sub={}),
+        style=Style(vector=[round(float(v), 3) for v in pca_vec], umap_xy=xy, axes=axes, signature=[]),
+        cohort=Cohort(size=0, your_band=(0.0, 0.0), stronger_band=(0.0, 0.0)),
+        focus_areas=[],
+        strengths=[],
+        critical_lessons=critical_lessons,
+        strong_situations=strong_situations,
         phase_accuracy=phase_accuracy,
         per_game=per_game_stats,
         complexity_by_move=complexity_by_move,
@@ -722,7 +690,9 @@ def build_profile_chunks(
 
     ga_accum: pl.DataFrame | None = None
     complexity_accum: pl.DataFrame | None = None
-    example_acc = _ExamplePositionAccumulator()
+    example_acc = _ExamplePositionAccumulator(_BUCKET_FILTER)
+    situation_example_acc = _ExamplePositionAccumulator(SITUATION_BUCKETS)
+    situation_acc = _SituationAccumulator()
     moves_by_game: dict[str, list[dict]] = {}
     games_meta_all: list[dict] = []
     sources_all: list[str] = []
@@ -768,6 +738,8 @@ def build_profile_chunks(
                     slim = mine_chunk.select("complexity_pred", "ply")
                     complexity_accum = slim if complexity_accum is None else pl.concat([complexity_accum, slim])
                     example_acc.add_chunk(mine_chunk)
+                    situation_example_acc.add_chunk(mine_chunk)
+                    situation_acc.add_chunk(mine_chunk)
                     del mine_chunk  # the wide per-move frame - drop before the next batch
 
             games_processed = len(games_meta_all)
@@ -779,6 +751,7 @@ def build_profile_chunks(
             games_since_snapshot = 0
             profile = _finalize_profile(
                 ga_accum=ga_accum, complexity_accum=complexity_accum, example_acc=example_acc,
+                situation_acc=situation_acc, situation_example_acc=situation_example_acc,
                 moves_by_game=moves_by_game, games_meta_all=games_meta_all, sources_all=sources_all,
                 username=username, time_class=time_class, reference_speed=reference_speed,
                 provider=provider, art=art, cfg=cfg,

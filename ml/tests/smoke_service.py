@@ -62,19 +62,32 @@ def main() -> None:
     print(f"cohort size (betters): {profile.cohort.size}")
     print(f"style vector[:3]: {profile.style.vector[:3]}")
     print(f"axes: {[a.label for a in profile.style.axes]}")
-    print(f"focus areas: {[f.title for f in profile.focus_areas]}")
-    print(f"strengths: {[s.title for s in profile.strengths]}")
+    print(f"critical lessons: {[(g.label, g.your_wp_loss, g.share_of_moves) for g in profile.critical_lessons]}")
+    print(f"strong situations: {[(g.label, g.your_wp_loss) for g in profile.strong_situations]}")
     print(f"coach_context: {profile.coach_context}")
     print(f"caveats: {profile.caveats}")
 
     assert profile.source.games_analyzed >= 15
-    assert 600 <= profile.skill.overall <= 2400
+    # skill/cohort/focus_areas/strengths are peer-comparison concepts,
+    # deliberately not computed today (see profile.py's _finalize_profile) -
+    # kept as valid, zeroed/empty schema fields for a future pass.
+    assert profile.skill.overall == 0 and profile.cohort.size == 0
+    assert profile.focus_areas == [] and profile.strengths == []
     assert len(profile.style.vector) == 10
     assert profile.source.eval_source == "lichess"  # every game had dense %eval by construction
-    for fa in profile.focus_areas:
-        assert fa.estimated_rating_gain > 0
-        for ep in fa.example_positions:
+    # critical_lessons/strong_situations are self-referential (Stockfish's
+    # own evaluation only, no population) - real signal even off this
+    # small synthetic fixture.
+    assert len(profile.critical_lessons) > 0, "expected at least one situational lesson"
+    lesson_ids = {g.id for g in profile.critical_lessons}
+    strong_ids = {g.id for g in profile.strong_situations}
+    assert not (lesson_ids & strong_ids), "a situation shouldn't appear in both lists"
+    for g in profile.critical_lessons:
+        assert g.your_wp_loss >= 0 and 0 <= g.share_of_moves <= 1
+        for ep in g.example_positions:
             assert len(ep.fen.split()) >= 4  # a real FEN
+    for phase in ("opening", "middlegame", "endgame"):
+        assert phase in profile.phase_accuracy  # unconditional now, no peer-population gate
 
     # not enough games -> NotEnoughGames
     try:

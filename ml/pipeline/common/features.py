@@ -62,6 +62,23 @@ TRAITS = [
     "trait_defense",
 ]
 
+# The same six situational buckets TRAITS conditions on, as (polars filter
+# expression) strings - shared between stage 09 (population-relative
+# z-scored weakness, unused today) and the service's self-referential
+# "critical lessons" (service/profile.py: raw mean wp_loss per bucket for
+# one player, no population involved at all). Keying this by plain
+# situation name here (not "trait_*") since the service's use of these
+# buckets isn't a "trait" in stage 09's sense - just a situation to bucket
+# a player's own moves by.
+SITUATION_BUCKETS: dict[str, str] = {
+    "calm": "(pl.col('has_tactic_pred') < 0.2) & (pl.col('complexity_pred') < 15) & (pl.col('clock_frac').fill_null(1) > 0.3)",
+    "tactical": "pl.col('has_tactic_pred') >= 0.5",
+    "calculation": "pl.col('complexity_pred') >= 25",
+    "time_pressure": "pl.col('clock_frac') < 0.15",
+    "opening_transition": "pl.col('plies_since_book_exit').is_between(1, 6)",
+    "defending": "pl.col('is_defending')",
+}
+
 # for the service's "strengths" comparison (vs same-skill peers): whether a
 # lower value is the good direction. Style features have no such direction —
 # they're preferences, not scored.

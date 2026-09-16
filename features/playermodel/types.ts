@@ -46,7 +46,9 @@ export type Cohort = {
 
 export type PhaseAccuracy = {
   you: number;
-  peers: number;
+  /** Your own overall average wp_loss across all phases - self-
+   * referential (previously a peer-population median). */
+  your_overall: number;
 };
 
 export type Evidence = {
@@ -101,6 +103,23 @@ export type Strength = {
   z: number;
 };
 
+export type SituationalGap = {
+  id: string;
+  label: string;
+  /** Mean win-probability lost in this situation, scored only against
+   * Stockfish's own best move - no peer/population comparison. */
+  your_wp_loss: number;
+  /** Fraction of this player's analyzed moves that fall in this
+   * situation. */
+  share_of_moves: number;
+  /** your_wp_loss * share_of_moves - how much of this player's *total*
+   * lost win-probability this situation accounts for. critical_lessons
+   * ranks by this; strong_situations ranks by your_wp_loss instead. */
+  impact: number;
+  example_positions: ExamplePosition[];
+  coaching: Coaching;
+};
+
 export type ComplexityByMoveBucket = {
   move_number: number;
   mean_complexity: number;
@@ -135,8 +154,17 @@ export type PlayerProfileData = {
   skill: Skill;
   style: Style;
   cohort: Cohort;
+  /** Peer-comparison concepts - kept in the type for a future pass, but
+   * the server always returns these empty today (see ml/service/profile.py's
+   * _finalize_profile). critical_lessons/strong_situations below are the
+   * current self-referential replacement. */
   focus_areas: FocusArea[];
   strengths: Strength[];
+  /** Self-referential: ranked purely against Stockfish's own evaluation
+   * of this player's own moves, no population involved. Works identically
+   * for every provider/format. */
+  critical_lessons: SituationalGap[];
+  strong_situations: SituationalGap[];
   phase_accuracy: Partial<Record<"opening" | "middlegame" | "endgame", PhaseAccuracy>>;
   per_game: PerGameStats[];
   /** Optional: absent on a profile persisted before this field existed -
