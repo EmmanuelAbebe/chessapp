@@ -73,7 +73,7 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
       <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
         Skill breakdown
         <HintIcon
-          text="The % at each point is a percentile: the share of players near your own rating that you're ahead of in that category, from 0 (bottom) to 100 (top). Hover a point for the exact number."
+          text="The % at each point is a percentile: the share of players near your own rating that you're ahead of in that category, from 0 (bottom) to 100 (top)."
           width="w-60"
         />
       </h3>
@@ -119,18 +119,10 @@ export function SkillRadar({ sub }: { sub: Skill["sub"] }) {
         />
         {entries.map(([key], i) => {
           const p = dataPts[i];
-          const v = values[i];
           const animatedPct = animatedPcts[i];
-          const label = SUB_LABELS[key] ?? key;
-          const tier = tierFor(v.pct);
-          const detail = v.estimated
-            ? `${label}: ${tier} (~${v.pct.toFixed(0)}%, estimated - not enough same-rating players yet to rank against)`
-            : `${label}: ${tier} - ${v.pct.toFixed(0)}th percentile among players near your rating`;
           return (
             <g key={key} className="group cursor-default">
-              <circle cx={p.x} cy={p.y} r={12} fill="transparent">
-                <title>{detail}</title>
-              </circle>
+              <circle cx={p.x} cy={p.y} r={12} fill="transparent" />
               <circle
                 cx={p.x}
                 cy={p.y}

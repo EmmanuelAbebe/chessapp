@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { stashExploreFen } from "@/features/history/exploreGame";
 import { HintIcon } from "@/components/ui/HintIcon";
+import { Tooltip } from "@/components/ui/Tooltip";
 import type { Coaching, Evidence, ExamplePosition, FocusArea, SignatureItem, Strength } from "../types";
 
 const CONFIDENCE_LABEL: Record<FocusArea["confidence"], string> = {
@@ -129,9 +130,9 @@ function DivergingRow({
       <summary className="list-none marker:content-none [&::-webkit-details-marker]:hidden">{summary}</summary>
       <div className="flex flex-col gap-3 border-t border-border-soft bg-surface-raised/40 px-3 py-3">
         {row.confidence && (
-          <span className="text-[11px] text-text-faint" title={CONFIDENCE_TITLE[row.confidence]}>
-            {CONFIDENCE_LABEL[row.confidence]}
-          </span>
+          <Tooltip text={CONFIDENCE_TITLE[row.confidence]} width="w-56">
+            <span className="text-[11px] text-text-faint">{CONFIDENCE_LABEL[row.confidence]}</span>
+          </Tooltip>
         )}
         <div className="flex flex-col gap-1">
           {row.evidence.map((e) => (

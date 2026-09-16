@@ -12,6 +12,7 @@ import { IoClose } from "react-icons/io5";
 import { HUB_COLOR, isHub, nodeLabel } from "../../lib/map/move-tree-map-helpers";
 import { winRatePercent, type NodeOutcomeStats } from "../../lib/map/node-stats";
 import type { MoveNode } from "../../types";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 // Every move explored at a clicked-on depth ring. Rendered twice by
 // MoveTreeMap (see `variant`): floating in the top-right stack on desktop,
@@ -146,16 +147,18 @@ export function MapRingListPanel({
               <span className="flex min-w-0 flex-row items-center gap-2">
                 <span className="text-text-dim">{nodeLabel(node)}</span>
               </span>
-              <span
-                className="shrink-0 font-mono text-[11px] text-text-faint"
-                title={
+              <Tooltip
+                text={
                   stats
                     ? `${stats.games} game${stats.games === 1 ? "" : "s"} · ${stats.wins}W ${stats.draws}D ${stats.losses}L`
                     : "No recorded games"
                 }
+                width="w-40"
               >
-                {rate === null ? "—" : `${rate.toFixed(0)}%`}
-              </span>
+                <span className="shrink-0 font-mono text-[11px] text-text-faint">
+                  {rate === null ? "—" : `${rate.toFixed(0)}%`}
+                </span>
+              </Tooltip>
             </button>
           );
         })}

@@ -8,6 +8,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
 } from "react-icons/fa6";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 type MoveNavigationProps = {
   canGoPrevious: boolean;
@@ -26,15 +27,16 @@ type NavButtonProps = {
 
 function NavButton({ icon: Icon, label, onClick }: NavButtonProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="flex h-7 w-7 items-center justify-center rounded-md text-text-dim hover:bg-surface-raised hover:text-text"
-    >
-      <Icon className="h-3 w-3" />
-    </button>
+    <Tooltip text={label} width="w-28">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className="flex h-7 w-7 items-center justify-center rounded-md text-text-dim hover:bg-surface-raised hover:text-text"
+      >
+        <Icon className="h-3 w-3" />
+      </button>
+    </Tooltip>
   );
 }
 

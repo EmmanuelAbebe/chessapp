@@ -1,5 +1,8 @@
+"use client";
+
 import type { StyleAxis } from "../types";
 import { HintIcon } from "@/components/ui/HintIcon";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 function poles(label: string): [string, string] {
   const [a, b] = label.split("↔").map((s) => s.trim());
@@ -15,8 +18,8 @@ function tickLeft(t: number): number {
 
 /** Each PC axis as a filled diverging bar from centre, with tick marks
  * and the numeric value spelled out. Hover a row for the plain-language
- * reading (no JS state needed - just a title + CSS hover, so this stays
- * a server-renderable component). */
+ * reading, via the shared custom Tooltip (not the browser's native
+ * title). */
 export function StyleAxes({ axes }: { axes: StyleAxis[] }) {
   if (axes.length === 0) return null;
   return (
@@ -38,9 +41,10 @@ export function StyleAxes({ axes }: { axes: StyleAxis[] }) {
           const towardPole = fromCenter ? right : left;
 
           return (
-            <div
+            <Tooltip
               key={axis.id}
-              title={`${pctToward}% of the way toward "${towardPole}"`}
+              text={`${pctToward}% of the way toward "${towardPole}"`}
+              width="w-56"
               className="group flex cursor-default flex-col gap-1 rounded-md p-1.5 -m-1.5 transition hover:bg-surface-raised/60"
             >
               <div className="flex justify-between text-[11px] text-text-faint">
@@ -83,7 +87,7 @@ export function StyleAxes({ axes }: { axes: StyleAxis[] }) {
               </div>
 
               {axis.blurb && <p className="text-[11px] text-text-dim">{axis.blurb}</p>}
-            </div>
+            </Tooltip>
           );
         })}
       </div>

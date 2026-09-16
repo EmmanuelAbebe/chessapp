@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FiSettings } from "react-icons/fi";
 import Modal from "@/components/ui/Modal";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { PERF_TYPES } from "@/features/lichess/useLichessFetchOptions";
 import type { AnalyzeOptions, AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
@@ -102,32 +103,34 @@ export function AnalyzePanel({
     <div className="flex flex-col items-end gap-1.5 text-xs text-text-dim">
       <div className="flex items-center gap-2">
         <label htmlFor="time-class-select">Speed</label>
-        <select
-          id="time-class-select"
-          value={timeClass}
-          onChange={(e) => setTimeClass(e.target.value)}
-          title={BLITZ_ONLY_REFERENCE_NOTE}
-          className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-text"
-        >
-          {PERF_TYPES.map((p) => (
-            <option key={p} value={p} className="bg-surface">
-              {p}
-            </option>
-          ))}
-        </select>
+        <Tooltip text={BLITZ_ONLY_REFERENCE_NOTE} width="w-64">
+          <select
+            id="time-class-select"
+            value={timeClass}
+            onChange={(e) => setTimeClass(e.target.value)}
+            className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-text"
+          >
+            {PERF_TYPES.map((p) => (
+              <option key={p} value={p} className="bg-surface">
+                {p}
+              </option>
+            ))}
+          </select>
+        </Tooltip>
       </div>
       <div className="flex items-center gap-2">
         <label htmlFor="max-games-input">Games to analyze</label>
-        <input
-          id="max-games-input"
-          type="number"
-          min={10}
-          value={maxGamesInput}
-          onChange={(e) => setMaxGamesInput(e.target.value)}
-          placeholder="auto"
-          title="How many recent games to analyze. Leave blank to match the size of your imported game history."
-          className="w-16 rounded-md border border-border bg-transparent px-2 py-1 text-center text-xs text-text placeholder:text-text-faint"
-        />
+        <Tooltip text="How many recent games to analyze. Leave blank to match the size of your imported game history." width="w-56">
+          <input
+            id="max-games-input"
+            type="number"
+            min={10}
+            value={maxGamesInput}
+            onChange={(e) => setMaxGamesInput(e.target.value)}
+            placeholder="auto"
+            className="w-16 rounded-md border border-border bg-transparent px-2 py-1 text-center text-xs text-text placeholder:text-text-faint"
+          />
+        </Tooltip>
         <span className="text-text-faint">leave blank to match your imported history</span>
       </div>
       {timeClass !== "blitz" && <span className="max-w-64 text-right text-text-faint">{BLITZ_ONLY_REFERENCE_NOTE}</span>}

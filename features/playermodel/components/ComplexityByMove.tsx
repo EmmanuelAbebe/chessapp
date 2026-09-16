@@ -134,7 +134,6 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
                   strokeWidth={1}
                   className="transition-opacity"
                 />
-                <title>{`Move ${b.move_number}${b.move_number >= 40 ? "+" : ""}: complexity ${b.mean_complexity.toFixed(1)} (${b.n} moves)`}</title>
               </g>
             );
           })}

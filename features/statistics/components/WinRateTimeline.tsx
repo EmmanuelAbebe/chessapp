@@ -7,6 +7,7 @@ import { stashExploreGame } from "@/features/history/exploreGame";
 import { openingFamilyOf } from "@/features/history/gameFacets";
 import type { PerGameStats } from "@/features/playermodel/types";
 import { HintIcon } from "@/components/ui/HintIcon";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 const WINDOW = 20;
 const W = 640;
@@ -244,9 +245,9 @@ function BucketDetail({
               <span className={`font-medium ${RESULT_COLOR[g.result]}`}>{RESULT_LABEL[g.result]}</span>
               <span className="min-w-0 flex-1 truncate text-text-dim">{openingFamilyOf(g)}</span>
               {pg && (
-                <span className="shrink-0 font-mono text-text-faint" title="Move accuracy loss (lower is better)">
-                  −{pg.mean_wp_loss.toFixed(1)}%
-                </span>
+                <Tooltip text="Move accuracy loss (lower is better)" width="w-40">
+                  <span className="shrink-0 font-mono text-text-faint">−{pg.mean_wp_loss.toFixed(1)}%</span>
+                </Tooltip>
               )}
               <span className="shrink-0 text-text-faint">{g.opponentName ?? "—"}</span>
               <button

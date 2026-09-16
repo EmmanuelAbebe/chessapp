@@ -1,5 +1,7 @@
 "use client";
 
+import { Tooltip } from "@/components/ui/Tooltip";
+
 type EvalBarProps = {
   visible: boolean;
   whitePercent: number;
@@ -14,11 +16,12 @@ export function EvalBar({
   bestMove,
 }: EvalBarProps) {
   return (
-    <div
-      className={`relative -ml-6 w-4 shrink-0 overflow-hidden border border-border transition-opacity duration-200 ease-out ${
+    <Tooltip
+      text={`Depth ${depth}${bestMove ? ` • ${bestMove}` : ""}`}
+      width="w-40"
+      className={`block -ml-6 w-4 shrink-0 overflow-hidden border border-border transition-opacity duration-200 ease-out ${
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
-      title={`Depth ${depth}${bestMove ? ` • ${bestMove}` : ""}`}
     >
       <div className="absolute inset-0 bg-neutral-900" />
       <div
@@ -26,6 +29,6 @@ export function EvalBar({
         style={{ height: `${whitePercent}%` }}
       />
       <div className="absolute left-0 top-1/2 z-10 h-px w-full -translate-y-1/2 bg-neutral-600" />
-    </div>
+    </Tooltip>
   );
 }

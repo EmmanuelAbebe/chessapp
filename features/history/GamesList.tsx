@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FaChessBoard, FaUpRightFromSquare } from "react-icons/fa6";
 import { PiGraph } from "react-icons/pi";
 import { HintIcon } from "@/components/ui/HintIcon";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { pgnPlayedAt, type GameHistoryEntry } from "./types";
 import { stashExploreGame } from "./exploreGame";
 import { lookupOpeningName } from "@/features/statistics/lib/openings-book";
@@ -494,8 +495,9 @@ export function GamesList({ games }: { games: GameHistoryEntry[] }) {
                     aria-expanded={open}
                     className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-surface-raised/50"
                   >
-                    <span
-                      title={asWhite ? "You played White" : "You played Black"}
+                    <Tooltip
+                      text={asWhite ? "You played White" : "You played Black"}
+                      width="w-32"
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-text-dim"
                     >
                       <span
@@ -504,7 +506,7 @@ export function GamesList({ games }: { games: GameHistoryEntry[] }) {
                         style={{ background: asWhite ? "#f2f2f2" : "#1a1a1a" }}
                       />
                       {asWhite ? "White" : "Black"}
-                    </span>
+                    </Tooltip>
 
                     <span
                       className={`w-10 shrink-0 font-medium ${RESULT_STYLE[game.result]}`}

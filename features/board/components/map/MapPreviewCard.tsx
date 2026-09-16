@@ -12,6 +12,7 @@ import { useEvalScore } from "../../hooks/useEvalScore";
 import type { NodeOutcomeStats } from "../../lib/map/node-stats";
 import type { SideFilter } from "@/features/history/SidePlayedFilter";
 import { MapNodeDetails } from "./MapNodeDetails";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { PlayableMiniBoard } from "./PlayableMiniBoard";
 import type { MoveNode, MoveTreeState } from "../../types";
 
@@ -124,61 +125,65 @@ export function MapPreviewCard({
           text label. */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span
-            aria-label={
-              node.fen.split(" ")[1] === "b" ? "Black to move" : "White to move"
-            }
-            title={
-              node.fen.split(" ")[1] === "b" ? "Black to move" : "White to move"
-            }
-            className="h-3.5 w-3.5 shrink-0 rounded-sm border border-border-soft"
-            style={{
-              background:
-                node.fen.split(" ")[1] === "b" ? "#1a1a1a" : "#f2f2f2",
-            }}
-          />
-          <button
-            type="button"
-            onClick={() =>
-              isEngineOn ? onStopStockfish() : onPlayFromHere(node)
-            }
-            aria-pressed={isEngineOn}
-            aria-label={
-              isEngineOn
-                ? "Stop playing Stockfish"
-                : "Play against Stockfish from here"
-            }
-            title={
-              isEngineOn
-                ? "Stop playing Stockfish"
-                : "Play against Stockfish from here"
-            }
-            className={`relative flex h-6 w-6 items-center text-gray-300 justify-center rounded-full text-xs shadow transition hover:border hover:border-accent hover:text-text ${
-              isEngineOn
-                ? "text-green-500"
-                : "border-border bg-surface/90 opacity-70"
-            }`}
+          <Tooltip
+            text={node.fen.split(" ")[1] === "b" ? "Black to move" : "White to move"}
+            width="w-32"
           >
-            <FaFish />
-            {isEngineThinking && (
-              <span
-                aria-hidden="true"
-                className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-accent"
-              />
-            )}
-          </button>
+            <span
+              aria-label={
+                node.fen.split(" ")[1] === "b" ? "Black to move" : "White to move"
+              }
+              className="h-3.5 w-3.5 shrink-0 rounded-sm border border-border-soft"
+              style={{
+                background:
+                  node.fen.split(" ")[1] === "b" ? "#1a1a1a" : "#f2f2f2",
+              }}
+            />
+          </Tooltip>
+          <Tooltip
+            text={isEngineOn ? "Stop playing Stockfish" : "Play against Stockfish from here"}
+            width="w-40"
+          >
+            <button
+              type="button"
+              onClick={() =>
+                isEngineOn ? onStopStockfish() : onPlayFromHere(node)
+              }
+              aria-pressed={isEngineOn}
+              aria-label={
+                isEngineOn
+                  ? "Stop playing Stockfish"
+                  : "Play against Stockfish from here"
+              }
+              className={`relative flex h-6 w-6 items-center text-gray-300 justify-center rounded-full text-xs shadow transition hover:border hover:border-accent hover:text-text ${
+                isEngineOn
+                  ? "text-green-500"
+                  : "border-border bg-surface/90 opacity-70"
+              }`}
+            >
+              <FaFish />
+              {isEngineThinking && (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-accent"
+                />
+              )}
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex items-center gap-2">
+          <Tooltip text="Set as start position - re-roots the whole tree here" width="w-48">
           <button
             type="button"
             onClick={() => onSetAsStart(node)}
             aria-label="Set as start position"
-            title="Set as start position - re-roots the whole tree here"
             className="flex h-6 w-6 shrink-0 items-center justify-center text-xs text-text-dim transition hover:border-accent hover:text-text"
           >
             <FaFlag />
           </button>
+          </Tooltip>
+          <Tooltip text="Back" width="w-20">
           <button
             type="button"
             onClick={() => {
@@ -188,11 +193,11 @@ export function MapPreviewCard({
             }}
             disabled={!node.parentId}
             aria-label="Back"
-            title="Back"
             className="flex h-6 w-6 shrink-0 items-center justify-center text-xs text-text-dim transition hover:border-accent hover:text-text disabled:opacity-50 disabled:pointer-events-none"
           >
             <FaUndo />
           </button>
+          </Tooltip>
         </div>
       </div>
 

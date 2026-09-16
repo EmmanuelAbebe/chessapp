@@ -5,6 +5,7 @@ import {
   SIDE_FILTER_OPTIONS,
   type SideFilter,
 } from "@/features/history/SidePlayedFilter";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 // Under the mini board: the side-played filter as three swatches, then
 // the previewed node's win/loss line from the player's own recorded games
@@ -43,23 +44,23 @@ export function MapNodeDetails({
           {SIDE_FILTER_OPTIONS.map(({ value, label }) => {
             const active = statsSide === value;
             return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setStatsSide(value)}
-                aria-pressed={active}
-                aria-label={label}
-                title={label}
-                className={`flex h-5 w-5 items-center justify-center rounded transition ${
-                  active ? "ring-2 ring-accent" : "opacity-60 hover:opacity-100"
-                }`}
-              >
-                <span
-                  aria-hidden="true"
-                  className="h-3.5 w-3.5 rounded-sm border border-border-soft"
-                  style={{ background: SWATCH_STYLE[value] }}
-                />
-              </button>
+              <Tooltip key={value} text={label} width="w-28">
+                <button
+                  type="button"
+                  onClick={() => setStatsSide(value)}
+                  aria-pressed={active}
+                  aria-label={label}
+                  className={`flex h-5 w-5 items-center justify-center rounded transition ${
+                    active ? "ring-2 ring-accent" : "opacity-60 hover:opacity-100"
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 rounded-sm border border-border-soft"
+                    style={{ background: SWATCH_STYLE[value] }}
+                  />
+                </button>
+              </Tooltip>
             );
           })}
         </div>

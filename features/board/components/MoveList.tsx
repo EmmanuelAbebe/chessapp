@@ -3,6 +3,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { defaultPieces } from "react-chessboard";
 import { useSettings } from "@/features/settings/SettingsContext";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { splitSanPieceLetter } from "../lib/move-format";
 import type { MoveNode } from "../types";
 
@@ -168,37 +169,57 @@ export function MoveList({
             >
               <span className="text-text-faint">{pair.moveNumber}.</span>
 
-              <button
-                type="button"
-                ref={currentNodeId === pair.white?.id ? currentMoveRef : undefined}
-                title={pair.white?.comment ? `Clock: ${pair.white.comment}` : undefined}
-                className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-surface-raised ${
-                  currentNodeId === pair.white?.id
-                    ? "font-medium text-accent"
-                    : "text-text"
-                }`}
-                onClick={() => pair.white && onSelectNode(pair.white.id)}
-              >
-                {pair.white && (
-                  <MoveLabel node={pair.white} showFigurineNotation={settings.showFigurineNotation} />
-                )}
-              </button>
+              {(() => {
+                const whiteBtn = (
+                  <button
+                    type="button"
+                    ref={currentNodeId === pair.white?.id ? currentMoveRef : undefined}
+                    className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-surface-raised ${
+                      currentNodeId === pair.white?.id
+                        ? "font-medium text-accent"
+                        : "text-text"
+                    }`}
+                    onClick={() => pair.white && onSelectNode(pair.white.id)}
+                  >
+                    {pair.white && (
+                      <MoveLabel node={pair.white} showFigurineNotation={settings.showFigurineNotation} />
+                    )}
+                  </button>
+                );
+                return pair.white?.comment ? (
+                  <Tooltip text={`Clock: ${pair.white.comment}`} width="w-32">
+                    {whiteBtn}
+                  </Tooltip>
+                ) : (
+                  whiteBtn
+                );
+              })()}
 
-              <button
-                type="button"
-                ref={currentNodeId === pair.black?.id ? currentMoveRef : undefined}
-                title={pair.black?.comment ? `Clock: ${pair.black.comment}` : undefined}
-                className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-surface-raised ${
-                  currentNodeId === pair.black?.id
-                    ? "font-medium text-accent"
-                    : "text-text"
-                }`}
-                onClick={() => pair.black && onSelectNode(pair.black.id)}
-              >
-                {pair.black && (
-                  <MoveLabel node={pair.black} showFigurineNotation={settings.showFigurineNotation} />
-                )}
-              </button>
+              {(() => {
+                const blackBtn = (
+                  <button
+                    type="button"
+                    ref={currentNodeId === pair.black?.id ? currentMoveRef : undefined}
+                    className={`relative z-10 flex shrink-0 items-center rounded px-2 py-1 whitespace-nowrap hover:bg-surface-raised ${
+                      currentNodeId === pair.black?.id
+                        ? "font-medium text-accent"
+                        : "text-text"
+                    }`}
+                    onClick={() => pair.black && onSelectNode(pair.black.id)}
+                  >
+                    {pair.black && (
+                      <MoveLabel node={pair.black} showFigurineNotation={settings.showFigurineNotation} />
+                    )}
+                  </button>
+                );
+                return pair.black?.comment ? (
+                  <Tooltip text={`Clock: ${pair.black.comment}`} width="w-32">
+                    {blackBtn}
+                  </Tooltip>
+                ) : (
+                  blackBtn
+                );
+              })()}
             </div>
           ))}
         </div>
