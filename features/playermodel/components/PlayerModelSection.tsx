@@ -8,6 +8,7 @@ import { ComplexityByMove } from "./ComplexityByMove";
 import { CriticalLessons } from "./CriticalLessons";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { StyleAxes } from "./StyleAxes";
+import { StyleCompass } from "./StyleCompass";
 
 /** The player-behaviour model, composed onto /dashboard/statistics above
  * the existing (notation-only) StatisticsSummary, which stays as "Game
@@ -64,6 +65,7 @@ export function PlayerModelSection({
               {profile.source.date_range ? ` · ${profile.source.date_range[0]} – ${profile.source.date_range[1]}` : ""}
             </p>
             <StyleAxes axes={profile.style.axes} />
+            <StyleCompass vector={profile.style.vector} axes={profile.style.axes} trajectory={profile.style_trajectory} />
             <ComplexityByMove buckets={profile.complexity_by_move} />
             <CriticalLessons lessons={profile.critical_lessons} strong={profile.strong_situations} />
 

@@ -126,6 +126,17 @@ export type ComplexityByMoveBucket = {
   n: number;
 };
 
+export type StyleTrajectoryPoint = {
+  /** Bin start (1, 6, 11, ...) - a 5-move-wide window, not a single ply. */
+  move_number: number;
+  /** This player's style vector (same 5 PCA components as style.vector),
+   * recomputed from only the moves in this window - no reference
+   * population, same self-referential principle as critical_lessons. */
+  vector: number[];
+  /** Moves observed in this bin. */
+  n: number;
+};
+
 export type PerGameStats = {
   game_id: string;
   date?: string | null;
@@ -171,6 +182,10 @@ export type PlayerProfileData = {
    * only a fresh re-analysis populates it, so treat it as possibly
    * missing rather than always an array. */
   complexity_by_move?: ComplexityByMoveBucket[];
+  /** Optional for the same reason as complexity_by_move - only a fresh
+   * re-analysis populates it. Empty when this format has no real PC0-PC3
+   * labels yet (same gate style.axes uses), not just when stale. */
+  style_trajectory?: StyleTrajectoryPoint[];
   coach_context: string;
   caveats: string[];
 };
