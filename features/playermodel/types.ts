@@ -126,6 +126,13 @@ export type ComplexityByMoveBucket = {
   n: number;
 };
 
+export type FeatureDelta = {
+  feature: string;
+  label: string;
+  bin_value: number;
+  overall_value: number;
+};
+
 export type StyleTrajectoryPoint = {
   /** Bin start (1, 6, 11, ...) - a 5-move-wide window, not a single ply. */
   move_number: number;
@@ -135,6 +142,13 @@ export type StyleTrajectoryPoint = {
   vector: number[];
   /** Moves observed in this bin. */
   n: number;
+  /** This bin's dominant game phase - opening is a fixed ply cutoff, but
+   * the middlegame/endgame boundary is real board-state-dependent, so
+   * this varies per player/game, not a fixed move-number rule. */
+  phase: "opening" | "middlegame" | "endgame";
+  /** Why this bin sits where it does on the compass's 2 axes - real
+   * behaviors in this move range vs. this player's own overall average. */
+  feature_deltas: FeatureDelta[];
 };
 
 export type PerGameStats = {

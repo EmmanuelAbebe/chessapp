@@ -35,15 +35,16 @@ from sklearn.linear_model import LinearRegression
 
 from pipeline.common import pgn as pgnmod
 from pipeline.common.featuremodels import score as score_features
-from pipeline.common.features import MODELLED, SITUATION_BUCKETS
+from pipeline.common.features import MODELLED, SITUATION_BUCKETS, STYLE
 from pipeline.common.filters import parse_time_control, speed_bucket
 from pipeline.common.gameagg import enrich_plies, game_level_agg, moves_agg
 from pipeline.common.movefeatures import FEATURE_SCHEMA, apply_book_tags, features_for_game
 from pipeline.common.playeragg import aggregate_players
 from pipeline.common.project import Artifacts
 from service import engine as enginemod
+from service.labels import label_for
 from service.schemas import (
-    Coaching, Cohort, ComplexityByMoveBucket, ExamplePosition, PerGameStats,
+    Coaching, Cohort, ComplexityByMoveBucket, ExamplePosition, FeatureDelta, PerGameStats,
     PhaseAccuracy, Profile, SituationalGap, Skill, Source, Style, StyleAxis, StyleTrajectoryPoint,
 )
 
@@ -453,6 +454,34 @@ _TRAJECTORY_COLUMNS = [
 ]
 
 
+# Must match StyleCompass.tsx's plotted PC indices (x=PC0, y=PC3).
+_COMPASS_AXES = (0, 3)
+_TRAJECTORY_WINDOWABLE_FEATURES = (
+    "check_rate", "capture_rate", "toward_king_rate", "sac_rate",
+    "tension_release_rate", "pawn_move_rate", "mean_think_time",
+    "eval_volatility_mean", "material_swing_mean",
+)
+
+
+def _explain_features(art: Artifacts) -> list[str]:
+    """The windowable STYLE features that most drive the 2 axes the
+    compass actually plots (_COMPASS_AXES) - top 3 by real loading
+    magnitude per axis (art.pca.components_, the same fitted PCA the
+    overall style vector uses), deduped. Fixed for the whole response -
+    loadings don't vary bin to bin, only this player's own values do."""
+    idx_by_name = {f: i for i, f in enumerate(STYLE)}
+    windowable_idx = [idx_by_name[f] for f in _TRAJECTORY_WINDOWABLE_FEATURES]
+    chosen: list[str] = []
+    for axis in _COMPASS_AXES:
+        loadings = art.pca.components_[axis]
+        ranked = sorted(windowable_idx, key=lambda i: -abs(loadings[i]))[:3]
+        for i in ranked:
+            name = STYLE[i]
+            if name not in chosen:
+                chosen.append(name)
+    return chosen
+
+
 def _style_trajectory(
     trajectory_accum: pl.DataFrame, feat: dict, skill_score: float, art: Artifacts,
 ) -> list[StyleTrajectoryPoint]:
@@ -472,9 +501,15 @@ def _style_trajectory(
     reconstruct. A real approximation of the whole-game feature of the
     same name ("volatility/swing around your own moves in this stretch"),
     not a bug - see the caveat this adds in _finalize_profile.
+
+    Each point's `phase` is this bin's dominant game phase and
+    `feature_deltas` are why it sits where it does on the 2 compass axes
+    - both real, computed below, not assumed.
     """
     if trajectory_accum.height == 0:
         return []
+
+    explain = _explain_features(art)
 
     binned = trajectory_accum.with_columns(
         move_number=((pl.col("ply") + 1) // 2).clip(1, MAX_MOVE_NUMBER),
@@ -486,6 +521,7 @@ def _style_trajectory(
         binned.group_by("bin")
         .agg(
             pl.len().alias("n"),
+            pl.col("phase").mode().first().alias("_phase"),
             pl.col("is_check").mean().alias("check_rate"),
             pl.col("is_capture").mean().alias("capture_rate"),
             (pl.col("king_dist_delta") > 0)
@@ -521,10 +557,18 @@ def _style_trajectory(
             feat_bin["tension_release_rate"] = float(row["tension_release_rate"])
 
         pca_vec = art.style_pca(feat_bin, skill_score)
+        feature_deltas = [
+            FeatureDelta(
+                feature=f, label=label_for(f),
+                bin_value=round(feat_bin[f], 4), overall_value=round(feat[f], 4),
+            )
+            for f in explain
+        ]
         points.append(
             StyleTrajectoryPoint(
-                move_number=int(row["bin"]), n=row["n"],
+                move_number=int(row["bin"]), n=row["n"], phase=row["_phase"] or "middlegame",
                 vector=[round(float(v), 3) for v in pca_vec],
+                feature_deltas=feature_deltas,
             )
         )
     return points

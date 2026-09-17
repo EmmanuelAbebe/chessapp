@@ -64,7 +64,9 @@ def main() -> None:
     print(f"axes: {[a.label for a in profile.style.axes]}")
     print(f"critical lessons: {[(g.label, g.your_wp_loss, g.share_of_moves) for g in profile.critical_lessons]}")
     print(f"strong situations: {[(g.label, g.your_wp_loss) for g in profile.strong_situations]}")
-    print(f"style trajectory: {[(p.move_number, p.n, p.vector[:2]) for p in profile.style_trajectory]}")
+    print(f"style trajectory: {[(p.move_number, p.n, p.phase, p.vector[:2]) for p in profile.style_trajectory]}")
+    if profile.style_trajectory:
+        print(f"feature deltas (first point): {[(fd.label, fd.bin_value, fd.overall_value) for fd in profile.style_trajectory[0].feature_deltas]}")
     print(f"coach_context: {profile.coach_context}")
     print(f"caveats: {profile.caveats}")
 
@@ -97,6 +99,10 @@ def main() -> None:
     assert move_numbers == sorted(move_numbers), "bins should be in ascending move-number order"
     for p in profile.style_trajectory:
         assert len(p.vector) == 10 and p.n > 0
+        assert p.phase in ("opening", "middlegame", "endgame")
+        assert len(p.feature_deltas) > 0
+        for fd in p.feature_deltas:
+            assert fd.label  # real human label, not a raw feature key
 
     # not enough games -> NotEnoughGames
     try:

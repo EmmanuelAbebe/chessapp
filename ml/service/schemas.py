@@ -183,6 +183,19 @@ class SituationalGap(BaseModel):
     coaching: Coaching = Coaching()
 
 
+class FeatureDelta(BaseModel):
+    """One real behavior that actually drives the 2 style axes being
+    plotted (StyleCompass.tsx's PC0/PC3) - `bin_value` in this move range
+    vs. `overall_value` across this player's whole game history. Why a
+    trajectory point sits where it does, in the player's own vocabulary,
+    not the raw PCA math."""
+
+    feature: str
+    label: str
+    bin_value: float
+    overall_value: float
+
+
 class StyleTrajectoryPoint(BaseModel):
     """This player's real style vector (same 5 PCA components as
     style.vector) computed from only the moves in one move-number range,
@@ -192,11 +205,18 @@ class StyleTrajectoryPoint(BaseModel):
     player's own moves re-bucketed by when in the game they happened.
     `move_number` is the bin's starting move (1, 6, 11, ...); `n` is how
     many of this player's own moves fall in it, for a confidence/opacity
-    cue - later bins naturally have fewer games still going."""
+    cue - later bins naturally have fewer games still going. `phase` is
+    this bin's dominant game phase (most common among this player's own
+    moves landing in it) - opening is a fixed ply cutoff but the
+    middlegame/endgame boundary is real board-state-dependent (see
+    pipeline/common/chessext.py's game_phase), so this is real signal,
+    not an assumed cutoff."""
 
     move_number: int
     vector: list[float]
     n: int
+    phase: str
+    feature_deltas: list[FeatureDelta] = []
 
 
 class Profile(BaseModel):
