@@ -155,6 +155,26 @@ export type StyleTrajectoryPoint = {
   feature_deltas: FeatureDelta[];
 };
 
+export type TraitStability = {
+  axis_id: string;
+  label: string;
+  /** Whether this axis has actually stayed the same across your whole
+   * selected history, or genuinely changed - tested per axis, never
+   * assumed either way. */
+  stable: boolean;
+  first_value: number;
+  last_value: number;
+  /** Real median rating in the earliest/latest chronological game-bucket
+   * - straight from each game's own PGN header, no skill model involved. */
+  first_elo: number;
+  last_elo: number;
+  /** Only set when `stable` is false - a real Pearson r between this
+   * axis's per-bucket value and per-bucket rating across your history.
+   * Suggestive (moved alongside rating), not causal. */
+  correlation_with_rating?: number | null;
+  n_buckets: number;
+};
+
 export type PerGameStats = {
   game_id: string;
   date?: string | null;
@@ -204,6 +224,10 @@ export type PlayerProfileData = {
    * re-analysis populates it. Empty when this format has no real PC0-PC3
    * labels yet (same gate style.axes uses), not just when stale. */
   style_trajectory?: StyleTrajectoryPoint[];
+  /** Optional for the same reason as complexity_by_move - only a fresh
+   * re-analysis populates it. Empty for most profiles: needs a real long
+   * history (60+ games) before testing a trait for drift means anything. */
+  trait_stability?: TraitStability[];
   coach_context: string;
   caveats: string[];
 };

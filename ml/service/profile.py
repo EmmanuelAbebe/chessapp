@@ -46,6 +46,7 @@ from service.labels import label_for
 from service.schemas import (
     Coaching, Cohort, ComplexityByMoveBucket, ExamplePosition, FeatureDelta, PerGameStats,
     PhaseAccuracy, Profile, SituationalGap, Skill, Source, Style, StyleAxis, StyleTrajectoryPoint,
+    TraitStability,
 )
 
 _VALID_RESULTS = {"1-0", "0-1", "1/2-1/2"}
@@ -650,6 +651,81 @@ def _situational_gaps(
     return lessons, strong
 
 
+# A trait needs at least this many games, split into buckets of at least
+# _MIN_STABILITY_BUCKET_GAMES each, before testing it for drift means
+# anything - below this, "changed" vs. "stable" is indistinguishable from
+# bucket-to-bucket noise. Capped at 10 buckets so a very long history
+# (thousands of games) still gets a legible, not overly granular, read.
+_MIN_GAMES_FOR_STABILITY = 60
+_MIN_STABILITY_BUCKET_GAMES = 30
+_MAX_STABILITY_BUCKETS = 10
+# PCA components are ~unit-variance in the population's own fitted scale
+# (the same scale the -3..+3 display range already reflects) - a swing
+# under about 1 is within this player's own plausible bucket-to-bucket
+# noise; over that is a real, describable shift, not noise.
+_STABILITY_SWING_THRESHOLD = 1.0
+
+
+def _trait_stability(ga_accum: pl.DataFrame, skill_score: float, art: Artifacts) -> list[TraitStability]:
+    """Tests each style axis independently for whether it's actually
+    stayed the same across this player's whole selected history, or
+    genuinely changed - never assumed either way. Buckets `ga_accum`
+    (already one row per game, real player_elo + utc_date + every raw
+    STYLE/SKILL feature - the same source today's single overall `feat`
+    already comes from) by chronological order into equal-count buckets.
+    aggregate_players needs no windowable/non-windowable split like the
+    move-number trajectory did - every bucket here is a normal subset of
+    whole games, so every STYLE feature is legitimately computable.
+
+    For an axis that changed, correlates its per-bucket value against
+    each bucket's own real median rating (straight from the PGN's
+    WhiteElo/BlackElo, no skill model involved) - suggestive of *why* it
+    changed, not proof: the trait moved alongside rating across a handful
+    of buckets, which is real signal but not a causal claim."""
+    total = ga_accum.height
+    if total < _MIN_GAMES_FOR_STABILITY:
+        return []
+    k = min(_MAX_STABILITY_BUCKETS, total // _MIN_STABILITY_BUCKET_GAMES)
+    if k < 2:
+        return []
+
+    sorted_ga = ga_accum.sort("utc_date")
+    bucket_size = total // k
+
+    bucket_vecs: list[np.ndarray] = []
+    bucket_elos: list[float] = []
+    for i in range(k):
+        start = i * bucket_size
+        length = (total - start) if i == k - 1 else bucket_size
+        bucket_ga = sorted_ga.slice(start, length)
+        vec_b = aggregate_players(bucket_ga, ["player_hash"])
+        feat_b = _fill_nulls(vec_b, art.spec)
+        bucket_vecs.append(art.style_pca(feat_b, skill_score))
+        bucket_elos.append(float(vec_b["player_elo"][0]))
+
+    n_axes = min(art.spec.get("n_identity_axes", 4), len(bucket_vecs[0]))
+    first_elo, last_elo = round(bucket_elos[0]), round(bucket_elos[-1])
+    elos_arr = np.array(bucket_elos)
+
+    results = []
+    for axis in range(n_axes):
+        values = np.array([float(v[axis]) for v in bucket_vecs])
+        swing = float(values[-1] - values[0])
+        stable = abs(swing) < _STABILITY_SWING_THRESHOLD
+        correlation = None
+        if not stable and np.std(elos_arr) > 1e-9 and np.std(values) > 1e-9:
+            correlation = round(float(np.corrcoef(values, elos_arr)[0, 1]), 2)
+        results.append(
+            TraitStability(
+                axis_id=f"pc{axis}", label=art.spec["pc_axis_labels"][axis], stable=stable,
+                first_value=round(float(values[0]), 2), last_value=round(float(values[-1]), 2),
+                first_elo=first_elo, last_elo=last_elo,
+                correlation_with_rating=correlation, n_buckets=k,
+            )
+        )
+    return results
+
+
 def _finalize_profile(
     *,
     ga_accum: pl.DataFrame,
@@ -722,6 +798,7 @@ def _finalize_profile(
         situation_acc, situation_example_acc, moves_by_game, your_overall_wp_loss=feat["mean_wp_loss"]
     )
     style_trajectory = _style_trajectory(trajectory_accum, feat, skill["overall"], art)
+    trait_stability = _trait_stability(ga_accum, skill["overall"], art)
 
     # phase accuracy — each phase's own wp_loss vs. this player's overall
     # average across all phases (not a peer median - no population
@@ -760,6 +837,12 @@ def _finalize_profile(
             "The style trajectory's volatility/material-swing components use only your own moves in each "
             "stretch, not the whole-game (both-colours) definition used for the overall style axes above."
         )
+    if any(t.correlation_with_rating is not None for t in trait_stability):
+        caveats.append(
+            "Where a trait's change is linked to your rating, that's a correlation across a handful of "
+            "chronological game buckets - suggestive, not causal. It moved alongside your rating; that's "
+            "not proof one caused the other."
+        )
 
     top_lesson = critical_lessons[0].label.lower() if critical_lessons else "no clear recurring pattern yet"
     coach_context = f"{len(games_meta_all)} {time_class} games analyzed; biggest lever: {top_lesson}"
@@ -779,6 +862,7 @@ def _finalize_profile(
         critical_lessons=critical_lessons,
         strong_situations=strong_situations,
         style_trajectory=style_trajectory,
+        trait_stability=trait_stability,
         phase_accuracy=phase_accuracy,
         per_game=per_game_stats,
         complexity_by_move=complexity_by_move,

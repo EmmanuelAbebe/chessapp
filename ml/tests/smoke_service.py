@@ -109,6 +109,11 @@ def main() -> None:
     assert len(profile.complexity_by_move) > 0
     assert any(b.mean_wp_loss is not None for b in profile.complexity_by_move)
 
+    # trait_stability needs a real long history (>= 60 games) to mean
+    # anything - this fixture's 22 games should come back empty, which is
+    # exactly the gate working, not a missing feature.
+    assert profile.trait_stability == []
+
     # not enough games -> NotEnoughGames
     try:
         build_profile(_gen_user_pgn("newbie", 3, 1200), "newbie", "blitz", art, cfg)

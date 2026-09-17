@@ -12,6 +12,7 @@ import { CriticalLessons } from "./CriticalLessons";
 import { ProfileSkeleton } from "./ProfileSkeleton";
 import { StyleAxes } from "./StyleAxes";
 import { StyleCompass } from "./StyleCompass";
+import { TraitStability } from "./TraitStability";
 
 /** The player-behaviour model, composed onto /dashboard/statistics above
  * the existing (notation-only) StatisticsSummary, which stays as "Game
@@ -88,6 +89,7 @@ export function PlayerModelSection({
               phaseMix={phaseMix}
               phaseAccuracy={profile.phase_accuracy}
             />
+            <TraitStability traits={profile.trait_stability} />
             <ComplexityByMove buckets={profile.complexity_by_move} />
             <CriticalLessons lessons={profile.critical_lessons} strong={profile.strong_situations} />
 

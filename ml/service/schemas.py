@@ -224,6 +224,29 @@ class StyleTrajectoryPoint(BaseModel):
     feature_deltas: list[FeatureDelta] = []
 
 
+class TraitStability(BaseModel):
+    """Whether one style axis has actually stayed the same across this
+    player's whole selected history, or genuinely changed - tested per
+    axis, not assumed either way. `first_value`/`last_value` are that
+    axis's own real style_pca projection in the earliest and latest
+    chronological game-buckets; `first_elo`/`last_elo` are each bucket's
+    real median rating, straight from the PGN's own WhiteElo/BlackElo -
+    no skill model involved. `correlation_with_rating` is only set when
+    `stable` is false - a real Pearson r between this axis's per-bucket
+    value and per-bucket rating, suggestive (the trait moved *alongside*
+    rating across a handful of buckets) rather than causal."""
+
+    axis_id: str
+    label: str
+    stable: bool
+    first_value: float
+    last_value: float
+    first_elo: int
+    last_elo: int
+    correlation_with_rating: float | None = None
+    n_buckets: int
+
+
 class Profile(BaseModel):
     schema_version: int = 1
     computed_at: str
@@ -243,6 +266,7 @@ class Profile(BaseModel):
     critical_lessons: list[SituationalGap] = []
     strong_situations: list[SituationalGap] = []
     style_trajectory: list[StyleTrajectoryPoint] = []
+    trait_stability: list[TraitStability] = []
     phase_accuracy: dict[str, PhaseAccuracy] = {}
     per_game: list[PerGameStats] = []
     complexity_by_move: list[ComplexityByMoveBucket] = []
