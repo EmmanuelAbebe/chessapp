@@ -7,19 +7,21 @@ import { HintIcon } from "@/components/ui/HintIcon";
 const W = 640;
 const H = 200;
 const PAD_L = 30;
-const PAD_R = 12;
+const PAD_R = 34;
 const PAD_T = 16;
 const PAD_B = 24;
 const PLOT_W = W - PAD_L - PAD_R;
 const PLOT_H = H - PAD_T - PAD_B;
 
-/** The "arc" of a typical game: average position complexity at each move
- * number, across every analyzed game - where it's still known/quiet
- * opening play, and where it turns into real fighting chess. Scaled and
- * colored relative to this account's own observed range, not a fixed
- * absolute threshold - those (used per-move elsewhere) are calibrated
- * for one position, not an average over hundreds of moves, so the
- * average essentially never reaches them and the chart reads as flat. */
+/** The "arc" of a typical game, paired with how well you actually played
+ * it: average position complexity at each move number (bars) and real
+ * move accuracy there (the line - win-probability lost vs. Stockfish's
+ * best move) - not complexity alone, which shows where the game turns
+ * sharp but nothing about how that goes for you. Scaled to this
+ * account's own observed range on both series, not a fixed absolute
+ * threshold - those (used per-move elsewhere) are calibrated for one
+ * position, not an average over hundreds of moves, so the average
+ * essentially never reaches them and the chart reads as flat. */
 export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket[] }) {
   const data = buckets ?? [];
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -28,10 +30,11 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
     return (
       <div className="flex flex-col gap-3">
         <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">
-          Game complexity arc
+          Game complexity &amp; accuracy
         </h3>
         <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
-          Analyze more games to see where your games typically turn from opening theory to sharper play.
+          Analyze more games to see where your games typically turn from opening theory to sharper play,
+          and how accurately you handle it.
         </p>
       </div>
     );
@@ -43,6 +46,10 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
   const span = Math.max(0.001, maxV - minV);
   const axisMax = maxV * 1.15 || 1;
 
+  const wpBuckets = data.filter((b): b is ComplexityByMoveBucket & { mean_wp_loss: number } => b.mean_wp_loss != null);
+  const hasAccuracy = wpBuckets.length >= 3;
+  const wpMax = hasAccuracy ? Math.max(...wpBuckets.map((b) => b.mean_wp_loss)) * 1.15 || 1 : 1;
+
   function colorFor(v: number): string {
     const t = (v - minV) / span; // 0..1, relative to this account's own range
     if (t >= 0.66) return "var(--bad)";
@@ -53,6 +60,7 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
   const barW = PLOT_W / data.length;
   const xFor = (i: number) => PAD_L + i * barW;
   const yFor = (v: number) => PAD_T + PLOT_H - (v / axisMax) * PLOT_H;
+  const yForWp = (v: number) => PAD_T + PLOT_H - (v / wpMax) * PLOT_H;
   const heightFor = (v: number) => PLOT_H - (yFor(v) - PAD_T);
 
   const lastMove = data[data.length - 1];
@@ -68,6 +76,13 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
   );
   const peak = data[peakIdx];
 
+  const accuracyPath = hasAccuracy
+    ? data
+        .map((b, i) => (b.mean_wp_loss == null ? null : `${i === 0 ? "M" : "L"} ${(xFor(i) + barW / 2).toFixed(1)} ${yForWp(b.mean_wp_loss).toFixed(1)}`))
+        .filter((seg): seg is string => seg !== null)
+        .join(" ")
+    : "";
+
   const active = hoverIdx !== null ? data[hoverIdx] : null;
   const activeX = hoverIdx !== null ? xFor(hoverIdx) + barW / 2 : 0;
   const tooltipLeft = activeX > PAD_L + PLOT_W * 0.65;
@@ -75,9 +90,9 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
   return (
     <div className="flex flex-col gap-3">
       <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
-        Game complexity arc
+        Game complexity &amp; accuracy
         <HintIcon
-          text="Average position complexity at each move number, across all your analyzed games - scaled to your own range, so the shape (rising/falling), not the absolute number, is the point. The dashed line marks where your games typically get sharpest. Hover a bar for the exact value and sample size."
+          text="Bars: average position complexity at each move number, scaled to your own range - shape matters here, not the absolute number. Line: your real move accuracy there (win-probability lost vs. Stockfish's best move, lower is better) - so you can see not just where your games get sharp, but how that goes for you. The dashed line marks where they typically get sharpest. Hover a bar for exact values."
           width="w-64"
         />
       </h3>
@@ -93,6 +108,11 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
                 {v.toFixed(0)}
               </text>
             </g>
+          ))}
+          {hasAccuracy && [0, wpMax / 2, wpMax].map((v) => (
+            <text key={v} x={W - PAD_R + 5} y={yForWp(v) + 3} fontSize="9" fill="var(--accent)">
+              {v.toFixed(1)}
+            </text>
           ))}
 
           {peakIdx !== 0 && (
@@ -138,6 +158,24 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
             );
           })}
 
+          {hasAccuracy && (
+            <>
+              <path d={accuracyPath} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" pointerEvents="none" />
+              {data.map((b, i) =>
+                b.mean_wp_loss == null ? null : (
+                  <circle
+                    key={`wp-${b.move_number}`}
+                    cx={xFor(i) + barW / 2}
+                    cy={yForWp(b.mean_wp_loss)}
+                    r={hoverIdx === i ? 3 : 2}
+                    fill="var(--accent)"
+                    pointerEvents="none"
+                  />
+                ),
+              )}
+            </>
+          )}
+
           <text x={xFor(0) + barW / 2} y={H - 6} textAnchor="middle" fontSize="10" fill="var(--text-faint)">
             move 1
           </text>
@@ -147,22 +185,27 @@ export function ComplexityByMove({ buckets }: { buckets?: ComplexityByMoveBucket
 
           {active && (
             <g pointerEvents="none">
-              <g transform={`translate(${tooltipLeft ? activeX - 8 : activeX + 8}, ${Math.max(PAD_T + 2, yFor(active.mean_complexity) - 44)})`}>
+              <g transform={`translate(${tooltipLeft ? activeX - 8 : activeX + 8}, ${Math.max(PAD_T + 2, yFor(active.mean_complexity) - 56)})`}>
                 <rect
-                  x={tooltipLeft ? -118 : 0}
+                  x={tooltipLeft ? -128 : 0}
                   y={0}
-                  width={118}
-                  height={36}
+                  width={128}
+                  height={active.mean_wp_loss != null ? 48 : 36}
                   rx={5}
                   fill="var(--surface-raised)"
                   stroke="var(--border)"
                 />
-                <text x={tooltipLeft ? -108 : 10} y={13} fontSize="11" fontWeight={600} fill="var(--text)">
+                <text x={tooltipLeft ? -118 : 10} y={13} fontSize="11" fontWeight={600} fill="var(--text)">
                   {`Move ${active.move_number}${active.move_number >= 40 ? "+" : ""}`}
                 </text>
-                <text x={tooltipLeft ? -108 : 10} y={25} fontSize="10" fill="var(--text-faint)">
+                <text x={tooltipLeft ? -118 : 10} y={25} fontSize="10" fill="var(--text-faint)">
                   {`complexity ${active.mean_complexity.toFixed(1)} · ${active.n} moves`}
                 </text>
+                {active.mean_wp_loss != null && (
+                  <text x={tooltipLeft ? -118 : 10} y={37} fontSize="10" fill="var(--accent)">
+                    {`accuracy loss ${active.mean_wp_loss.toFixed(1)}%`}
+                  </text>
+                )}
               </g>
             </g>
           )}

@@ -11,21 +11,14 @@ import {
 import { GamesList } from "@/features/history/GamesList";
 import { GameDataCard } from "@/features/history/GameDataCard";
 import type { PlayerProfileData } from "@/features/playermodel/types";
-import { computePhaseMix } from "../lib/traits";
 import { computeOpenings } from "../lib/summary";
-import { PhaseBreakdownChart } from "./PhaseBreakdownChart";
 import { OpeningsBreakdown } from "./OpeningsBreakdown";
 import { WinRateTimeline } from "./WinRateTimeline";
 import { AccuracyTrend } from "./AccuracyTrend";
 
 export default function StatisticsSummary({
-  phaseAccuracy,
   perGame,
 }: {
-  /** From the player-behaviour model above (StatisticsPageClient), so the
-   * phase chart can pair move-share with real accuracy without a second
-   * fetch. Undefined until that model has been analyzed at least once. */
-  phaseAccuracy?: PlayerProfileData["phase_accuracy"];
   /** Real per-game move-quality from the last analysis, so the win-rate
    * timeline can explain a bucket with actual accuracy/blunder numbers
    * instead of just the game list. */
@@ -43,7 +36,6 @@ export default function StatisticsSummary({
     () => computeOpenings(filteredGames),
     [filteredGames],
   );
-  const phaseMix = useMemo(() => computePhaseMix(filteredGames), [filteredGames]);
 
   if (counts.all === 0) {
     return (
@@ -78,7 +70,6 @@ export default function StatisticsSummary({
         <div className="flex flex-col gap-16">
           <WinRateTimeline games={filteredGames} perGame={perGame} />
           <AccuracyTrend perGame={perGame} />
-          {phaseMix && <PhaseBreakdownChart mix={phaseMix} accuracy={phaseAccuracy} />}
           <OpeningsBreakdown breakdown={openings} side={side} games={filteredGames} />
         </div>
       )}

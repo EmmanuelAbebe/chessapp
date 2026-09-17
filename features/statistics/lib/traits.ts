@@ -14,8 +14,9 @@ import type { GameHistoryEntry } from "@/features/history/types";
 export type PhaseMix = Record<GamePhase, number>;
 
 /** Share of the player's own moves falling in each game phase - a mix, not
- * a strength-by-phase breakdown. Pairs with the player-behaviour model's
- * per-phase accuracy (PhaseBreakdownChart) when that's available. */
+ * a strength-by-phase breakdown. Paired with the player-behaviour model's
+ * per-phase accuracy inside StyleCompass's click detail (PlayerModelSection
+ * computes this and passes it down), not a standalone chart. */
 export function computePhaseMix(games: GameHistoryEntry[]): PhaseMix | null {
   const counts: PhaseMix = { opening: 0, middlegame: 0, endgame: 0 };
   let total = 0;

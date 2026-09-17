@@ -7,8 +7,8 @@ import { HintIcon } from "@/components/ui/HintIcon";
 import StatisticsSummary from "./StatisticsSummary";
 
 /** Owns the one usePlayerProfile instance for /dashboard/statistics, so
- * PlayerModelSection and StatisticsSummary's phase comparison chart share
- * the same profile (and the same Analyze/Refresh) instead of each fetching
+ * PlayerModelSection and StatisticsSummary's win-rate timeline share the
+ * same profile (and the same Analyze/Refresh) instead of each fetching
  * its own copy. */
 export function StatisticsPageClient({
   initialProfile,
@@ -38,7 +38,7 @@ export function StatisticsPageClient({
             width="w-56"
           />
         </h2>
-        <StatisticsSummary phaseAccuracy={profile?.phase_accuracy} perGame={profile?.per_game} />
+        <StatisticsSummary perGame={profile?.per_game} />
       </div>
     </div>
   );

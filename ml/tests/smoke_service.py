@@ -104,6 +104,11 @@ def main() -> None:
         for fd in p.feature_deltas:
             assert fd.label  # real human label, not a raw feature key
 
+    # complexity_by_move now also carries real accuracy alongside
+    # complexity - paired, not a single-dimension chart.
+    assert len(profile.complexity_by_move) > 0
+    assert any(b.mean_wp_loss is not None for b in profile.complexity_by_move)
+
     # not enough games -> NotEnoughGames
     try:
         build_profile(_gen_user_pgn("newbie", 3, 1200), "newbie", "blitz", art, cfg)

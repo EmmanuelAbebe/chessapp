@@ -123,6 +123,10 @@ export type SituationalGap = {
 export type ComplexityByMoveBucket = {
   move_number: number;
   mean_complexity: number;
+  /** Real win-probability lost vs. Stockfish's best move, averaged at
+   * this move number - paired with complexity so the chart shows not
+   * just where things get sharp, but how that goes for you. */
+  mean_wp_loss?: number | null;
   n: number;
 };
 

@@ -1,8 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import type { AnalyzeOptions, AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
 import { HintIcon } from "@/components/ui/HintIcon";
+import { useGameHistory } from "@/features/history/useGameHistory";
+import { computePhaseMix } from "@/features/statistics/lib/traits";
 import { AnalyzePanel } from "./AnalyzePanel";
 import { ComplexityByMove } from "./ComplexityByMove";
 import { CriticalLessons } from "./CriticalLessons";
@@ -13,9 +16,12 @@ import { StyleCompass } from "./StyleCompass";
 /** The player-behaviour model, composed onto /dashboard/statistics above
  * the existing (notation-only) StatisticsSummary, which stays as "Game
  * history." Profile state is lifted to StatisticsPageClient (rather than
- * owned here via usePlayerProfile directly) so StatisticsSummary's phase
- * comparison chart can read the same `phase_accuracy` without a second,
- * independent fetch.
+ * owned here via usePlayerProfile directly) so it's shared with
+ * StatisticsSummary's own charts without a second, independent fetch.
+ * Phase mix + accuracy (formerly their own standalone chart here) now
+ * live inside StyleCompass's click detail instead - every compass point
+ * already carries a real phase label, so that's a richer place for it
+ * than a disconnected chart.
  *
  * Everything below is self-referential - style axes are a fixed transform
  * of this player's own games, and critical lessons rank purely against
@@ -35,6 +41,16 @@ export function PlayerModelSection({
   progress?: { processed: number; total: number } | null;
   onAnalyze: (opts?: AnalyzeOptions) => void;
 }) {
+  // All-games phase mix (opening/middlegame/endgame move share) - not
+  // part of the ML profile at all (it reads recorded-game notation, a
+  // separate data source), computed here so the compass's click detail
+  // can pair a phase with how much of a typical game it takes up, not
+  // just this player's own real move-quality there. Deliberately not
+  // filtered by White/Black side - the compass's phase context is about
+  // which part of the game, not which side was played.
+  const { games } = useGameHistory();
+  const phaseMix = useMemo(() => computePhaseMix(games), [games]);
+
   return (
     <section className="flex flex-col gap-8">
       <h2 className="flex items-center gap-1.5 text-base font-semibold text-text">
@@ -65,7 +81,13 @@ export function PlayerModelSection({
               {profile.source.date_range ? ` · ${profile.source.date_range[0]} – ${profile.source.date_range[1]}` : ""}
             </p>
             <StyleAxes axes={profile.style.axes} />
-            <StyleCompass vector={profile.style.vector} axes={profile.style.axes} trajectory={profile.style_trajectory} />
+            <StyleCompass
+              vector={profile.style.vector}
+              axes={profile.style.axes}
+              trajectory={profile.style_trajectory}
+              phaseMix={phaseMix}
+              phaseAccuracy={profile.phase_accuracy}
+            />
             <ComplexityByMove buckets={profile.complexity_by_move} />
             <CriticalLessons lessons={profile.critical_lessons} strong={profile.strong_situations} />
 

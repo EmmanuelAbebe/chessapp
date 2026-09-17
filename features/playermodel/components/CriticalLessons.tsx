@@ -12,6 +12,18 @@ function CoachingBlock({ coaching }: { coaching?: Coaching }) {
   return <p className="font-serif text-sm leading-relaxed text-text">{lines.join(" ")}</p>;
 }
 
+/** A deterministic, always-available one-line explanation from data
+ * already on every gap - no LLM key required, unlike `coaching` below
+ * (which only ever fills for critical_lessons, and only when the viewer
+ * has a BYO AI key configured). Every row gets at least this. */
+function baselineSummary(gap: SituationalGap, kind: "lesson" | "strength"): string {
+  const pct = Math.round(gap.share_of_moves * 100);
+  if (kind === "lesson") {
+    return `Costs you the most total ground here: it happens in ${pct}% of your moves and averages ${gap.your_wp_loss.toFixed(1)}% win-probability lost each time.`;
+  }
+  return `One of your steadiest situations - you lose only ${gap.your_wp_loss.toFixed(1)}% here, on average, whenever it comes up (${pct}% of your moves).`;
+}
+
 /** One situational gap as a plain (not diverging) horizontal bar - there's
  * no "other side" to diverge from here, every number is this player's own
  * win-probability lost vs. Stockfish's best move, nothing compared to
@@ -20,19 +32,28 @@ function CoachingBlock({ coaching }: { coaching?: Coaching }) {
  * the biggest lever/strongest area always reads as the fullest bar. */
 function GapRow({
   gap,
+  kind,
   value,
   max,
   color,
   onOpenPosition,
 }: {
   gap: SituationalGap;
+  kind: "lesson" | "strength";
   value: number;
   max: number;
   color: string;
   onOpenPosition: (fen: string) => void;
 }) {
   const fillPct = max > 0 ? Math.max(4, (value / max) * 100) : 4;
-  const hasDetail = Boolean(gap.coaching || gap.example_positions.length > 0);
+  // Lessons keep the leading "-" (it correctly reads as "this is what's
+  // being lost"); a strength showing "-3.3%" under a "you're doing well"
+  // heading reads as a bad number, so it drops the sign and leans on its
+  // own "only X% lost" wording instead (see baselineSummary above).
+  const readout =
+    kind === "lesson"
+      ? `−${gap.your_wp_loss.toFixed(1)}% · in ${Math.round(gap.share_of_moves * 100)}% of your moves`
+      : `${gap.your_wp_loss.toFixed(1)}% lost · in ${Math.round(gap.share_of_moves * 100)}% of your moves`;
 
   const summary = (
     <div className="flex cursor-pointer flex-col gap-1 px-3 py-2.5 transition hover:bg-surface-raised/60">
@@ -42,21 +63,16 @@ function GapRow({
         <div className="relative h-3 flex-1 overflow-hidden rounded-sm bg-surface-raised">
           <div className="absolute inset-y-0 left-0 rounded-sm" style={{ width: `${fillPct}%`, background: color }} />
         </div>
-        <span className="w-28 shrink-0 text-right font-mono text-xs text-text-dim">
-          −{gap.your_wp_loss.toFixed(1)}% · {Math.round(gap.share_of_moves * 100)}% of moves
-        </span>
+        <span className="w-36 shrink-0 text-right font-mono text-xs text-text-dim">{readout}</span>
       </div>
     </div>
   );
-
-  if (!hasDetail) {
-    return <div>{summary}</div>;
-  }
 
   return (
     <details className="group">
       <summary className="list-none marker:content-none [&::-webkit-details-marker]:hidden">{summary}</summary>
       <div className="flex flex-col gap-3 border-t border-border-soft bg-surface-raised/40 px-3 py-3">
+        <p className="text-xs text-text-dim">{baselineSummary(gap, kind)}</p>
         <CoachingBlock coaching={gap.coaching} />
         {gap.example_positions.length > 0 && (
           <div className="flex flex-col gap-1.5">
@@ -84,12 +100,14 @@ function GapRow({
 
 function GapList({
   gaps,
+  kind,
   metric,
   color,
   emptyMessage,
   onOpenPosition,
 }: {
   gaps: SituationalGap[];
+  kind: "lesson" | "strength";
   metric: (g: SituationalGap) => number;
   color: string;
   emptyMessage: string;
@@ -106,7 +124,7 @@ function GapList({
   return (
     <div className="divide-y divide-border-soft rounded-lg border border-border-soft bg-surface">
       {gaps.map((g) => (
-        <GapRow key={g.id} gap={g} value={metric(g)} max={max} color={color} onOpenPosition={onOpenPosition} />
+        <GapRow key={g.id} gap={g} kind={kind} value={metric(g)} max={max} color={color} onOpenPosition={onOpenPosition} />
       ))}
     </div>
   );
@@ -155,6 +173,7 @@ export function CriticalLessons({
         </span>
         <GapList
           gaps={lessons}
+          kind="lesson"
           metric={(g) => g.impact}
           color="var(--bad)"
           onOpenPosition={openPosition}
@@ -168,6 +187,7 @@ export function CriticalLessons({
         </span>
         <GapList
           gaps={strong}
+          kind="strength"
           metric={(g) => g.your_wp_loss}
           color="var(--good)"
           onOpenPosition={openPosition}

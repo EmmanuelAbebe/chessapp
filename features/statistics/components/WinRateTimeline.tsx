@@ -299,7 +299,7 @@ export function WinRateTimeline({
   if (points.length < 3) {
     return (
       <div className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">Win rate</h3>
+        <h3 className="text-xs font-semibold tracking-wide text-text-faint uppercase">Win rate over time</h3>
         <p className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center text-sm text-text-dim">
           A few more games will start showing a trend here.
         </p>
@@ -368,9 +368,9 @@ export function WinRateTimeline({
   return (
     <div className="flex flex-col gap-3">
       <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
-        Win rate
+        Win rate over time
         <HintIcon
-          text="A rolling trend line over stacked win/draw/loss stretches - click a bar for the games behind it, hover the line to inspect any point."
+          text="Shows whether you're improving, not a single number to fixate on - a rolling trend line over stacked win/draw/loss stretches. Click a bar for the games behind it, hover the line to inspect any point."
           width="w-56"
         />
       </h3>

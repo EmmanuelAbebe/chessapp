@@ -152,15 +152,20 @@ class PerGameStats(BaseModel):
 
 
 class ComplexityByMoveBucket(BaseModel):
-    """Average position complexity at one move number, across all of your
-    analyzed games - the "arc" of a typical game: where it's still known/
-    quiet opening play, and where it turns sharp. `move_number` is the
-    standard chess move count (ceil(ply/2)), capped at a max so a few very
-    long games don't produce a long, sparse tail - moves at/after the cap
-    are folded into one final bucket."""
+    """Average position complexity *and* real move accuracy at one move
+    number, across all of your analyzed games - the "arc" of a typical
+    game: where it's still known/quiet opening play, and where it turns
+    sharp, paired with how well you actually played there (win-
+    probability lost vs. Stockfish's best move) - so the shape isn't just
+    "where things get sharp," it's "where things get sharp and how that
+    goes for you." `move_number` is the standard chess move count
+    (ceil(ply/2)), capped at a max so a few very long games don't produce
+    a long, sparse tail - moves at/after the cap are folded into one
+    final bucket."""
 
     move_number: int
     mean_complexity: float
+    mean_wp_loss: float | None = None
     n: int
 
 

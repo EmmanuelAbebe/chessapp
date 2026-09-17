@@ -403,11 +403,12 @@ MAX_MOVE_NUMBER = 40  # moves at/after this are folded into one final bucket
 
 
 def _complexity_by_move(mine: pl.DataFrame, min_per_bucket: int = 5) -> list[ComplexityByMoveBucket]:
-    """Average position complexity at each move number, across all of your
-    analyzed games - the "arc" of a typical game, showing where it turns
-    from known/quiet opening play to real fighting chess. `mine` only
-    needs to carry complexity_pred + ply - the accumulated slim frame
-    across chunks, not the full per-move dataframe."""
+    """Average position complexity *and* real move accuracy at each move
+    number, across all your analyzed games - the "arc" of a typical game,
+    showing not just where it turns from known/quiet opening play to real
+    fighting chess, but how well you actually played there. `mine` needs
+    complexity_pred + wp_loss + ply - the accumulated slim frame across
+    chunks, not the full per-move dataframe."""
     rows = mine.filter(pl.col("complexity_pred").is_not_null() & pl.col("ply").is_not_null())
     if rows.height == 0:
         return []
@@ -418,6 +419,7 @@ def _complexity_by_move(mine: pl.DataFrame, min_per_bucket: int = 5) -> list[Com
         bucketed.group_by("move_number")
         .agg(
             pl.col("complexity_pred").mean().alias("mean_complexity"),
+            pl.col("wp_loss").mean().alias("mean_wp_loss"),
             pl.len().alias("n"),
         )
         .filter(pl.col("n") >= min_per_bucket)
@@ -425,7 +427,9 @@ def _complexity_by_move(mine: pl.DataFrame, min_per_bucket: int = 5) -> list[Com
     )
     return [
         ComplexityByMoveBucket(
-            move_number=int(row["move_number"]), mean_complexity=round(row["mean_complexity"], 1), n=row["n"],
+            move_number=int(row["move_number"]), mean_complexity=round(row["mean_complexity"], 1),
+            mean_wp_loss=round(row["mean_wp_loss"], 2) if row["mean_wp_loss"] is not None else None,
+            n=row["n"],
         )
         for row in curve.iter_rows(named=True)
     ]
@@ -888,7 +892,7 @@ def build_profile_chunks(
                 if chunk is not None:
                     ga_chunk, mine_chunk = chunk
                     ga_accum = ga_chunk if ga_accum is None else pl.concat([ga_accum, ga_chunk])
-                    slim = mine_chunk.select("complexity_pred", "ply")
+                    slim = mine_chunk.select("complexity_pred", "wp_loss", "ply")
                     complexity_accum = slim if complexity_accum is None else pl.concat([complexity_accum, slim])
                     traj_slim = mine_chunk.select(_TRAJECTORY_COLUMNS)
                     trajectory_accum = traj_slim if trajectory_accum is None else pl.concat([trajectory_accum, traj_slim])

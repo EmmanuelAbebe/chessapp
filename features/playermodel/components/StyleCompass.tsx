@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { StyleAxis, StyleTrajectoryPoint } from "../types";
+import type { PhaseAccuracy, StyleAxis, StyleTrajectoryPoint } from "../types";
 import { HintIcon } from "@/components/ui/HintIcon";
+import type { PhaseMix } from "@/features/statistics/lib/traits";
 
 // Square plot, generous label margins - verified (via a real screenshot
 // pass on the exploratory mock this was ported from) not to clip the
@@ -75,15 +76,22 @@ function formatFeatureValue(feature: string, value: number): string {
  * usual scale - two different players' compasses are never on the same
  * ruler, deliberately. The curve is colored by each stretch's dominant
  * game phase; clicking a point explains why it sits where it does, in
- * terms of this player's own real behaviors vs. their overall average. */
+ * terms of this player's own real behaviors vs. their overall average -
+ * plus, when available, that phase's overall move-share and accuracy
+ * gap (formerly a separate, disconnected "phase mix" chart - absorbed
+ * here since every point already carries a real phase label). */
 export function StyleCompass({
   vector,
   axes,
   trajectory,
+  phaseMix,
+  phaseAccuracy,
 }: {
   vector: number[];
   axes: StyleAxis[];
   trajectory?: StyleTrajectoryPoint[];
+  phaseMix?: PhaseMix | null;
+  phaseAccuracy?: Partial<Record<StyleTrajectoryPoint["phase"], PhaseAccuracy>>;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -123,7 +131,7 @@ export function StyleCompass({
       <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-text-faint uppercase">
         Style compass
         <HintIcon
-          text="Two of your five style axes, plotted together. The large dot is your overall style; the curve (when shown) traces how it actually shifts across a typical game, colored by game phase - your own moves only, scored only against Stockfish, no comparison to other players. Click a point to see why it sits where it does. Scaled to your own range, not a fixed ruler, so it never clips."
+          text="Two of your five style axes, plotted together. The large dot is your overall style; the curve (when shown) traces how it actually shifts across a typical game, colored by game phase - your own moves only, scored only against Stockfish, no comparison to other players. Click a point to see why it sits where it does, plus that phase's move-share and accuracy. Scaled to your own range, not a fixed ruler, so it never clips."
           width="w-64"
         />
       </h3>
@@ -229,6 +237,25 @@ export function StyleCompass({
           <p className="text-[11px] text-text-faint">
             Why this stretch sits where it does, vs. your own overall average - no comparison to other players.
           </p>
+          {(phaseMix?.[selected.phase] !== undefined || phaseAccuracy?.[selected.phase]) && (
+            <div className="flex flex-col gap-1 border-b border-border-soft pb-2">
+              {phaseMix?.[selected.phase] !== undefined && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-text-dim">Share of a typical game</span>
+                  <span className="font-mono text-text">{Math.round(phaseMix[selected.phase])}%</span>
+                </div>
+              )}
+              {phaseAccuracy?.[selected.phase] && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-text-dim">Accuracy here vs. your overall average</span>
+                  <span className="font-mono text-text">
+                    {phaseAccuracy[selected.phase]!.you.toFixed(1)}%
+                    <span className="text-text-faint"> vs {phaseAccuracy[selected.phase]!.your_overall.toFixed(1)}%</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             {selected.feature_deltas.map((fd) => (
               <div key={fd.feature} className="flex items-center justify-between text-xs">
