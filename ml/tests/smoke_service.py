@@ -114,6 +114,19 @@ def main() -> None:
     # exactly the gate working, not a missing feature.
     assert profile.trait_stability == []
 
+    # A bigger fixture to exercise the real (non-empty) path and check the
+    # per-bucket `points` series (not just the first/last summary) is
+    # shaped correctly - every bucket present, endpoints matching
+    # first_value/last_value/first_elo/last_elo exactly.
+    big_pgn = _gen_user_pgn("veteran", 65, true_elo_val=1750)
+    big_profile = build_profile(big_pgn, "veteran", "blitz", art, cfg)
+    assert len(big_profile.trait_stability) > 0, "65 games should clear the stability gate"
+    for t in big_profile.trait_stability:
+        assert len(t.points) == t.n_buckets >= 2
+        assert t.points[0].value == t.first_value and t.points[0].elo == t.first_elo
+        assert t.points[-1].value == t.last_value and t.points[-1].elo == t.last_elo
+        assert all(p.date for p in t.points), "every bucket should carry a real date"
+
     # not enough games -> NotEnoughGames
     try:
         build_profile(_gen_user_pgn("newbie", 3, 1200), "newbie", "blitz", art, cfg)

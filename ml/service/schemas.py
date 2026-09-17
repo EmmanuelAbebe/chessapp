@@ -224,6 +224,18 @@ class StyleTrajectoryPoint(BaseModel):
     feature_deltas: list[FeatureDelta] = []
 
 
+class TraitStabilityPoint(BaseModel):
+    """One chronological bucket's real value for this axis, paired with
+    that bucket's own real median rating and its most recent game's date
+    - lets the frontend chart the actual shape of a change (steady drift
+    vs. a sudden jump vs. bucket-to-bucket noise), not just the two
+    endpoints first_value/last_value already summarize."""
+
+    value: float
+    elo: int
+    date: str
+
+
 class TraitStability(BaseModel):
     """Whether one style axis has actually stayed the same across this
     player's whole selected history, or genuinely changed - tested per
@@ -234,7 +246,8 @@ class TraitStability(BaseModel):
     no skill model involved. `correlation_with_rating` is only set when
     `stable` is false - a real Pearson r between this axis's per-bucket
     value and per-bucket rating, suggestive (the trait moved *alongside*
-    rating across a handful of buckets) rather than causal."""
+    rating across a handful of buckets) rather than causal. `points`
+    carries every bucket in between, not just the endpoints."""
 
     axis_id: str
     label: str
@@ -245,6 +258,7 @@ class TraitStability(BaseModel):
     last_elo: int
     correlation_with_rating: float | None = None
     n_buckets: int
+    points: list[TraitStabilityPoint] = []
 
 
 class Profile(BaseModel):

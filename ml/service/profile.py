@@ -46,7 +46,7 @@ from service.labels import label_for
 from service.schemas import (
     Coaching, Cohort, ComplexityByMoveBucket, ExamplePosition, FeatureDelta, PerGameStats,
     PhaseAccuracy, Profile, SituationalGap, Skill, Source, Style, StyleAxis, StyleTrajectoryPoint,
-    TraitStability,
+    TraitStability, TraitStabilityPoint,
 )
 
 _VALID_RESULTS = {"1-0", "0-1", "1/2-1/2"}
@@ -694,6 +694,7 @@ def _trait_stability(ga_accum: pl.DataFrame, skill_score: float, art: Artifacts)
 
     bucket_vecs: list[np.ndarray] = []
     bucket_elos: list[float] = []
+    bucket_dates: list[str] = []
     for i in range(k):
         start = i * bucket_size
         length = (total - start) if i == k - 1 else bucket_size
@@ -702,6 +703,7 @@ def _trait_stability(ga_accum: pl.DataFrame, skill_score: float, art: Artifacts)
         feat_b = _fill_nulls(vec_b, art.spec)
         bucket_vecs.append(art.style_pca(feat_b, skill_score))
         bucket_elos.append(float(vec_b["player_elo"][0]))
+        bucket_dates.append(str(bucket_ga["utc_date"][-1]))
 
     n_axes = min(art.spec.get("n_identity_axes", 4), len(bucket_vecs[0]))
     first_elo, last_elo = round(bucket_elos[0]), round(bucket_elos[-1])
@@ -715,12 +717,16 @@ def _trait_stability(ga_accum: pl.DataFrame, skill_score: float, art: Artifacts)
         correlation = None
         if not stable and np.std(elos_arr) > 1e-9 and np.std(values) > 1e-9:
             correlation = round(float(np.corrcoef(values, elos_arr)[0, 1]), 2)
+        points = [
+            TraitStabilityPoint(value=round(float(values[i]), 2), elo=round(bucket_elos[i]), date=bucket_dates[i])
+            for i in range(k)
+        ]
         results.append(
             TraitStability(
                 axis_id=f"pc{axis}", label=art.spec["pc_axis_labels"][axis], stable=stable,
                 first_value=round(float(values[0]), 2), last_value=round(float(values[-1]), 2),
                 first_elo=first_elo, last_elo=last_elo,
-                correlation_with_rating=correlation, n_buckets=k,
+                correlation_with_rating=correlation, n_buckets=k, points=points,
             )
         )
     return results

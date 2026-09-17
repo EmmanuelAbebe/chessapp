@@ -155,6 +155,15 @@ export type StyleTrajectoryPoint = {
   feature_deltas: FeatureDelta[];
 };
 
+export type TraitStabilityPoint = {
+  value: number;
+  /** Real median rating in this bucket, straight from each game's own
+   * PGN header, no skill model involved. */
+  elo: number;
+  /** This bucket's most recent game date ("YYYY.MM.DD"). */
+  date: string;
+};
+
 export type TraitStability = {
   axis_id: string;
   label: string;
@@ -173,6 +182,9 @@ export type TraitStability = {
    * Suggestive (moved alongside rating), not causal. */
   correlation_with_rating?: number | null;
   n_buckets: number;
+  /** Every bucket's own value/rating/date, not just the first/last
+   * summary above - lets a chart show the real shape of a change. */
+  points: TraitStabilityPoint[];
 };
 
 export type PerGameStats = {
