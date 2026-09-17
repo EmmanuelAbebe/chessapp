@@ -64,6 +64,7 @@ def main() -> None:
     print(f"axes: {[a.label for a in profile.style.axes]}")
     print(f"critical lessons: {[(g.label, g.your_wp_loss, g.share_of_moves) for g in profile.critical_lessons]}")
     print(f"strong situations: {[(g.label, g.your_wp_loss) for g in profile.strong_situations]}")
+    print(f"style trajectory: {[(p.move_number, p.n, p.vector[:2]) for p in profile.style_trajectory]}")
     print(f"coach_context: {profile.coach_context}")
     print(f"caveats: {profile.caveats}")
 
@@ -88,6 +89,14 @@ def main() -> None:
             assert len(ep.fen.split()) >= 4  # a real FEN
     for phase in ("opening", "middlegame", "endgame"):
         assert phase in profile.phase_accuracy  # unconditional now, no peer-population gate
+
+    # style_trajectory: real per-move-number style, no population involved
+    # either - may be empty on a very small/short-games fixture (each bin
+    # needs _MIN_TRAJECTORY_MOVES of its own), but shouldn't be malformed.
+    move_numbers = [p.move_number for p in profile.style_trajectory]
+    assert move_numbers == sorted(move_numbers), "bins should be in ascending move-number order"
+    for p in profile.style_trajectory:
+        assert len(p.vector) == 10 and p.n > 0
 
     # not enough games -> NotEnoughGames
     try:

@@ -44,7 +44,7 @@ from pipeline.common.project import Artifacts
 from service import engine as enginemod
 from service.schemas import (
     Coaching, Cohort, ComplexityByMoveBucket, ExamplePosition, PerGameStats,
-    PhaseAccuracy, Profile, SituationalGap, Skill, Source, Style, StyleAxis,
+    PhaseAccuracy, Profile, SituationalGap, Skill, Source, Style, StyleAxis, StyleTrajectoryPoint,
 )
 
 _VALID_RESULTS = {"1-0", "0-1", "1/2-1/2"}
@@ -430,6 +430,106 @@ def _complexity_by_move(mine: pl.DataFrame, min_per_bucket: int = 5) -> list[Com
     ]
 
 
+# Real per-move-number style trajectory - the columns needed to recompute
+# 9 of the 16 STYLE features (pipeline/common/features.py) within a move-
+# number sub-range, mirroring gameagg.moves_agg's exact per-feature filter
+# logic. The other 7 STYLE features (castled_ply_mean, never_castled_rate,
+# castle_queenside_rate, queen_dev_ply_mean, first_dev_ply_mean,
+# book_exit_ply_mean, repertoire_entropy) are single whole-game events -
+# "which ply did I castle," not a per-move rate - so they aren't
+# recomputable per bin and stay fixed at the player's overall value.
+TRAJECTORY_BIN_WIDTH = 5
+# Same noise floor as _MIN_SITUATION_MOVES - these are per-ply rates over
+# a much narrower slice (one 5-move bin) than the situational buckets, so
+# a bin without enough of its own moves falls back to the overall value
+# per-feature rather than showing a number built on a handful of moves.
+_MIN_TRAJECTORY_MOVES = 20
+_MIN_TRAJECTORY_SUBFILTER_MOVES = 10  # toward_king_rate/tension_release_rate have their own narrower denominator
+
+_TRAJECTORY_COLUMNS = [
+    "ply", "is_check", "is_capture", "king_dist_delta", "piece_moved", "phase",
+    "see", "released_tension", "pawn_tension_before", "think_time_s",
+    "wp_white_after", "material_swing",
+]
+
+
+def _style_trajectory(
+    trajectory_accum: pl.DataFrame, feat: dict, skill_score: float, art: Artifacts,
+) -> list[StyleTrajectoryPoint]:
+    """This player's real style vector (all 5 PCA components, same order
+    as style.vector), computed separately per move-number bin instead of
+    once for the whole game - the actual shape of how their style changes
+    across a typical game, not a hand-picked illustration. Every number
+    comes from this player's own moves only, re-bucketed by when in the
+    game they happened, run through the same fixed style_pca transform
+    used for the single overall vector - no reference population involved
+    anywhere in this function.
+
+    `eval_volatility_mean`/`material_swing_mean` here use only this
+    player's own moves in the bin - the pipeline's whole-game definition
+    of these two pools both colours' plies (gameagg.game_level_agg, run
+    on the unfiltered frame), which this player's own moves alone can't
+    reconstruct. A real approximation of the whole-game feature of the
+    same name ("volatility/swing around your own moves in this stretch"),
+    not a bug - see the caveat this adds in _finalize_profile.
+    """
+    if trajectory_accum.height == 0:
+        return []
+
+    binned = trajectory_accum.with_columns(
+        move_number=((pl.col("ply") + 1) // 2).clip(1, MAX_MOVE_NUMBER),
+    ).with_columns(
+        bin=(pl.col("move_number") - 1) // TRAJECTORY_BIN_WIDTH * TRAJECTORY_BIN_WIDTH + 1,
+    )
+
+    grouped = (
+        binned.group_by("bin")
+        .agg(
+            pl.len().alias("n"),
+            pl.col("is_check").mean().alias("check_rate"),
+            pl.col("is_capture").mean().alias("capture_rate"),
+            (pl.col("king_dist_delta") > 0)
+            .filter((pl.col("piece_moved") != "p") & (pl.col("phase") == "middlegame"))
+            .mean()
+            .alias("toward_king_rate"),
+            ((pl.col("piece_moved") != "p") & (pl.col("phase") == "middlegame")).sum().alias("_toward_king_n"),
+            (pl.col("see") <= -1.0).mean().alias("sac_rate"),
+            pl.col("released_tension").filter(pl.col("pawn_tension_before") > 0).mean().alias("tension_release_rate"),
+            (pl.col("pawn_tension_before") > 0).sum().alias("_tension_n"),
+            (pl.col("piece_moved") == "p").mean().alias("pawn_move_rate"),
+            pl.col("think_time_s").mean().alias("mean_think_time"),
+            pl.col("wp_white_after").std().alias("eval_volatility_mean"),
+            pl.col("material_swing").mean().alias("material_swing_mean"),
+        )
+        .filter(pl.col("n") >= _MIN_TRAJECTORY_MOVES)
+        .sort("bin")
+    )
+
+    points = []
+    for row in grouped.iter_rows(named=True):
+        feat_bin = dict(feat)
+        for name in (
+            "check_rate", "capture_rate", "sac_rate", "pawn_move_rate",
+            "mean_think_time", "eval_volatility_mean", "material_swing_mean",
+        ):
+            v = row[name]
+            if v is not None:
+                feat_bin[name] = float(v)
+        if row["toward_king_rate"] is not None and row["_toward_king_n"] >= _MIN_TRAJECTORY_SUBFILTER_MOVES:
+            feat_bin["toward_king_rate"] = float(row["toward_king_rate"])
+        if row["tension_release_rate"] is not None and row["_tension_n"] >= _MIN_TRAJECTORY_SUBFILTER_MOVES:
+            feat_bin["tension_release_rate"] = float(row["tension_release_rate"])
+
+        pca_vec = art.style_pca(feat_bin, skill_score)
+        points.append(
+            StyleTrajectoryPoint(
+                move_number=int(row["bin"]), n=row["n"],
+                vector=[round(float(v), 3) for v in pca_vec],
+            )
+        )
+    return points
+
+
 # --- 6. per-chunk processing --------------------------------------------------
 
 def _process_chunk(
@@ -506,6 +606,7 @@ def _finalize_profile(
     *,
     ga_accum: pl.DataFrame,
     complexity_accum: pl.DataFrame,
+    trajectory_accum: pl.DataFrame,
     example_acc: _ExamplePositionAccumulator,
     situation_acc: "_SituationAccumulator",
     situation_example_acc: _ExamplePositionAccumulator,
@@ -572,6 +673,7 @@ def _finalize_profile(
     critical_lessons, strong_situations = _situational_gaps(
         situation_acc, situation_example_acc, moves_by_game, your_overall_wp_loss=feat["mean_wp_loss"]
     )
+    style_trajectory = _style_trajectory(trajectory_accum, feat, skill["overall"], art)
 
     # phase accuracy — each phase's own wp_loss vs. this player's overall
     # average across all phases (not a peer median - no population
@@ -605,6 +707,11 @@ def _finalize_profile(
         )
     if len(eval_sources) > 1:
         caveats.append("Some games were analysed locally (no pre-existing evaluation).")
+    if style_trajectory:
+        caveats.append(
+            "The style trajectory's volatility/material-swing components use only your own moves in each "
+            "stretch, not the whole-game (both-colours) definition used for the overall style axes above."
+        )
 
     top_lesson = critical_lessons[0].label.lower() if critical_lessons else "no clear recurring pattern yet"
     coach_context = f"{len(games_meta_all)} {time_class} games analyzed; biggest lever: {top_lesson}"
@@ -623,6 +730,7 @@ def _finalize_profile(
         strengths=[],
         critical_lessons=critical_lessons,
         strong_situations=strong_situations,
+        style_trajectory=style_trajectory,
         phase_accuracy=phase_accuracy,
         per_game=per_game_stats,
         complexity_by_move=complexity_by_move,
@@ -690,6 +798,7 @@ def build_profile_chunks(
 
     ga_accum: pl.DataFrame | None = None
     complexity_accum: pl.DataFrame | None = None
+    trajectory_accum: pl.DataFrame | None = None
     example_acc = _ExamplePositionAccumulator(_BUCKET_FILTER)
     situation_example_acc = _ExamplePositionAccumulator(SITUATION_BUCKETS)
     situation_acc = _SituationAccumulator()
@@ -737,6 +846,8 @@ def build_profile_chunks(
                     ga_accum = ga_chunk if ga_accum is None else pl.concat([ga_accum, ga_chunk])
                     slim = mine_chunk.select("complexity_pred", "ply")
                     complexity_accum = slim if complexity_accum is None else pl.concat([complexity_accum, slim])
+                    traj_slim = mine_chunk.select(_TRAJECTORY_COLUMNS)
+                    trajectory_accum = traj_slim if trajectory_accum is None else pl.concat([trajectory_accum, traj_slim])
                     example_acc.add_chunk(mine_chunk)
                     situation_example_acc.add_chunk(mine_chunk)
                     situation_acc.add_chunk(mine_chunk)
@@ -750,7 +861,8 @@ def build_profile_chunks(
 
             games_since_snapshot = 0
             profile = _finalize_profile(
-                ga_accum=ga_accum, complexity_accum=complexity_accum, example_acc=example_acc,
+                ga_accum=ga_accum, complexity_accum=complexity_accum, trajectory_accum=trajectory_accum,
+                example_acc=example_acc,
                 situation_acc=situation_acc, situation_example_acc=situation_example_acc,
                 moves_by_game=moves_by_game, games_meta_all=games_meta_all, sources_all=sources_all,
                 username=username, time_class=time_class, reference_speed=reference_speed,

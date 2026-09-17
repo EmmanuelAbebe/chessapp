@@ -183,6 +183,22 @@ class SituationalGap(BaseModel):
     coaching: Coaching = Coaching()
 
 
+class StyleTrajectoryPoint(BaseModel):
+    """This player's real style vector (same 5 PCA components as
+    style.vector) computed from only the moves in one move-number range,
+    instead of their whole game history - the "shape" of how their style
+    actually changes across a typical game. Self-referential, same as
+    critical_lessons: no reference population involved, just this
+    player's own moves re-bucketed by when in the game they happened.
+    `move_number` is the bin's starting move (1, 6, 11, ...); `n` is how
+    many of this player's own moves fall in it, for a confidence/opacity
+    cue - later bins naturally have fewer games still going."""
+
+    move_number: int
+    vector: list[float]
+    n: int
+
+
 class Profile(BaseModel):
     schema_version: int = 1
     computed_at: str
@@ -201,6 +217,7 @@ class Profile(BaseModel):
     # no reference population needed.
     critical_lessons: list[SituationalGap] = []
     strong_situations: list[SituationalGap] = []
+    style_trajectory: list[StyleTrajectoryPoint] = []
     phase_accuracy: dict[str, PhaseAccuracy] = {}
     per_game: list[PerGameStats] = []
     complexity_by_move: list[ComplexityByMoveBucket] = []
