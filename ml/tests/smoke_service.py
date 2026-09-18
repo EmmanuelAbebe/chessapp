@@ -127,6 +127,25 @@ def main() -> None:
         assert t.points[-1].value == t.last_value and t.points[-1].elo == t.last_elo
         assert all(p.date for p in t.points), "every bucket should carry a real date"
 
+    # style_by_opening / style_by_complexity - same 65-game fixture, since
+    # the fixture's random ECO assignment (4 codes) and total game count
+    # both already clear their respective gates.
+    print(f"style_by_opening: {[(g.label, g.n_games) for g in big_profile.style_by_opening]}")
+    print(f"style_by_complexity: {[(g.label, g.n_games) for g in big_profile.style_by_complexity]}")
+    assert len(big_profile.style_by_opening) >= 2, "the fixture's 4-ECO spread should clear the opening gate"
+    for g in big_profile.style_by_opening:
+        assert g.n_games >= 12 and g.label and len(g.vector) == len(big_profile.style.axes)
+    assert len(big_profile.style_by_complexity) == 3
+    total_tercile_games = sum(g.n_games for g in big_profile.style_by_complexity)
+    assert total_tercile_games == 65
+    for g in big_profile.style_by_complexity:
+        assert g.label in ("Calmer games", "Typical games", "Sharper games")
+        assert len(g.vector) == len(big_profile.style.axes)
+
+    # the 22-game primary fixture is below both gates too - same "gate
+    # itself is the feature" pattern as trait_stability above.
+    assert profile.style_by_opening == [] and profile.style_by_complexity == []
+
     # not enough games -> NotEnoughGames
     try:
         build_profile(_gen_user_pgn("newbie", 3, 1200), "newbie", "blitz", art, cfg)

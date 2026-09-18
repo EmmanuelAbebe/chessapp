@@ -261,6 +261,19 @@ class TraitStability(BaseModel):
     points: list[TraitStabilityPoint] = []
 
 
+class StyleGroup(BaseModel):
+    """One group's real recomputed style vector - a real subset of this
+    player's own games (an opening they've played often enough, or a
+    complexity tercile), run through the exact same style computation as
+    the one overall vector. `key` is a stable machine id (an ECO code, or
+    a tercile id); `label` is what a person reads."""
+
+    key: str
+    label: str
+    n_games: int
+    vector: list[float]
+
+
 class Profile(BaseModel):
     schema_version: int = 1
     computed_at: str
@@ -281,6 +294,8 @@ class Profile(BaseModel):
     strong_situations: list[SituationalGap] = []
     style_trajectory: list[StyleTrajectoryPoint] = []
     trait_stability: list[TraitStability] = []
+    style_by_opening: list[StyleGroup] = []
+    style_by_complexity: list[StyleGroup] = []
     phase_accuracy: dict[str, PhaseAccuracy] = {}
     per_game: list[PerGameStats] = []
     complexity_by_move: list[ComplexityByMoveBucket] = []

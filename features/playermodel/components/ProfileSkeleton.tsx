@@ -2,7 +2,7 @@ function Block({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-surface-raised ${className ?? ""}`} />;
 }
 
-/** Placeholder shapes matching StyleAxes/ComplexityByMove/CriticalLessons'
+/** Placeholder shapes matching StyleRadar/ComplexityByMove/CriticalLessons'
  * rough layout, shown while the very first analysis is running - a minute
  * of "Analyzing…" as the only button-text change with nothing else on the
  * page moving reads as broken, not busy. */

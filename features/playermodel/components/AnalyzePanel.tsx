@@ -8,6 +8,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { PERF_TYPES } from "@/features/lichess/useLichessFetchOptions";
 import type { AnalyzeOptions, AnalyzeStatus } from "../usePlayerProfile";
 import type { PlayerProfileData } from "../types";
+import { RiRefreshLine } from "react-icons/ri";
 
 // Speeds with their own real reference population/skill+style models today
 // (ml/config.yaml's `formats`) - picking another speed still runs real
@@ -36,9 +37,16 @@ const STALE_AFTER_NEW_GAMES = 20;
 // long enough that we warn before running it.
 const REASONABLE_GAMES = 300;
 
-function isStale(profile: PlayerProfileData, gamesCount: number, computedAt: Date): boolean {
+function isStale(
+  profile: PlayerProfileData,
+  gamesCount: number,
+  computedAt: Date,
+): boolean {
   const daysOld = (Date.now() - computedAt.getTime()) / 86_400_000;
-  return daysOld > STALE_AFTER_DAYS || gamesCount - profile.source.games_analyzed >= STALE_AFTER_NEW_GAMES;
+  return (
+    daysOld > STALE_AFTER_DAYS ||
+    gamesCount - profile.source.games_analyzed >= STALE_AFTER_NEW_GAMES
+  );
 }
 
 // A plain "Refreshing…" reads as stuck once a big request runs into
@@ -57,7 +65,9 @@ function loadingCopy(
   if (count && count > REASONABLE_GAMES) {
     return `${verb} ${count} games… this can take a few minutes`;
   }
-  return verb === "Analyzing" ? "Analyzing… (this can take a minute)" : "Refreshing…";
+  return verb === "Analyzing"
+    ? "Analyzing… (this can take a minute)"
+    : "Refreshing…";
 }
 
 export function AnalyzePanel({
@@ -73,8 +83,12 @@ export function AnalyzePanel({
   progress?: { processed: number; total: number } | null;
   onAnalyze: (opts?: AnalyzeOptions) => void;
 }) {
-  const [lichessConnected, setLichessConnected] = useState<boolean | null>(null);
-  const [chessComConnected, setChessComConnected] = useState<boolean | null>(null);
+  const [lichessConnected, setLichessConnected] = useState<boolean | null>(
+    null,
+  );
+  const [chessComConnected, setChessComConnected] = useState<boolean | null>(
+    null,
+  );
   // Blank = let the server default to the size of the user's imported game
   // history; typing a number here overrides that for this analysis only.
   const [maxGamesInput, setMaxGamesInput] = useState("");
@@ -116,16 +130,23 @@ export function AnalyzePanel({
   // both are - but only once, right after both checks resolve, so it
   // never clobbers a source the user picked by hand.
   useEffect(() => {
-    if (sourceInitialized || lichessConnected === null || chessComConnected === null) return;
+    if (
+      sourceInitialized ||
+      lichessConnected === null ||
+      chessComConnected === null
+    )
+      return;
     setSource(lichessConnected ? "lichess" : "chesscom");
     setSourceInitialized(true);
   }, [sourceInitialized, lichessConnected, chessComConnected]);
 
-  const accountsLoaded = lichessConnected !== null && chessComConnected !== null;
+  const accountsLoaded =
+    lichessConnected !== null && chessComConnected !== null;
   const anyConnected = Boolean(lichessConnected || chessComConnected);
   const bothConnected = Boolean(lichessConnected && chessComConnected);
   const perfTypes = source === "chesscom" ? CHESSCOM_PERF_TYPES : PERF_TYPES;
-  const referenceNote = source === "chesscom" ? CHESSCOM_SELF_ONLY_NOTE : REFERENCE_NOTE;
+  const referenceNote =
+    source === "chesscom" ? CHESSCOM_SELF_ONLY_NOTE : REFERENCE_NOTE;
 
   function requestAnalyze(opts?: AnalyzeOptions) {
     if (opts?.maxGames && opts.maxGames > REASONABLE_GAMES) {
@@ -147,7 +168,12 @@ export function AnalyzePanel({
             onChange={(e) => {
               const next = e.target.value as "lichess" | "chesscom";
               setSource(next);
-              if (!CHESSCOM_PERF_TYPES.includes(timeClass as (typeof CHESSCOM_PERF_TYPES)[number]) && next === "chesscom") {
+              if (
+                !CHESSCOM_PERF_TYPES.includes(
+                  timeClass as (typeof CHESSCOM_PERF_TYPES)[number],
+                ) &&
+                next === "chesscom"
+              ) {
                 setTimeClass("blitz");
               }
             }}
@@ -181,7 +207,10 @@ export function AnalyzePanel({
       </div>
       <div className="flex items-center gap-2">
         <label htmlFor="max-games-input">Games to analyze</label>
-        <Tooltip text="How many recent games to analyze. Leave blank to match the size of your imported game history." width="w-56">
+        <Tooltip
+          text="How many recent games to analyze. Leave blank to match the size of your imported game history."
+          width="w-56"
+        >
           <input
             id="max-games-input"
             type="number"
@@ -192,13 +221,19 @@ export function AnalyzePanel({
             className="w-16 rounded-md border border-border bg-transparent px-2 py-1 text-center text-xs text-text placeholder:text-text-faint"
           />
         </Tooltip>
-        <span className="text-text-faint">leave blank to match your imported history</span>
+        <span className="text-text-faint">
+          leave blank to match your imported history
+        </span>
       </div>
       {source === "chesscom" ? (
-        <span className="max-w-64 text-right text-text-faint">{CHESSCOM_SELF_ONLY_NOTE}</span>
+        <span className="max-w-64 text-right text-text-faint">
+          {CHESSCOM_SELF_ONLY_NOTE}
+        </span>
       ) : (
         !SPEEDS_WITH_REFERENCE.includes(timeClass) && (
-          <span className="max-w-64 text-right text-text-faint">{REFERENCE_NOTE}</span>
+          <span className="max-w-64 text-right text-text-faint">
+            {REFERENCE_NOTE}
+          </span>
         )
       )}
     </div>
@@ -206,11 +241,13 @@ export function AnalyzePanel({
 
   const confirmDialog = pendingOpts && (
     <Modal isOpen onClose={() => setPendingOpts(null)}>
-      <h3 className="text-sm font-semibold text-text">Analyze {pendingOpts.maxGames} games?</h3>
+      <h3 className="text-sm font-semibold text-text">
+        Analyze {pendingOpts.maxGames} games?
+      </h3>
       <p className="mt-2 text-sm text-text-dim">
-        That's well beyond the {REASONABLE_GAMES} games we'd normally expect - fetching and
-        processing that many can take a long time (several minutes or more) and puts real load
-        on the analysis service. Continue anyway?
+        That's well beyond the {REASONABLE_GAMES} games we'd normally expect -
+        fetching and processing that many can take a long time (several minutes
+        or more) and puts real load on the analysis service. Continue anyway?
       </p>
       <div className="mt-4 flex justify-end gap-2">
         <button
@@ -239,7 +276,8 @@ export function AnalyzePanel({
     return (
       <div className="rounded-lg border border-border-soft bg-surface px-4 py-6 text-center">
         <p className="text-sm text-text-dim">
-          Connect Lichess or chess.com to see how your style and skill compare to players like you.
+          Connect Lichess or chess.com to see how your style and skill compare
+          to players like you.
         </p>
         <Link
           href="/dashboard/profile"
@@ -268,7 +306,9 @@ export function AnalyzePanel({
                 disabled={status === "loading"}
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
               >
-                {status === "loading" ? loadingCopy("Analyzing", activeCount, progress) : "Analyze my games"}
+                {status === "loading"
+                  ? loadingCopy("Analyzing", activeCount, progress)
+                  : "Analyze my games"}
               </button>
               <button
                 type="button"
@@ -276,7 +316,9 @@ export function AnalyzePanel({
                 aria-label="Analysis options"
                 aria-expanded={showOptions}
                 className={`rounded-lg border p-2 transition ${
-                  showOptions ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
+                  showOptions
+                    ? "border-accent text-accent"
+                    : "border-border text-text-dim hover:text-text"
                 }`}
               >
                 <FiSettings size={16} />
@@ -298,7 +340,8 @@ export function AnalyzePanel({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3 text-xs text-text-faint">
         <span>
-          Last analyzed {computedAt.toLocaleDateString()} · {profile.source.games_analyzed} games
+          Last analyzed {computedAt.toLocaleDateString()} ·{" "}
+          {profile.source.games_analyzed} games
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -306,21 +349,27 @@ export function AnalyzePanel({
             onClick={() => setShowOptions((v) => !v)}
             aria-label="Analysis options"
             aria-expanded={showOptions}
-            className={`rounded-md border p-1.5 transition ${
-              showOptions ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
+            className={`p-1.5 transition ${
+              showOptions ? "text-accent" : "text-text-dim hover:text-text"
             }`}
           >
             <FiSettings size={13} />
           </button>
           <button
             type="button"
-            onClick={() => requestAnalyze({ force: true, maxGames, timeClass, source })}
+            onClick={() =>
+              requestAnalyze({ force: true, maxGames, timeClass, source })
+            }
             disabled={status === "loading"}
-            className={`rounded-md border px-2.5 py-1 font-medium transition disabled:opacity-50 ${
-              stale ? "border-accent text-accent" : "border-border text-text-dim hover:text-text"
+            className={`p-1.5 flex items-center gap-2 font-medium transition disabled:opacity-50 ${
+              stale
+                ? "border-accent text-accent"
+                : "border-border text-text-dim hover:text-text"
             }`}
           >
-            {status === "loading" ? loadingCopy("Refreshing", activeCount, progress) : stale ? "Refresh (new games available)" : "Refresh"}
+            <RiRefreshLine size={13} />
+            {status === "loading" &&
+              loadingCopy("Refreshing", activeCount, progress)}
           </button>
         </div>
       </div>

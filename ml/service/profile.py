@@ -45,8 +45,8 @@ from service import engine as enginemod
 from service.labels import label_for
 from service.schemas import (
     Coaching, Cohort, ComplexityByMoveBucket, ExamplePosition, FeatureDelta, PerGameStats,
-    PhaseAccuracy, Profile, SituationalGap, Skill, Source, Style, StyleAxis, StyleTrajectoryPoint,
-    TraitStability, TraitStabilityPoint,
+    PhaseAccuracy, Profile, SituationalGap, Skill, Source, Style, StyleAxis, StyleGroup,
+    StyleTrajectoryPoint, TraitStability, TraitStabilityPoint,
 )
 
 _VALID_RESULTS = {"1-0", "0-1", "1/2-1/2"}
@@ -96,6 +96,12 @@ def _parse_games(pgn_text: str, time_class: str, min_plies: int) -> tuple[list[d
                 "game_id": game_id, "white": gh.get("White", ""), "black": gh.get("Black", ""),
                 "white_elo": int(gh.get("WhiteElo", 0) or 0), "black_elo": int(gh.get("BlackElo", 0) or 0),
                 "result": gh.get("Result"), "eco": gh.get("ECO"),
+                # Lichess exports this when the PGN is fetched with
+                # opening=true (features/playermodel/server/shared.ts
+                # already requests it) - a human-readable name, not just
+                # the ECO code. Chess.com PGNs don't carry it; callers
+                # that group by opening fall back to the bare ECO code.
+                "opening_name": gh.get("Opening"),
                 "utc_date": gh.get("UTCDate") or gh.get("Date") or "",
                 "time_control": gh.get("TimeControl"),
             }
@@ -205,14 +211,26 @@ def _aggregate_me(
         .when(pl.col("result") == "0-1")
         .then(pl.when(pl.col("my_side") == "w").then(pl.lit("loss")).otherwise(pl.lit("win")))
         .otherwise(pl.lit("draw")),
-    ).select("game_id", "player_elo", "result_for_player", "utc_date")
+    ).select("game_id", "player_elo", "result_for_player", "utc_date", "opening_name")
 
-    ga = per_game.join(meta, on="game_id").with_columns(
-        castle_side=pl.col("castle_san").replace_strict(_CASTLE_SIDE, default="none"),
-        was_winning_after20=pl.col("max_wp_after20") >= 85,
-        was_losing_after20=pl.col("min_wp_after20") <= 15,
-        player_hash=pl.lit("me"),
-    ).drop("castle_san")
+    # Per-game mean complexity - not something moves_agg (shared with the
+    # reference-population pipeline) computes, so added locally here
+    # rather than touching that shared function. complexity_pred is
+    # already scored onto `mine` upstream (score_features runs before
+    # _aggregate_me is called).
+    per_game_complexity = mine.group_by("game_id").agg(pl.col("complexity_pred").mean().alias("mean_complexity"))
+
+    ga = (
+        per_game.join(meta, on="game_id")
+        .join(per_game_complexity, on="game_id", how="left")
+        .with_columns(
+            castle_side=pl.col("castle_san").replace_strict(_CASTLE_SIDE, default="none"),
+            was_winning_after20=pl.col("max_wp_after20") >= 85,
+            was_losing_after20=pl.col("min_wp_after20") <= 15,
+            player_hash=pl.lit("me"),
+        )
+        .drop("castle_san")
+    )
 
     return aggregate_players(ga, ["player_hash"]), mine, ga
 
@@ -651,6 +669,26 @@ def _situational_gaps(
     return lessons, strong
 
 
+def _recompute_style_vector(ga_subset: pl.DataFrame, skill_score: float, art: Artifacts) -> np.ndarray:
+    """One group's style vector via the exact same aggregate_players ->
+    _fill_nulls -> style_pca pipeline already used for the single overall
+    vector - reused for every way of grouping `ga_accum` into subsets
+    (chronological bucket, opening, complexity tercile). `ga_subset` must
+    have the same columns as `ga_accum` (it's always a row-subset of it)."""
+    vec = aggregate_players(ga_subset, ["player_hash"])
+    feat = _fill_nulls(vec, art.spec)
+    return art.style_pca(feat, skill_score)
+
+
+def _style_group_vector(ga_subset: pl.DataFrame, skill_score: float, art: Artifacts) -> list[float]:
+    """Rounded identity-axis-only vector for a StyleGroup - same axis
+    count as style.vector's identity axes (StyleAxes/StyleCompass/the
+    radar all only ever show this many)."""
+    pca_vec = _recompute_style_vector(ga_subset, skill_score, art)
+    n_axes = min(art.spec.get("n_identity_axes", 4), len(pca_vec))
+    return [round(float(v), 3) for v in pca_vec[:n_axes]]
+
+
 # A trait needs at least this many games, split into buckets of at least
 # _MIN_STABILITY_BUCKET_GAMES each, before testing it for drift means
 # anything - below this, "changed" vs. "stable" is indistinguishable from
@@ -699,10 +737,8 @@ def _trait_stability(ga_accum: pl.DataFrame, skill_score: float, art: Artifacts)
         start = i * bucket_size
         length = (total - start) if i == k - 1 else bucket_size
         bucket_ga = sorted_ga.slice(start, length)
-        vec_b = aggregate_players(bucket_ga, ["player_hash"])
-        feat_b = _fill_nulls(vec_b, art.spec)
-        bucket_vecs.append(art.style_pca(feat_b, skill_score))
-        bucket_elos.append(float(vec_b["player_elo"][0]))
+        bucket_vecs.append(_recompute_style_vector(bucket_ga, skill_score, art))
+        bucket_elos.append(float(bucket_ga["player_elo"].median()))
         bucket_dates.append(str(bucket_ga["utc_date"][-1]))
 
     n_axes = min(art.spec.get("n_identity_axes", 4), len(bucket_vecs[0]))
@@ -727,6 +763,74 @@ def _trait_stability(ga_accum: pl.DataFrame, skill_score: float, art: Artifacts)
                 first_value=round(float(values[0]), 2), last_value=round(float(values[-1]), 2),
                 first_elo=first_elo, last_elo=last_elo,
                 correlation_with_rating=correlation, n_buckets=k, points=points,
+            )
+        )
+    return results
+
+
+# An opening needs at least this many of this player's games before its
+# own recomputed style vector means anything rather than noise from a
+# handful of games; only the _MAX_OPENING_GROUPS most-played qualifying
+# openings are shown, so a long tail of one-off openings doesn't drown
+# out the ones this player actually repeats.
+_MIN_GAMES_PER_OPENING = 12
+_MAX_OPENING_GROUPS = 6
+
+
+def _style_by_opening(ga_accum: pl.DataFrame, skill_score: float, art: Artifacts) -> list[StyleGroup]:
+    """Real per-opening style, not assumed from one blended average - eco
+    is already a real column on every row of `ga_accum` (moves_agg already
+    carries it per game; aggregate_players already reads it for
+    repertoire_entropy), so grouping by it needs no new per-move plumbing.
+    `opening_name` (Lichess's own human-readable PGN header, when present)
+    is the display label; falls back to the bare ECO code for providers
+    or games that don't carry it (e.g. chess.com)."""
+    counts = (
+        ga_accum.filter(pl.col("eco").is_not_null())
+        .group_by("eco")
+        .agg(pl.len().alias("n"), pl.col("opening_name").drop_nulls().first())
+        .filter(pl.col("n") >= _MIN_GAMES_PER_OPENING)
+        .sort("n", descending=True)
+        .head(_MAX_OPENING_GROUPS)
+    )
+    if counts.height < 2:
+        return []
+    return [
+        StyleGroup(
+            key=row["eco"], label=row["opening_name"] or row["eco"], n_games=row["n"],
+            vector=_style_group_vector(ga_accum.filter(pl.col("eco") == row["eco"]), skill_score, art),
+        )
+        for row in counts.iter_rows(named=True)
+    ]
+
+
+# Needs enough games for 3 terciles of a meaningful size each - below
+# this, "calmer" vs. "sharper" games would be splitting noise.
+_MIN_GAMES_FOR_COMPLEXITY = 45
+_COMPLEXITY_TERCILE_LABELS = ("Calmer games", "Typical games", "Sharper games")
+
+
+def _style_by_complexity(ga_accum: pl.DataFrame, skill_score: float, art: Artifacts) -> list[StyleGroup]:
+    """Real per-complexity-tercile style: does this player's style
+    actually shift in their sharpest games vs. their calmest, or stay the
+    same? `mean_complexity` is this request's own per-game mean of the
+    already-scored `complexity_pred` (added locally in _aggregate_me -
+    moves_agg has no equivalent, unlike eco)."""
+    rows = ga_accum.filter(pl.col("mean_complexity").is_not_null())
+    total = rows.height
+    if total < _MIN_GAMES_FOR_COMPLEXITY:
+        return []
+    sorted_ga = rows.sort("mean_complexity")
+    n = total // 3
+    results = []
+    for i, label in enumerate(_COMPLEXITY_TERCILE_LABELS):
+        start = i * n
+        length = (total - start) if i == 2 else n
+        subset = sorted_ga.slice(start, length)
+        results.append(
+            StyleGroup(
+                key=f"tercile{i}", label=label, n_games=subset.height,
+                vector=_style_group_vector(subset, skill_score, art),
             )
         )
     return results
@@ -805,6 +909,8 @@ def _finalize_profile(
     )
     style_trajectory = _style_trajectory(trajectory_accum, feat, skill["overall"], art)
     trait_stability = _trait_stability(ga_accum, skill["overall"], art)
+    style_by_opening = _style_by_opening(ga_accum, skill["overall"], art)
+    style_by_complexity = _style_by_complexity(ga_accum, skill["overall"], art)
 
     # phase accuracy — each phase's own wp_loss vs. this player's overall
     # average across all phases (not a peer median - no population
@@ -869,6 +975,8 @@ def _finalize_profile(
         strong_situations=strong_situations,
         style_trajectory=style_trajectory,
         trait_stability=trait_stability,
+        style_by_opening=style_by_opening,
+        style_by_complexity=style_by_complexity,
         phase_accuracy=phase_accuracy,
         per_game=per_game_stats,
         complexity_by_move=complexity_by_move,

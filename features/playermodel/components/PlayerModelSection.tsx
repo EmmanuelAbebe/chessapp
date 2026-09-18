@@ -10,19 +10,18 @@ import { AnalyzePanel } from "./AnalyzePanel";
 import { ComplexityByMove } from "./ComplexityByMove";
 import { CriticalLessons } from "./CriticalLessons";
 import { ProfileSkeleton } from "./ProfileSkeleton";
-import { StyleAxes } from "./StyleAxes";
-import { StyleCompass } from "./StyleCompass";
-import { TraitStability } from "./TraitStability";
+import { StyleRadar } from "./StyleRadar";
 
 /** The player-behaviour model, composed onto /dashboard/statistics above
  * the existing (notation-only) StatisticsSummary, which stays as "Game
  * history." Profile state is lifted to StatisticsPageClient (rather than
  * owned here via usePlayerProfile directly) so it's shared with
  * StatisticsSummary's own charts without a second, independent fetch.
- * Phase mix + accuracy (formerly their own standalone chart here) now
- * live inside StyleCompass's click detail instead - every compass point
- * already carries a real phase label, so that's a richer place for it
- * than a disconnected chart.
+ * StyleRadar absorbs what used to be three separate sections here
+ * (StyleAxes' bars, StyleCompass' 2D scatter + trajectory, TraitStability's
+ * badges) into one radar with a filter switch (overall/career/phase/
+ * opening/complexity) - phase mix + accuracy feed its "game phase" filter
+ * the same way they used to feed StyleCompass's click detail.
  *
  * Everything below is self-referential - style axes are a fixed transform
  * of this player's own games, and critical lessons rank purely against
@@ -81,15 +80,16 @@ export function PlayerModelSection({
               {profile.source.games_analyzed} {profile.source.time_class} games
               {profile.source.date_range ? ` · ${profile.source.date_range[0]} – ${profile.source.date_range[1]}` : ""}
             </p>
-            <StyleAxes axes={profile.style.axes} />
-            <StyleCompass
+            <StyleRadar
               vector={profile.style.vector}
               axes={profile.style.axes}
               trajectory={profile.style_trajectory}
+              traitStability={profile.trait_stability}
+              styleByOpening={profile.style_by_opening}
+              styleByComplexity={profile.style_by_complexity}
               phaseMix={phaseMix}
               phaseAccuracy={profile.phase_accuracy}
             />
-            <TraitStability traits={profile.trait_stability} />
             <ComplexityByMove buckets={profile.complexity_by_move} />
             <CriticalLessons lessons={profile.critical_lessons} strong={profile.strong_situations} />
 

@@ -187,6 +187,15 @@ export type TraitStability = {
   points: TraitStabilityPoint[];
 };
 
+export type StyleGroup = {
+  /** Stable machine id - an ECO code, or a complexity-tercile id. */
+  key: string;
+  label: string;
+  n_games: number;
+  /** Same identity-axis count as style.vector/style.axes. */
+  vector: number[];
+};
+
 export type PerGameStats = {
   game_id: string;
   date?: string | null;
@@ -240,6 +249,11 @@ export type PlayerProfileData = {
    * re-analysis populates it. Empty for most profiles: needs a real long
    * history (60+ games) before testing a trait for drift means anything. */
   trait_stability?: TraitStability[];
+  /** Optional for the same reason as trait_stability - only a fresh
+   * re-analysis populates these, and most profiles won't clear either
+   * gate (needs enough repeated openings / enough total games). */
+  style_by_opening?: StyleGroup[];
+  style_by_complexity?: StyleGroup[];
   coach_context: string;
   caveats: string[];
 };
